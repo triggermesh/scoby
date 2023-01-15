@@ -18,4 +18,6 @@ type Registration interface {
 	GetCRDNames() *apiextensionsv1.CustomResourceDefinitionNames
 	GetGenerateVersion() *GenerateVersion
 	GetGenerateDecoration() *GenerateDecoration
+	GetWorkload() *Workload
+	GetConfiguration() *Configuration
 }

@@ -36,6 +36,65 @@ spec:
           spec:
             description: GenericRegistrationSpec defines the desired state of GenericRegistration
             properties:
+              configuration:
+                description: Configuration contains parameter definitions.
+                properties:
+                  parameters:
+                    description: FromImage contains the container image information.
+                    items:
+                      description: Parameter defines key/values to be passed to components.
+                      properties:
+                        name:
+                          description: Name for the parameter.
+                          type: string
+                        required:
+                          description: Required flag for the parameter, must be a
+                            valid CRD type.
+                          type: boolean
+                        section:
+                          description: Section will set rendered parameter in a nested
+                            section element.
+                          type: string
+                        type:
+                          description: Type for the parameter, must be a valid CRD
+                            type.
+                          type: string
+                        valueFrom:
+                          description: ValueFrom indicates the reference source for
+                            the parameter.
+                          properties:
+                            fieldRef:
+                              description: ObjectFieldSelector selects an APIVersioned
+                                field of an object.
+                              properties:
+                                apiVersion:
+                                  description: Version of the schema the FieldPath
+                                    is written in terms of, defaults to "v1".
+                                  type: string
+                                fieldPath:
+                                  description: Path of the field to select in the
+                                    specified API version.
+                                  type: string
+                              required:
+                              - fieldPath
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            referenceType:
+                              description: ReferenceType for the parameter.
+                              type: string
+                          required:
+                          - fieldRef
+                          - referenceType
+                          type: object
+                      required:
+                      - name
+                      - required
+                      - section
+                      - type
+                      - valueFrom
+                      type: object
+                    type: array
+                type: object
               generate:
                 description: Generate contains global attributes for the CRD.
                 properties:

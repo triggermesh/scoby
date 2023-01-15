@@ -62,3 +62,11 @@ func (r *GenericRegistration) GetGenerateDecoration() *common.GenerateDecoration
 func (r *GenericRegistration) GetGenerateVersion() *common.GenerateVersion {
 	return r.Spec.Generate.Version
 }
+
+func (r *GenericRegistration) GetWorkload() *common.Workload {
+	return &r.Spec.Workload
+}
+
+func (r *GenericRegistration) GetConfiguration() *common.Configuration {
+	return &r.Spec.Configuration
+}

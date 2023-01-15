@@ -17,8 +17,8 @@ type GenericRegistrationSpec struct {
 	// // Workload is information on how to create the user workload.
 	Workload common.Workload `json:"workload"`
 
-	// // Configuration contains parameter definitions.
-	// Configuration Configuration `json:"configuration,omitempty"`
+	// Configuration contains parameter definitions.
+	Configuration common.Configuration `json:"configuration,omitempty"`
 }
 
 // GenericRegistrationGenerate contains parameters for CRD generation.

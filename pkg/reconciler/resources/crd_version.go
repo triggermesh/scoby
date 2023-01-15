@@ -11,11 +11,11 @@ import (
 type CRDVersionOption func(*apiextensionsv1.CustomResourceDefinitionVersion) error
 
 // name must be formatted as <plural-resource>.<group>.
-func NewCRDVersion(version string, served, storage bool, spec apiextensionsv1.JSONSchemaProps, opts ...CRDVersionOption) (*apiextensionsv1.CustomResourceDefinitionVersion, error) {
+func NewCRDVersion(version string, served, storage bool, spec *apiextensionsv1.JSONSchemaProps, opts ...CRDVersionOption) (*apiextensionsv1.CustomResourceDefinitionVersion, error) {
 
 	preserveFields := true
 	properties := map[string]apiextensionsv1.JSONSchemaProps{
-		"spec": spec,
+		"spec": *spec,
 		"status": {
 			Type:                   "object",
 			XPreserveUnknownFields: &preserveFields,

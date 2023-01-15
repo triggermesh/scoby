@@ -1,0 +1,19 @@
+apiVersion: extensions.triggermesh.io/v1alpha1
+kind: GenericRegistration
+metadata:
+  name: hello-deployment-section
+spec:
+  crd:
+    provided:
+      name: azuresourceblah.triggermesh.io
+
+  workload:
+    fromImage:
+      repo: pmercado/khw
+    formFactor:
+      deployment:
+        replicas: 1
+    parameterOptions:
+      keyCasing: upper
+      arbitraryParameters: true
+
