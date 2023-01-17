@@ -8,13 +8,17 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/component"
-	"github.com/triggermesh/scoby/pkg/reconciler/registration/base"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
+	"github.com/triggermesh/scoby/pkg/component"
+	"github.com/triggermesh/scoby/pkg/reconciler/registration/base"
 )
 
 func SetupReconciler(m manager.Manager, br *base.Reconciler) error {
@@ -49,14 +53,34 @@ type Reconciler struct {
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	r.log.V(1).Info("Reconciling CRD registration", "request", req)
 
+	// TODO deletion case
+
 	cr := &v1alpha1.CRDRegistration{}
-	err := r.Get(ctx, req.NamespacedName, cr)
-	if err != nil {
+	if err := r.Get(ctx, req.NamespacedName, cr); err != nil {
+		if apierrs.IsNotFound(err) {
+			// TODO for the deletion case, this is all good
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, err
 	}
 	r.log.V(5).Info("CRD registration retrieved", "object", cr)
 
 	// lookup the information for the CRD registration.
+	key := types.NamespacedName{Name: cr.Spec.CRD}
+	crd := &apiextensionsv1.CustomResourceDefinition{}
+	if err := r.Client.Get(ctx, key, crd, &client.GetOptions{}); err != nil {
+		if apierrs.IsNotFound(err) {
+			r.log.V(5).Info("CRD not found", "object", cr, "crd", cr.Spec.CRD)
+			// TODO for the deletion case, this is all good
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, err
+	}
+
+	// TODO add workload
+	if err := r.Registry.EnsureComponentController(crd, nil); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	// compare data
 

@@ -7,6 +7,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
@@ -22,12 +23,32 @@ import (
 )
 
 type Controller struct {
-	crd *apiextensionsv1.CustomResourceDefinition
+	// keep track of the CRD and the version inside the CRD
+	// that is being used for this controller
+	gvk schema.GroupVersionKind
+	// crd    *apiextensionsv1.CustomResourceDefinition
+	// crdVer *apiextensionsv1.CustomResourceDefinitionVersion
 }
 
-func NewController(crd *apiextensionsv1.CustomResourceDefinition, mgr manager.Manager) (*Controller, error) {
-	c := &Controller{}
-	c.crd = crd.DeepCopy()
+// func NewController(crd *apiextensionsv1.CustomResourceDefinition,  mgr manager.Manager) (*Controller, error) {
+func NewController(gvk schema.GroupVersionKind, mgr manager.Manager) (*Controller, error) {
+
+	c := &Controller{
+		gvk: gvk,
+	}
+	// c.crd = crd.DeepCopy()
+
+	// // pick top CRD version
+	// for _, v := range crd.Spec.Versions {
+	// 	if c.crdVer == nil {
+	// 		c.crdVer = &v
+	// 		continue
+	// 	}
+
+	// 	if version.CompareKubeAwareVersionStrings(v.Name, c.crdVer.Name) > 0 {
+	// 		c.crdVer = &v
+	// 	}
+	// }
 
 	logger := mgr.GetLogger()
 	// crdForKind := unstructured.Unstructured{}
@@ -47,6 +68,7 @@ func NewController(crd *apiextensionsv1.CustomResourceDefinition, mgr manager.Ma
 
 		for _, r := range rl.Items {
 			if r.Spec.CRD == obj.GetName() {
+				logger.Info("Enqueueing CRD for registration", "crd", obj, "reg", &r)
 				q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 					Name:      r.Name,
 					Namespace: r.Namespace,
@@ -68,9 +90,8 @@ func NewController(crd *apiextensionsv1.CustomResourceDefinition, mgr manager.Ma
 			&source.Kind{Type: &apiextensionsv1.CustomResourceDefinition{}},
 			crdHandler,
 		).
-		// Owns(&apiextensionsv1.CustomResourceDefinition{}).
 		Complete(&reconciler{}); err != nil {
-		return nil, fmt.Errorf("could not build controller for generic registration: %w", err)
+		return nil, fmt.Errorf("could not build controller for %q: %w", gvk, err)
 	}
 
 	// TODO use context to cancel the controller.
@@ -87,6 +108,15 @@ func (c *Controller) Stop() {
 
 func (c *Controller) newObject() client.Object {
 	obj := &unstructured.Unstructured{}
-	obj.SetGroupVersionKind(c.crd.GroupVersionKind())
+
+	//obj.SetGroupVersionKind(c.crd.GroupVersionKind())
+	obj.SetGroupVersionKind(schema.GroupVersionKind{
+		// Group:   c.crd.Spec.Group,
+		// Kind:    c.crd.Spec.Names.Kind,
+		// Version: c.crdVer.Name,
+		Group:   c.gvk.Group,
+		Kind:    c.gvk.Kind,
+		Version: c.gvk.Version,
+	})
 	return obj
 }

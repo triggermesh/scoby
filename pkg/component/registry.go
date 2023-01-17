@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -44,18 +45,41 @@ func NewControllerRegistry(mgr manager.Manager, logger *logr.Logger) ControllerR
 	}
 }
 
+func CRDPriotizedVersion(crd *apiextensionsv1.CustomResourceDefinition) *apiextensionsv1.CustomResourceDefinitionVersion {
+	var crdv *apiextensionsv1.CustomResourceDefinitionVersion
+	for _, v := range crd.Spec.Versions {
+		if crdv == nil {
+			crdv = &v
+			continue
+		}
+
+		if version.CompareKubeAwareVersionStrings(v.Name, crdv.Name) > 0 {
+			crdv = &v
+		}
+	}
+	return crdv
+}
+
 func (cr *controllerRegistry) EnsureComponentController(crd *apiextensionsv1.CustomResourceDefinition, workload *common.Workload) error {
+	cr.logger.V(1).Info("EnsureComponentController", "crd", crd.Name)
+	ver := CRDPriotizedVersion(crd)
 	cr.lock.Lock()
 	defer cr.lock.Unlock()
 
-	gvk := crd.GroupVersionKind()
+	gvk := schema.GroupVersionKind{
+		Group:   crd.Spec.Group,
+		Version: ver.Name,
+		Kind:    crd.Spec.Names.Kind,
+	}
+
 	_, found := cr.controllers[gvk]
 	if found {
 		return nil
 	}
 
-	cr.logger.Info("Creating Component Controller", zap.Any("gvk", gvk))
-	ctrl, err := NewController(crd, cr.mgr)
+	cr.logger.Info("Creating component controller for CRD", "name", crd.Name)
+	// ctrl, err := NewController(crd, ver, cr.mgr)
+	ctrl, err := NewController(gvk, cr.mgr)
 	if err != nil {
 		return err
 	}
