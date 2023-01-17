@@ -12,6 +12,7 @@ type Workload struct {
 	FromImage RegistrationFromImage `json:"fromImage"`
 	// ParameterOptions sets how parameters from configuration
 	// and credentials are passed to workloads.
+	// +optional
 	ParameterOptions *ParameterOptions `json:"parameterOptions"`
 }
 

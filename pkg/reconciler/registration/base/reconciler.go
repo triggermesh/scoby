@@ -38,7 +38,7 @@ var (
 
 type ReconcilerOpt func(*Reconciler)
 
-func New(client client.Client, logger logr.Logger, opts ...ReconcilerOpt) *Reconciler {
+func New(client client.Client, logger *logr.Logger, opts ...ReconcilerOpt) *Reconciler {
 	r := &Reconciler{
 		apiGroup: "",
 
@@ -61,7 +61,7 @@ type Reconciler struct {
 	// registry component.ControllerRegistry
 	apiGroup string
 
-	log    logr.Logger
+	log    *logr.Logger
 	client client.Client
 }
 

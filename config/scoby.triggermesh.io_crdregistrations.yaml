@@ -1,0 +1,125 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.1
+  creationTimestamp: null
+  name: crdregistrations.scoby.triggermesh.io
+spec:
+  group: scoby.triggermesh.io
+  names:
+    kind: CRDRegistration
+    listKind: CRDRegistrationList
+    plural: crdregistrations
+    singular: crdregistration
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CRDRegistration uses existing CRDs to provide generic controllers
+          for them.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CRDRegistrationSpec defines the desired state of a CRD Registration
+            properties:
+              crd:
+                description: Name of the CRD to be used.
+                type: string
+              workload:
+                description: // Workload is information on how to create the user
+                  workload.
+                properties:
+                  formFactor:
+                    description: FormFactor indicates the kubernetes object that will
+                      run instances of the component's workload.
+                    properties:
+                      deployment:
+                        description: Deployment hosting the user workload
+                        properties:
+                          replicas:
+                            description: Replicas for the deployment
+                            type: integer
+                        required:
+                        - replicas
+                        type: object
+                      knativeService:
+                        description: KnativeService hosting the user workload
+                        properties:
+                          maxScale:
+                            description: MaxScale is the service maximum scaling replicas
+                            type: integer
+                          minScale:
+                            description: MinScale is the service minimum scaling replicas
+                            type: integer
+                          visibility:
+                            description: Visibility is the network visibility for
+                              the service
+                            type: string
+                        required:
+                        - maxScale
+                        - minScale
+                        type: object
+                    type: object
+                  fromImage:
+                    description: FromImage contains the container image information.
+                    properties:
+                      repo:
+                        description: Repo where the image can be downloaded
+                        type: string
+                    required:
+                    - repo
+                    type: object
+                  parameterOptions:
+                    description: ParameterOptions sets how parameters from configuration
+                      and credentials are passed to workloads.
+                    properties:
+                      arbitraryParameters:
+                        description: ArbitraryParameters allows users to add any parameter
+                          to the component spec.
+                        type: boolean
+                      keyCasing:
+                        description: KeyCasing turns a parameter key casing when used
+                          at the workload.
+                        type: string
+                      keyPrefix:
+                        description: KeyPrefix adds a prefix to a parameter key when
+                          used at the workload.
+                        type: string
+                      keyStyle:
+                        description: KeyStyle turns a parameter key style when used
+                          at the workload.
+                        type: string
+                    required:
+                    - arbitraryParameters
+                    type: object
+                required:
+                - fromImage
+                type: object
+            required:
+            - crd
+            - workload
+            type: object
+          status:
+            description: CRDRegistrationStatus defines the observed state of CRDRegistration
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

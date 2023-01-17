@@ -212,7 +212,6 @@ spec:
                     type: object
                 required:
                 - fromImage
-                - parameterOptions
                 type: object
             required:
             - generate

@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/registration/base"
+
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -20,13 +21,13 @@ import (
 
 func SetupReconciler(m manager.Manager, br *base.Reconciler) error {
 
-	if err := v1alpha1.AddToScheme(m.GetScheme()); err != nil {
-		return fmt.Errorf("could not add registration API to scheme: %w", err)
-	}
+	// if err := v1alpha1.AddToScheme(m.GetScheme()); err != nil {
+	// 	return fmt.Errorf("could not add registration API to scheme: %w", err)
+	// }
 
-	if err := apiextensionsv1.AddToScheme(m.GetScheme()); err != nil {
-		return fmt.Errorf("could not add apiextensions API to scheme: %w", err)
-	}
+	// if err := apiextensionsv1.AddToScheme(m.GetScheme()); err != nil {
+	// 	return fmt.Errorf("could not add apiextensions API to scheme: %w", err)
+	// }
 
 	r := &reconciler{
 		br: br,

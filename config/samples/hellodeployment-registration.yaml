@@ -34,13 +34,18 @@ spec:
       keyCasing: upper
 
   configuration:
-    parameters:
-    - name: target
-      type: string
+  - sections:
+    - name: spec
       required: true
-    - name: user
-      type: string
-      section: auth.plain
+      parameters:
+      - name: target
+        type: string
+        required: true
+    - name: auth.plain
+        required:
+      - name: user
+        type: string
+        section: auth.plain
     - name: password
       valueFrom:
         referenceType: secret

@@ -7,17 +7,22 @@ import (
 	"flag"
 	"os"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
+	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
+	"github.com/triggermesh/scoby/pkg/component"
 	"github.com/triggermesh/scoby/pkg/reconciler/registration/base"
+	"github.com/triggermesh/scoby/pkg/reconciler/registration/crd"
 	genreg "github.com/triggermesh/scoby/pkg/reconciler/registration/generic"
 )
 
@@ -51,8 +56,33 @@ func main() {
 	}
 	log.V(1).Info("Controller manager created")
 
+	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "could not add scoby API to scheme")
+		os.Exit(1)
+	}
+
+	if err := apiextensionsv1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "could not add apiextensions API to scheme")
+		os.Exit(1)
+	}
+
 	// Create base reconciler
-	br := base.New(mgr.GetClient(), log.WithName("regbase"))
+	bl := log.WithName("regbase")
+	br := base.New(mgr.GetClient(), &bl)
+
+	cl := log.WithName("component")
+	reg := component.NewControllerRegistry(mgr, &cl)
+
+	r := &crd.Reconciler{
+		Registry: reg,
+	}
+	if err := builder.ControllerManagedBy(mgr).
+		For(&v1alpha1.CRDRegistration{}).
+		Complete(r); err != nil {
+		log.Error(err, "could not build controller for CRD registration")
+		os.Exit(1)
+
+	}
 
 	// Setup generic reconciler
 	err = genreg.SetupReconciler(mgr, br)
