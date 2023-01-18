@@ -1,5 +1,0 @@
-package deployment
-
-func Boo() {
-
-}
