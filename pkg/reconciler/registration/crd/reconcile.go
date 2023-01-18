@@ -78,7 +78,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	// TODO add workload
-	if err := r.Registry.EnsureComponentController(crd, nil); err != nil {
+	if err := r.Registry.EnsureComponentController(crd, cr.GetWorkload()); err != nil {
 		return reconcile.Result{}, err
 	}
 
