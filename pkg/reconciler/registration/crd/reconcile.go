@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/component"
+	"github.com/triggermesh/scoby/pkg/reconciler/component"
 	"github.com/triggermesh/scoby/pkg/reconciler/registration/base"
 )
 
