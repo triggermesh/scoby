@@ -1,6 +1,7 @@
 package component
 
 import (
+	"context"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -24,23 +25,29 @@ type ControllerRegistry interface {
 	RemoveComponentController(crd *apiextensionsv1.CustomResourceDefinition) error
 }
 
+type controllerRegistryEntry struct {
+	reconciler *reconciler
+	cancel     context.CancelFunc
+}
+
 type controllerRegistry struct {
 	// controllers keeps a map for GVR to dynamically created controllers.
-	controllers map[schema.GroupVersionKind]*Controller
+	controllers map[schema.GroupVersionKind]*controllerRegistryEntry
 
-	lock sync.RWMutex
-	mgr  manager.Manager
-
-	logger *logr.Logger
+	lock    sync.RWMutex
+	mgr     manager.Manager
+	context context.Context
+	logger  *logr.Logger
 }
 
 // NewControllerRegistry creates a controller registry for registered components.
-func NewControllerRegistry(mgr manager.Manager, logger *logr.Logger) ControllerRegistry {
+func NewControllerRegistry(ctx context.Context, mgr manager.Manager, logger *logr.Logger) ControllerRegistry {
 	logger.Info("Creating new controller registry")
 
 	return &controllerRegistry{
-		controllers: make(map[schema.GroupVersionKind]*Controller),
+		controllers: make(map[schema.GroupVersionKind]*controllerRegistryEntry),
 		mgr:         mgr,
+		context:     ctx,
 		logger:      logger,
 	}
 }
@@ -78,13 +85,18 @@ func (cr *controllerRegistry) EnsureComponentController(crd *apiextensionsv1.Cus
 	}
 
 	cr.logger.Info("Creating component controller for CRD", "name", crd.Name)
-	// ctrl, err := NewController(crd, ver, cr.mgr)
-	ctrl, err := NewController(gvk, cr.mgr)
+
+	ctx, cancel := context.WithCancel(cr.context)
+	r, err := NewController(ctx, gvk, workload, cr.mgr)
 	if err != nil {
+		cancel()
 		return err
 	}
 
-	cr.controllers[gvk] = ctrl
+	cr.controllers[gvk] = &controllerRegistryEntry{
+		reconciler: r,
+		cancel:     cancel,
+	}
 	return nil
 }
 
@@ -93,14 +105,18 @@ func (cr *controllerRegistry) RemoveComponentController(crd *apiextensionsv1.Cus
 	defer cr.lock.Unlock()
 
 	gvk := crd.GroupVersionKind()
-	ctl, found := cr.controllers[gvk]
+	entry, found := cr.controllers[gvk]
 	if !found {
 		cr.logger.Info("Component Controller does not exists. Skipping removal", zap.Any("gvk", gvk))
 		return nil
 	}
 
 	cr.logger.Info("Unloading component controller", zap.Any("gvk", gvk))
-	ctl.Stop()
+
+	// TODO use context to cancel the controller.
+	// depends on: https://github.com/kubernetes-sigs/controller-runtime/pull/2099
+
+	entry.cancel()
 	delete(cr.controllers, gvk)
 
 	return nil

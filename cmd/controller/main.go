@@ -66,12 +66,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Parent context.
+	ctx := signals.SetupSignalHandler()
+
 	// Create base reconciler
 	bl := log.WithName("regbase")
 	br := base.New(mgr.GetClient(), &bl)
 
 	cl := log.WithName("component")
-	reg := component.NewControllerRegistry(mgr, &cl)
+	reg := component.NewControllerRegistry(ctx, mgr, &cl)
 
 	r := &crd.Reconciler{
 		Registry: reg,
@@ -92,7 +95,7 @@ func main() {
 	}
 
 	// Start manager
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "could not start manager")
 		os.Exit(1)
 	}
