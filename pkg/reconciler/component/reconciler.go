@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/render"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -14,6 +15,7 @@ import (
 type reconciler struct {
 	gvk      schema.GroupVersionKind
 	workload *common.Workload
+	renderer render.Renderer
 
 	client client.Client
 	log    logr.Logger
@@ -29,12 +31,8 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	r.log.Info("Object read", "obj", obj)
 
-	// Choose renderer
-	switch {
-	case r.workload.FormFactor.Deployment != nil:
-		// render deployment
-	case r.workload.FormFactor.KnativeService != nil:
-		// render knative service
+	if err := r.renderer.EnsureCreated(obj); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, nil
