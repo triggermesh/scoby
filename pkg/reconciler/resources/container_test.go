@@ -106,6 +106,15 @@ func TestNewContainer(t *testing.T) {
 				Image:           tImage,
 				ImagePullPolicy: corev1.PullAlways,
 			}},
+		"with termination message policy": {
+			options: []ContainerOption{
+				ContainerWithTerminationMessagePolicy(corev1.TerminationMessageReadFile),
+			},
+			expected: corev1.Container{
+				Name:                     tName,
+				Image:                    tImage,
+				TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+			}},
 	}
 
 	for name, tc := range testCases {

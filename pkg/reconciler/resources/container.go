@@ -108,3 +108,9 @@ func ContainerWithImagePullPolicy(policy corev1.PullPolicy) ContainerOption {
 		c.ImagePullPolicy = policy
 	}
 }
+
+func ContainerWithTerminationMessagePolicy(policy corev1.TerminationMessagePolicy) ContainerOption {
+	return func(c *corev1.Container) {
+		c.TerminationMessagePolicy = policy
+	}
+}
