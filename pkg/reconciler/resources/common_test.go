@@ -1,5 +1,6 @@
-// Copyright 2022 TriggerMesh Inc.
+// Copyright 2023 TriggerMesh Inc.
 // SPDX-License-Identifier: Apache-2.0
+
 package resources
 
 import (
@@ -17,8 +18,8 @@ const (
 	tVolumeMountFile = "myfile"
 
 	tServiceAccountName = "test-sa-name"
-	tRoleName = "test-role-name"
-	tRoleBindingName = "test-rolebinding-name"
+	tRoleName           = "test-role-name"
+	tRoleBindingName    = "test-rolebinding-name"
 )
 
 var (
