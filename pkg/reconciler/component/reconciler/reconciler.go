@@ -21,6 +21,7 @@ import (
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/render"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/render/deployment"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/render/knservice"
 )
 
 type ComponentReconciler interface {
@@ -41,8 +42,7 @@ func NewComponentReconciler(ctx context.Context, gvk schema.GroupVersionKind, re
 
 	switch {
 	case w.FormFactor.KnativeService != nil:
-		// TODO
-		r.renderer = nil
+		r.renderer = knservice.New(reg, log)
 	default:
 		// Default to deployment. The renderer will be able to
 		// deal with an empty deployment form factor.
