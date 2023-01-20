@@ -1,12 +1,11 @@
 package deployment
 
 import (
-	"fmt"
-
 	appsv1 "k8s.io/api/apps/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/go-logr/logr"
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/render/podspec"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
@@ -16,26 +15,28 @@ type Renderer struct {
 	ff *common.DeploymentFormFactor
 	po *common.ParameterOptions
 
-	psr *podspec.Renderer
+	client client.Client
+	psr    *podspec.Renderer
+	log    logr.Logger
 }
 
-func New(ff common.DeploymentFormFactor, image string) *Renderer {
+func New(ff common.DeploymentFormFactor, image string, log logr.Logger) *Renderer {
 	return &Renderer{
 		ff:  &ff,
 		psr: podspec.New("adapter", image),
+		log: log,
 	}
 }
 
-func (r *Renderer) EnsureCreated(obj client.Object) error {
+func (r *Renderer) RenderControlledObjects(obj client.Object) ([]client.Object, error) {
 	d, err := r.createDeploymentFrom(obj)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	fmt.Printf("DEBUG DELETEME deployment: %+v", *d)
+	// fmt.Printf("DEBUG DELETEME deployment: %+v", *d)
 
-	return nil
-
+	return []client.Object{d}, nil
 }
 
 func (r *Renderer) createDeploymentFrom(obj client.Object) (*appsv1.Deployment, error) {

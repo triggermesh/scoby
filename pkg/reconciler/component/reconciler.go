@@ -2,14 +2,19 @@ package component
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/render"
+
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/render"
 )
 
 type reconciler struct {
@@ -31,8 +36,37 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	r.log.Info("Object read", "obj", obj)
 
-	if err := r.renderer.EnsureCreated(obj); err != nil {
+	objs, err := r.renderer.RenderControlledObjects(obj)
+	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	for _, desired := range objs {
+		r.log.V(1).Info("rendered desired object", "object", desired)
+
+		existing := &unstructured.Unstructured{}
+		existing.SetGroupVersionKind(desired.GetObjectKind().GroupVersionKind())
+		err := r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
+
+		switch {
+		case err == nil:
+			// Compare
+			// If same, that is ok
+			// If not same, versioning is not supported, fail.
+
+		case apierrs.IsNotFound(err):
+			r.log.Info("Creating CRD", "object", desired)
+			if err = r.client.Create(ctx, desired); err != nil {
+				// TODO Propagate error to status
+				return reconcile.Result{}, fmt.Errorf("could not create controlled object: %w", err)
+			}
+
+		default:
+			return reconcile.Result{}, fmt.Errorf("could not retrieve controlled object %s: %w", client.ObjectKeyFromObject(desired), err)
+		}
+
+		// update status
+
 	}
 
 	return reconcile.Result{}, nil

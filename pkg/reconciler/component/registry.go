@@ -87,7 +87,7 @@ func (cr *controllerRegistry) EnsureComponentController(crd *apiextensionsv1.Cus
 	cr.logger.Info("Creating component controller for CRD", "name", crd.Name)
 
 	ctx, cancel := context.WithCancel(cr.context)
-	r, err := NewController(ctx, gvk, workload, cr.mgr)
+	r, err := NewReconciler(ctx, gvk, workload, cr.mgr)
 	if err != nil {
 		cancel()
 		return err
