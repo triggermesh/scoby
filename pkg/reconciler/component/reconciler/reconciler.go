@@ -25,27 +25,25 @@ type ComponentReconciler interface {
 	NewObject() client.Object
 }
 
-func NewComponentReconciler(ctx context.Context, gvk schema.GroupVersionKind, workload *common.Workload, mgr manager.Manager) (ComponentReconciler, error) {
+func NewComponentReconciler(ctx context.Context, gvk schema.GroupVersionKind, reg common.Registration, mgr manager.Manager) (ComponentReconciler, error) {
 	log := mgr.GetLogger().WithName(gvk.GroupKind().String())
 
 	r := &reconciler{
-		log:      log,
-		gvk:      gvk,
-		workload: workload,
+		log:          log,
+		gvk:          gvk,
+		registration: reg,
 	}
 
+	w := reg.GetWorkload()
+
 	switch {
-	case workload.FormFactor.KnativeService != nil:
+	case w.FormFactor.KnativeService != nil:
 		// TODO
 		r.renderer = nil
-	case workload.FormFactor.Deployment != nil:
-		r.renderer = deployment.New(
-			*workload.FormFactor.Deployment,
-			workload.FromImage.Repo,
-			log)
 	default:
-		dff := common.DeploymentFormFactor{Replicas: 1}
-		r.renderer = deployment.New(dff, workload.FromImage.Repo, r.log)
+		// Default to deployment. The renderer will be able to
+		// deal with an empty deployment form factor.
+		r.renderer = deployment.New(reg, log)
 	}
 
 	if err := builder.ControllerManagedBy(mgr).
@@ -57,9 +55,9 @@ func NewComponentReconciler(ctx context.Context, gvk schema.GroupVersionKind, wo
 }
 
 type reconciler struct {
-	gvk      schema.GroupVersionKind
-	workload *common.Workload
-	renderer render.Renderer
+	gvk          schema.GroupVersionKind
+	registration common.Registration
+	renderer     render.Renderer
 
 	client client.Client
 	log    logr.Logger

@@ -20,7 +20,7 @@ import (
 // ComponentRegistry keeps track of the controllers created
 // for each registered component.
 type ComponentRegistry interface {
-	EnsureComponentController(crd *apiextensionsv1.CustomResourceDefinition, workload *common.Workload) error
+	EnsureComponentController(crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration) error
 	RemoveComponentController(crd *apiextensionsv1.CustomResourceDefinition) error
 }
 
@@ -66,7 +66,7 @@ func CRDPriotizedVersion(crd *apiextensionsv1.CustomResourceDefinition) *apiexte
 	return crdv
 }
 
-func (cr *componentRegisty) EnsureComponentController(crd *apiextensionsv1.CustomResourceDefinition, workload *common.Workload) error {
+func (cr *componentRegisty) EnsureComponentController(crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration) error {
 	cr.logger.V(1).Info("EnsureComponentController", "crd", crd.Name)
 	ver := CRDPriotizedVersion(crd)
 	cr.lock.Lock()
@@ -86,7 +86,7 @@ func (cr *componentRegisty) EnsureComponentController(crd *apiextensionsv1.Custo
 	cr.logger.Info("Creating component controller for CRD", "name", crd.Name)
 
 	ctx, cancel := context.WithCancel(cr.context)
-	r, err := reconciler.NewComponentReconciler(ctx, gvk, workload, cr.mgr)
+	r, err := reconciler.NewComponentReconciler(ctx, gvk, reg, cr.mgr)
 	if err != nil {
 		cancel()
 		return err

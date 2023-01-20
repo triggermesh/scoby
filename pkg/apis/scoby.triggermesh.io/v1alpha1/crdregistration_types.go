@@ -14,8 +14,13 @@ type CRDRegistrationSpec struct {
 	// Name of the CRD to be used.
 	CRD string `json:"crd"`
 
-	// // Workload is information on how to create the user workload.
+	// Workload is information on how to create the user workload.
 	Workload common.Workload `json:"workload"`
+
+	// Configuration for rendering the CRD fields into
+	// the workload element.
+	// +optional
+	Configuration *common.Configuration `json:"configuration"`
 }
 
 // CRDRegistrationStatus defines the observed state of CRDRegistration
@@ -36,7 +41,7 @@ type CRDRegistration struct {
 	Status CRDRegistrationStatus `json:"status,omitempty"`
 }
 
-// var _ common.Registration = (*CRDRegistration)(nil)
+var _ common.Registration = (*CRDRegistration)(nil)
 
 //+kubebuilder:object:root=true
 

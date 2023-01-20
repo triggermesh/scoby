@@ -54,18 +54,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	// TODO add workload
-	if err := r.Registry.EnsureComponentController(crd, cr.GetWorkload()); err != nil {
+	if err := r.Registry.EnsureComponentController(crd, cr); err != nil {
 		return reconcile.Result{}, err
 	}
-
-	// compare data
-
-	// cr.Spec.CRD
-	// _, err = r.br.ReconcileCRD(ctx, reg)
-	// if err != nil {
-	// 	return reconcile.Result{}, err
-	// }
 
 	return reconcile.Result{}, nil
 }

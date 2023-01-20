@@ -36,12 +36,71 @@ spec:
           spec:
             description: CRDRegistrationSpec defines the desired state of a CRD Registration
             properties:
+              configuration:
+                description: Configuration for rendering the CRD fields into the workload
+                  element.
+                properties:
+                  parameters:
+                    description: FromImage contains the container image information.
+                    items:
+                      description: Parameter defines key/values to be passed to components.
+                      properties:
+                        name:
+                          description: Name for the parameter.
+                          type: string
+                        required:
+                          description: Required flag for the parameter, must be a
+                            valid CRD type.
+                          type: boolean
+                        section:
+                          description: Section will set rendered parameter in a nested
+                            section element.
+                          type: string
+                        type:
+                          description: Type for the parameter, must be a valid CRD
+                            type.
+                          type: string
+                        valueFrom:
+                          description: ValueFrom indicates the reference source for
+                            the parameter.
+                          properties:
+                            fieldRef:
+                              description: ObjectFieldSelector selects an APIVersioned
+                                field of an object.
+                              properties:
+                                apiVersion:
+                                  description: Version of the schema the FieldPath
+                                    is written in terms of, defaults to "v1".
+                                  type: string
+                                fieldPath:
+                                  description: Path of the field to select in the
+                                    specified API version.
+                                  type: string
+                              required:
+                              - fieldPath
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            referenceType:
+                              description: ReferenceType for the parameter.
+                              type: string
+                          required:
+                          - fieldRef
+                          - referenceType
+                          type: object
+                      required:
+                      - name
+                      - required
+                      - section
+                      - type
+                      - valueFrom
+                      type: object
+                    type: array
+                type: object
               crd:
                 description: Name of the CRD to be used.
                 type: string
               workload:
-                description: // Workload is information on how to create the user
-                  workload.
+                description: Workload is information on how to create the user workload.
                 properties:
                   formFactor:
                     description: FormFactor indicates the kubernetes object that will

@@ -7,7 +7,8 @@ package common
 type Workload struct {
 	// FormFactor indicates the kubernetes object that
 	// will run instances of the component's workload.
-	FormFactor FormFactor `json:"formFactor,omitempty"`
+	// +optional
+	FormFactor *FormFactor `json:"formFactor,omitempty"`
 	// FromImage contains the container image information.
 	FromImage RegistrationFromImage `json:"fromImage"`
 	// ParameterOptions sets how parameters from configuration
