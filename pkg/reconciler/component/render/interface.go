@@ -1,3 +1,6 @@
+// Copyright 2023 TriggerMesh Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 package render
 
 import "sigs.k8s.io/controller-runtime/pkg/client"
