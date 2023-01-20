@@ -1,4 +1,4 @@
-package component
+package reconciler
 
 import (
 	"context"
@@ -10,12 +10,51 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/render"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/render/deployment"
 )
+
+type ComponentReconciler interface {
+	reconcile.Reconciler
+	NewObject() client.Object
+}
+
+func NewComponentReconciler(ctx context.Context, gvk schema.GroupVersionKind, workload *common.Workload, mgr manager.Manager) (ComponentReconciler, error) {
+	log := mgr.GetLogger().WithName(gvk.GroupKind().String())
+
+	r := &reconciler{
+		log:      log,
+		gvk:      gvk,
+		workload: workload,
+	}
+
+	switch {
+	case workload.FormFactor.KnativeService != nil:
+		// TODO
+		r.renderer = nil
+	case workload.FormFactor.Deployment != nil:
+		r.renderer = deployment.New(
+			*workload.FormFactor.Deployment,
+			workload.FromImage.Repo,
+			log)
+	default:
+		dff := common.DeploymentFormFactor{Replicas: 1}
+		r.renderer = deployment.New(dff, workload.FromImage.Repo, r.log)
+	}
+
+	if err := builder.ControllerManagedBy(mgr).
+		For(r.NewObject()).
+		Complete(r); err != nil {
+		return nil, fmt.Errorf("could not build controller for %q: %w", gvk, err)
+	}
+	return r, nil
+}
 
 type reconciler struct {
 	gvk      schema.GroupVersionKind
@@ -26,10 +65,12 @@ type reconciler struct {
 	log    logr.Logger
 }
 
+var _ ComponentReconciler = (*reconciler)(nil)
+
 func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	r.log.Info("Reconciling request", "request", req)
 
-	obj := r.newObject()
+	obj := r.NewObject()
 	if err := r.client.Get(ctx, req.NamespacedName, obj); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -83,7 +124,7 @@ func (r *reconciler) InjectLogger(l logr.Logger) error {
 	return nil
 }
 
-func (r *reconciler) newObject() client.Object {
+func (r *reconciler) NewObject() client.Object {
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   r.gvk.Group,

@@ -20,13 +20,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/reconciler/component"
-	"github.com/triggermesh/scoby/pkg/reconciler/registration/base"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
 	"github.com/triggermesh/scoby/pkg/reconciler/registration/crd"
-	genreg "github.com/triggermesh/scoby/pkg/reconciler/registration/generic"
 )
-
-// var log = logf.Log.WithName("scoby")
 
 func main() {
 	opts := zap.Options{
@@ -69,12 +65,8 @@ func main() {
 	// Parent context.
 	ctx := signals.SetupSignalHandler()
 
-	// Create base reconciler
-	bl := log.WithName("regbase")
-	br := base.New(mgr.GetClient(), &bl)
-
 	cl := log.WithName("component")
-	reg := component.NewControllerRegistry(ctx, mgr, &cl)
+	reg := registry.New(ctx, mgr, &cl)
 
 	r := &crd.Reconciler{
 		Registry: reg,
@@ -85,13 +77,6 @@ func main() {
 		log.Error(err, "could not build controller for CRD registration")
 		os.Exit(1)
 
-	}
-
-	// Setup generic reconciler
-	err = genreg.SetupReconciler(mgr, br)
-	if err != nil {
-		log.Error(err, "Unable to setup registration reconciler")
-		os.Exit(1)
 	}
 
 	// Start manager

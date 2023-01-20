@@ -1,38 +1,37 @@
-package component
+package registry
 
 import (
 	"context"
 	"sync"
 
 	"github.com/go-logr/logr"
-	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 	"go.uber.org/zap"
+
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 )
 
-// ControllerRegistry keeps track of the controller created
+// ComponentRegistry keeps track of the controllers created
 // for each registered component.
-type ControllerRegistry interface {
-	/*
-		TODO add configuration maybe.
-	*/
+type ComponentRegistry interface {
 	EnsureComponentController(crd *apiextensionsv1.CustomResourceDefinition, workload *common.Workload) error
 	RemoveComponentController(crd *apiextensionsv1.CustomResourceDefinition) error
 }
 
-type controllerRegistryEntry struct {
-	reconciler *reconciler
+type entry struct {
+	reconciler reconciler.ComponentReconciler
 	cancel     context.CancelFunc
 }
 
-type controllerRegistry struct {
+type componentRegisty struct {
 	// controllers keeps a map for GVR to dynamically created controllers.
-	controllers map[schema.GroupVersionKind]*controllerRegistryEntry
+	controllers map[schema.GroupVersionKind]*entry
 
 	lock    sync.RWMutex
 	mgr     manager.Manager
@@ -40,12 +39,12 @@ type controllerRegistry struct {
 	logger  *logr.Logger
 }
 
-// NewControllerRegistry creates a controller registry for registered components.
-func NewControllerRegistry(ctx context.Context, mgr manager.Manager, logger *logr.Logger) ControllerRegistry {
+// New creates a controller registry for registered components.
+func New(ctx context.Context, mgr manager.Manager, logger *logr.Logger) ComponentRegistry {
 	logger.Info("Creating new controller registry")
 
-	return &controllerRegistry{
-		controllers: make(map[schema.GroupVersionKind]*controllerRegistryEntry),
+	return &componentRegisty{
+		controllers: make(map[schema.GroupVersionKind]*entry),
 		mgr:         mgr,
 		context:     ctx,
 		logger:      logger,
@@ -67,7 +66,7 @@ func CRDPriotizedVersion(crd *apiextensionsv1.CustomResourceDefinition) *apiexte
 	return crdv
 }
 
-func (cr *controllerRegistry) EnsureComponentController(crd *apiextensionsv1.CustomResourceDefinition, workload *common.Workload) error {
+func (cr *componentRegisty) EnsureComponentController(crd *apiextensionsv1.CustomResourceDefinition, workload *common.Workload) error {
 	cr.logger.V(1).Info("EnsureComponentController", "crd", crd.Name)
 	ver := CRDPriotizedVersion(crd)
 	cr.lock.Lock()
@@ -87,20 +86,20 @@ func (cr *controllerRegistry) EnsureComponentController(crd *apiextensionsv1.Cus
 	cr.logger.Info("Creating component controller for CRD", "name", crd.Name)
 
 	ctx, cancel := context.WithCancel(cr.context)
-	r, err := NewReconciler(ctx, gvk, workload, cr.mgr)
+	r, err := reconciler.NewComponentReconciler(ctx, gvk, workload, cr.mgr)
 	if err != nil {
 		cancel()
 		return err
 	}
 
-	cr.controllers[gvk] = &controllerRegistryEntry{
+	cr.controllers[gvk] = &entry{
 		reconciler: r,
 		cancel:     cancel,
 	}
 	return nil
 }
 
-func (cr *controllerRegistry) RemoveComponentController(crd *apiextensionsv1.CustomResourceDefinition) error {
+func (cr *componentRegisty) RemoveComponentController(crd *apiextensionsv1.CustomResourceDefinition) error {
 	cr.lock.Lock()
 	defer cr.lock.Unlock()
 

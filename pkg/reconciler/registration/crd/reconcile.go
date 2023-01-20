@@ -13,41 +13,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/reconciler/component"
-	"github.com/triggermesh/scoby/pkg/reconciler/registration/base"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
 )
-
-func SetupReconciler(m manager.Manager, br *base.Reconciler) error {
-
-	// skip, this should only be done once.
-	// if err := v1alpha1.AddToScheme(m.GetScheme()); err != nil {
-	// 	return fmt.Errorf("could not add registration API to scheme: %w", err)
-	// }
-
-	// if err := apiextensionsv1.AddToScheme(m.GetScheme()); err != nil {
-	// 	return fmt.Errorf("could not add apiextensions API to scheme: %w", err)
-	// }
-
-	// r := &reconciler{}
-	// if err := builder.ControllerManagedBy(m).
-	// 	For(&v1alpha1.CRDRegistration{}).
-	// 	Complete(r); err != nil {
-	// 	return fmt.Errorf("could not build controller for CRD registration: %w", err)
-	// }
-
-	return nil
-}
 
 // CRD registration reconciler is a simple ControllerManagedBy example implementation.
 type Reconciler struct {
 	log logr.Logger
 	client.Client
 
-	Registry component.ControllerRegistry
+	Registry registry.ComponentRegistry
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
