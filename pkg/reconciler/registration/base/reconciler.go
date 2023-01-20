@@ -100,7 +100,7 @@ func (r *Reconciler) ReconcileCRD(ctx context.Context, registration common.Regis
 		}
 
 	default:
-		return nil, fmt.Errorf("could not retrieving CRD %s: %w", client.ObjectKeyFromObject(desired), err)
+		return nil, fmt.Errorf("could not retrieve CRD %s: %w", client.ObjectKeyFromObject(desired), err)
 	}
 
 	// crd := resources.BuildCRDFromRegistration(registration)
