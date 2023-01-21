@@ -49,11 +49,17 @@ func NewComponentReconciler(ctx context.Context, gvk schema.GroupVersionKind, re
 		r.renderer = deployment.New(reg, log)
 	}
 
-	if err := builder.ControllerManagedBy(mgr).
-		For(r.NewObject()).
-		Complete(r); err != nil {
+	b := builder.ControllerManagedBy(mgr).For(r.NewObject())
+
+	// Add informers for rendered/owned objects
+	for _, o := range r.renderer.NewObjects() {
+		b = b.Owns(o)
+	}
+
+	if err := b.Complete(r); err != nil {
 		return nil, fmt.Errorf("could not build controller for %q: %w", gvk, err)
 	}
+
 	return r, nil
 }
 
