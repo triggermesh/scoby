@@ -76,3 +76,9 @@ func (r *Renderer) createDeploymentFrom(obj client.Object) (*appsv1.Deployment, 
 func (r *Renderer) EnsureRemoved() {
 
 }
+
+func (r *Renderer) NewObjects() []client.Object {
+	return []client.Object{
+		resources.NewDeployment("", ""),
+		resources.NewService("", "")}
+}

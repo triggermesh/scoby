@@ -72,3 +72,7 @@ func (r *Renderer) createKnServiceFrom(obj client.Object) (*servingv1.Service, e
 func (r *Renderer) EnsureRemoved() {
 
 }
+
+func (r *Renderer) NewObjects() []client.Object {
+	return []client.Object{resources.NewKnativeService("", "")}
+}
