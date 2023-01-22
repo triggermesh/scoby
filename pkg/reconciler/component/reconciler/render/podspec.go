@@ -1,7 +1,7 @@
 // Copyright 2023 TriggerMesh Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package podspec
+package render
 
 import (
 	"encoding/json"
@@ -19,19 +19,23 @@ import (
 
 const rootObject = "spec"
 
-type Renderer struct {
+type PodSpecRenderer interface {
+	Render(obj client.Object) ([]resources.PodSpecOption, error)
+}
+
+type renderer struct {
 	name  string
 	image string
 }
 
-func New(name, image string) *Renderer {
-	return &Renderer{
+func NewPodSpecRenderer(name, image string) PodSpecRenderer {
+	return &renderer{
 		name:  name,
 		image: image,
 	}
 }
 
-func (r *Renderer) Render(obj client.Object) ([]resources.PodSpecOption, error) {
+func (r *renderer) Render(obj client.Object) ([]resources.PodSpecOption, error) {
 	pso := []resources.PodSpecOption{}
 	opts, err := r.parseObjectIntoContainer(obj)
 	if err != nil {
@@ -50,7 +54,7 @@ type value struct {
 	value  interface{}
 }
 
-func (r *Renderer) parseObjectIntoContainer(obj client.Object) ([]resources.ContainerOption, error) {
+func (r *renderer) parseObjectIntoContainer(obj client.Object) ([]resources.ContainerOption, error) {
 	copts := []resources.ContainerOption{}
 
 	uobj, ok := obj.(*unstructured.Unstructured)
