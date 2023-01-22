@@ -57,9 +57,12 @@ func NewCRDVersion(version string, served, storage bool, spec *apiextensionsv1.J
 		},
 	}
 
+	var err error
 	for _, opt := range opts {
-		opt(v)
+		if err = opt(v); err != nil {
+			return nil, err
+		}
 	}
 
-	return v, nil
+	return v, err
 }
