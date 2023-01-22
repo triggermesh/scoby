@@ -11,13 +11,14 @@ import (
 	"go.uber.org/zap"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
+
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
+	creconciler "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 )
 
 // ComponentRegistry keeps track of the controllers created
@@ -28,7 +29,8 @@ type ComponentRegistry interface {
 }
 
 type entry struct {
-	reconciler reconciler.ComponentReconciler
+	//reconciler reconciler.ComponentReconciler
+	reconciler reconcile.Reconciler
 	cancel     context.CancelFunc
 }
 
@@ -89,7 +91,7 @@ func (cr *componentRegisty) EnsureComponentController(crd *apiextensionsv1.Custo
 	cr.logger.Info("Creating component controller for CRD", "name", crd.Name)
 
 	ctx, cancel := context.WithCancel(cr.context)
-	r, err := reconciler.NewComponentReconciler(ctx, gvk, reg, cr.mgr)
+	r, err := creconciler.NewReconciler(ctx, gvk, reg, cr.mgr)
 	if err != nil {
 		cancel()
 		return err
@@ -123,3 +125,5 @@ func (cr *componentRegisty) RemoveComponentController(crd *apiextensionsv1.Custo
 
 	return nil
 }
+
+type ReconcilerBuilder func(ctx context.Context, gvk schema.GroupVersionKind, reg common.Registration, mgr manager.Manager) reconcile.Reconciler
