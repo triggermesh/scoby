@@ -123,7 +123,10 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 func (r *reconciler) createKnServiceFrom(obj client.Object) (*servingv1.Service, error) {
 	// TODO generate names
 
-	ps, _ := r.psr.Render(obj)
+	ps, err := r.psr.Render(obj)
+	if err != nil {
+		return nil, err
+	}
 
 	ff := r.registration.GetWorkload().FormFactor.KnativeService
 	metaopts := []resources.MetaOption{

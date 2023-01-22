@@ -134,7 +134,10 @@ func (r *reconciler) createDeploymentFrom(obj client.Object) (*appsv1.Deployment
 
 	// use parameter options to define parameters policy
 	// use obj to gather
-	ps, _ := r.psr.Render(obj)
+	ps, err := r.psr.Render(obj)
+	if err != nil {
+		return nil, err
+	}
 
 	replicas := defaultReplicas
 	if ffd := r.registration.GetWorkload().FormFactor.Deployment; ffd != nil {
