@@ -38,7 +38,7 @@ func main() {
 
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Error(err, "Unable to find kubernetes config")
+		log.Error(err, "unable to find kubernetes config")
 		os.Exit(1)
 	}
 
@@ -49,10 +49,10 @@ func main() {
 		Scheme: scheme,
 	})
 	if err != nil {
-		log.Error(err, "Unable to create controller manager")
+		log.Error(err, "unable to create controller manager")
 		os.Exit(1)
 	}
-	log.V(1).Info("Controller manager created")
+	log.V(1).Info("controller manager created")
 
 	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "could not add scoby API to scheme")

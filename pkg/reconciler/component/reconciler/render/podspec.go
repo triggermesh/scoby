@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -74,6 +75,8 @@ func (r *renderer) parseObjectIntoContainer(obj client.Object) ([]resources.Cont
 
 	parsedFields := parseFields(root, []string{})
 
+	keys := []string{}
+	kv := map[string]string{}
 	for i := range parsedFields {
 
 		// key is rendered as the element path (omiting the root element)
@@ -92,7 +95,13 @@ func (r *renderer) parseObjectIntoContainer(obj client.Object) ([]resources.Cont
 			value = string(vb)
 		}
 
-		copts = append(copts, resources.ContainerAddEnvFromValue(key, value))
+		keys = append(keys, key)
+		kv[key] = value
+	}
+
+	sort.Strings(keys)
+	for _, k := range keys {
+		copts = append(copts, resources.ContainerAddEnvFromValue(k, kv[k]))
 	}
 
 	return copts, nil

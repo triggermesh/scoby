@@ -65,14 +65,18 @@ type reconciler struct {
 var _ ComponentReconciler = (*reconciler)(nil)
 
 func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	r.log.Info("Reconciling request", "request", req)
+	r.log.V(1).Info("reconciling request", "request", req)
 
 	obj := r.NewObject()
 	if err := r.client.Get(ctx, req.NamespacedName, obj); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	r.log.Info("Object read", "obj", obj)
+	if !obj.GetDeletionTimestamp().IsZero() {
+		// Return and let the ownership clean
+		// owned resources.
+		return reconcile.Result{}, nil
+	}
 
 	// render deployment
 	desired, err := r.createDeploymentFrom(obj)
@@ -80,9 +84,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	// sync deployment
-
-	r.log.V(1).Info("rendered desired object", "object", desired)
+	r.log.V(5).Info("desired deployment object", "object", desired)
 
 	existing := &appsv1.Deployment{}
 	err = r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
@@ -90,21 +92,11 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	case err == nil:
 		if !semantic.Semantic.DeepEqual(desired, existing) {
 			r.log.Info("rendered deployment does not match the expected object", "object", desired)
-			// delete, the next reconciliation will create the deployment
-
 			r.log.V(5).Info("mismatched deployment", "desired", *desired, "existing", *existing)
 
 			// resourceVersion must be returned to the API server unmodified for
 			// optimistic concurrency, as per Kubernetes API conventions
 			desired.SetResourceVersion(existing.GetResourceVersion())
-
-			// adapter, err := cg(currentAdapter.GetNamespace()).Update(ctx, desiredAdapter, metav1.UpdateOptions{})
-			// if err != nil {
-			// 	var t T
-			// 	return t, reconciler.NewEvent(corev1.EventTypeWarning, ReasonFailedAdapterUpdate,
-			// 		"Failed to update adapter %s %q: %s", gvk.Kind, currentAdapter.GetName(), err)
-			// }
-			// event.Normal(ctx, ReasonAdapterUpdate, "Updated adapter %s %q", gvk.Kind, adapter.GetName())
 
 			if err = r.client.Update(ctx, desired); err != nil {
 				return reconcile.Result{
@@ -115,7 +107,8 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 
 	case apierrs.IsNotFound(err):
-		r.log.Info("Creating deployment", "object", desired)
+		r.log.Info("creating deployment", "object", desired)
+		r.log.V(5).Info("desired deployment", "object", *desired)
 		if err = r.client.Create(ctx, desired); err != nil {
 			return reconcile.Result{}, fmt.Errorf("could not create controlled object: %w", err)
 		}
