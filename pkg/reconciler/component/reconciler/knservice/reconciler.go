@@ -6,9 +6,12 @@ package knativeservice
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/go-logr/logr"
 
+	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -44,8 +47,7 @@ func NewComponentReconciler(ctx context.Context, gvk schema.GroupVersionKind, re
 
 	if err := builder.ControllerManagedBy(mgr).
 		For(r.NewObject()).
-		Owns(resources.NewDeployment("", "")).
-		Owns(resources.NewService("", "")).
+		Owns(resources.NewKnativeService("", "")).
 		Complete(r); err != nil {
 		return nil, fmt.Errorf("could not build controller for %q: %w", gvk, err)
 	}
@@ -80,8 +82,6 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	// sync deployment
-
 	r.log.V(1).Info("rendered desired object", "object", desired)
 
 	existing := &servingv1.Service{}
@@ -89,33 +89,24 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	switch {
 	case err == nil:
 		if !semantic.Semantic.DeepEqual(desired, existing) {
-			r.log.Info("rendered deployment does not match the expected object", "object", desired)
-			// delete, the next reconciliation will create the deployment
+			r.log.Info("rendered knative service does not match the expected object", "object", desired)
 
-			r.log.V(5).Info("mismatched deployment", "desired", *desired, "existing", *existing)
+			r.log.V(5).Info("mismatched knative service", "desired", *desired, "existing", *existing)
 
 			// resourceVersion must be returned to the API server unmodified for
 			// optimistic concurrency, as per Kubernetes API conventions
 			desired.SetResourceVersion(existing.GetResourceVersion())
 
-			// adapter, err := cg(currentAdapter.GetNamespace()).Update(ctx, desiredAdapter, metav1.UpdateOptions{})
-			// if err != nil {
-			// 	var t T
-			// 	return t, reconciler.NewEvent(corev1.EventTypeWarning, ReasonFailedAdapterUpdate,
-			// 		"Failed to update adapter %s %q: %s", gvk.Kind, currentAdapter.GetName(), err)
-			// }
-			// event.Normal(ctx, ReasonAdapterUpdate, "Updated adapter %s %q", gvk.Kind, adapter.GetName())
-
 			if err = r.client.Update(ctx, desired); err != nil {
 				return reconcile.Result{
 					Requeue: false,
-				}, fmt.Errorf("could not update deployment at reconciliation: %+w", err)
+				}, fmt.Errorf("could not update knative service at reconciliation: %+w", err)
 			}
 			return reconcile.Result{}, nil
 		}
 
 	case apierrs.IsNotFound(err):
-		r.log.Info("Creating deployment", "object", desired)
+		r.log.Info("Creating knative service", "object", desired)
 		if err = r.client.Create(ctx, desired); err != nil {
 			return reconcile.Result{}, fmt.Errorf("could not create controlled object: %w", err)
 		}
@@ -132,24 +123,40 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 func (r *reconciler) createKnServiceFrom(obj client.Object) (*servingv1.Service, error) {
 	// TODO generate names
 
-	// use parameter options to define parameters policy
-	// use obj to gather
 	ps, _ := r.psr.Render(obj)
 
-	// TODO min, max scale, visibility,
-	return resources.NewKnativeService(obj.GetNamespace(), obj.GetName(),
-		resources.KnativeServiceWithMetaOptions(
-			resources.MetaAddLabel(resources.AppNameLabel, r.registration.GetName()),
-			resources.MetaAddLabel(resources.AppInstanceLabel, obj.GetName()),
-			resources.MetaAddLabel(resources.AppComponentLabel, render.ComponentWorkload),
-			resources.MetaAddLabel(resources.AppPartOfLabel, render.PartOf),
-			resources.MetaAddLabel(resources.AppManagedByLabel, render.ManagedBy),
+	ff := r.registration.GetWorkload().FormFactor.KnativeService
+	metaopts := []resources.MetaOption{
+		resources.MetaAddLabel(resources.AppNameLabel, r.registration.GetName()),
+		resources.MetaAddLabel(resources.AppInstanceLabel, obj.GetName()),
+		resources.MetaAddLabel(resources.AppComponentLabel, render.ComponentWorkload),
+		resources.MetaAddLabel(resources.AppPartOfLabel, render.PartOf),
+		resources.MetaAddLabel(resources.AppManagedByLabel, render.ManagedBy),
 
-			resources.MetaAddOwner(obj, obj.GetObjectKind().GroupVersionKind()),
-		),
-		resources.KnativeServiceWithRevisionSpecOptions(
-			resources.RevisionSpecWithPodSpecOptions(ps...),
-		)), nil
+		resources.MetaAddOwner(obj, obj.GetObjectKind().GroupVersionKind()),
+	}
+
+	revspecopts := []resources.RevisionTemplateOption{
+		resources.RevisionSpecWithPodSpecOptions(ps...),
+	}
+
+	if ff.Visibility != nil {
+		metaopts = append(metaopts, resources.MetaAddLabel(networking.VisibilityLabelKey, *ff.Visibility))
+	}
+
+	if ff.MinScale != nil {
+		revspecopts = append(revspecopts, resources.RevisionWithMetaOptions(
+			resources.MetaAddAnnotation(autoscaling.MinScaleAnnotationKey, strconv.Itoa(*ff.MinScale))))
+	}
+
+	if ff.MaxScale != nil {
+		revspecopts = append(revspecopts, resources.RevisionWithMetaOptions(
+			resources.MetaAddAnnotation(autoscaling.MaxScaleAnnotationKey, strconv.Itoa(*ff.MaxScale))))
+	}
+
+	return resources.NewKnativeService(obj.GetNamespace(), obj.GetName(),
+		resources.KnativeServiceWithMetaOptions(metaopts...),
+		resources.KnativeServiceWithRevisionOptions(revspecopts...)), nil
 }
 
 func (r *reconciler) InjectClient(c client.Client) error {

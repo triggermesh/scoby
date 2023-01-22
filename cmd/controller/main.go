@@ -19,6 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
 	"github.com/triggermesh/scoby/pkg/reconciler/registration/crd"
@@ -59,6 +61,13 @@ func main() {
 
 	if err := apiextensionsv1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "could not add apiextensions API to scheme")
+		os.Exit(1)
+	}
+
+	// Although added to scheme, Knative Serving is a rendering option and
+	// there is no runtime requirement for Knative to be installed.
+	if err := servingv1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "could not add knative serving API to scheme")
 		os.Exit(1)
 	}
 

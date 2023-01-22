@@ -20,9 +20,12 @@ type DeploymentFormFactor struct {
 // KnativeServiceFormFactor contains parameters for Deployment choice.
 type KnativeServiceFormFactor struct {
 	// MinScale is the service minimum scaling replicas
-	MinScale int `json:"minScale"`
+	// +optional
+	MinScale *int `json:"minScale"`
 	// MaxScale is the service maximum scaling replicas
-	MaxScale int `json:"maxScale"`
+	// +optional
+	MaxScale *int `json:"maxScale"`
 	// Visibility is the network visibility for the service
-	Visibility string `json:"visibility,omitempty"`
+	// +optional
+	Visibility *string `json:"visibility,omitempty"`
 }
