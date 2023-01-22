@@ -50,6 +50,17 @@ func TestNewMeta(t *testing.T) {
 					"key1": "label1",
 				},
 			}},
+		"with annotations": {
+			options: []MetaOption{
+				MetaAddAnnotation("key1", "annotation1"),
+			},
+			expected: metav1.ObjectMeta{
+				Name:      tName,
+				Namespace: tNamespace,
+				Annotations: map[string]string{
+					"key1": "annotation1",
+				},
+			}},
 	}
 
 	for name, tc := range testCases {

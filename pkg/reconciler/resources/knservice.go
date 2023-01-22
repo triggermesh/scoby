@@ -15,7 +15,7 @@ func NewKnativeService(namespace, name string, opts ...KnativeServiceOption) *se
 
 	s := &servingv1.Service{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "Deployment",
+			Kind:       "Service",
 			APIVersion: servingv1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: *meta,
@@ -36,9 +36,9 @@ func KnativeServiceWithMetaOptions(opts ...MetaOption) KnativeServiceOption {
 	}
 }
 
-type RevisionTemplateSpecOption func(*servingv1.RevisionTemplateSpec)
+type RevisionTemplateOption func(*servingv1.RevisionTemplateSpec)
 
-func KnativeServiceWithRevisionSpecOptions(opts ...RevisionTemplateSpecOption) KnativeServiceOption {
+func KnativeServiceWithRevisionOptions(opts ...RevisionTemplateOption) KnativeServiceOption {
 	return func(s *servingv1.Service) {
 		for _, opt := range opts {
 			opt(&s.Spec.Template)
@@ -46,7 +46,15 @@ func KnativeServiceWithRevisionSpecOptions(opts ...RevisionTemplateSpecOption) K
 	}
 }
 
-func RevisionSpecWithPodSpecOptions(opts ...PodSpecOption) RevisionTemplateSpecOption {
+func RevisionWithMetaOptions(opts ...MetaOption) RevisionTemplateOption {
+	return func(rts *servingv1.RevisionTemplateSpec) {
+		for _, opt := range opts {
+			opt(&rts.ObjectMeta)
+		}
+	}
+}
+
+func RevisionSpecWithPodSpecOptions(opts ...PodSpecOption) RevisionTemplateOption {
 	return func(rts *servingv1.RevisionTemplateSpec) {
 		for _, opt := range opts {
 			opt(&rts.Spec.PodSpec)

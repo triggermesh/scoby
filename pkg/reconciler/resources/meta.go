@@ -58,3 +58,12 @@ func MetaAddLabel(key, value string) MetaOption {
 		m.Labels[key] = value
 	}
 }
+
+func MetaAddAnnotation(key, value string) MetaOption {
+	return func(m *metav1.ObjectMeta) {
+		if m.Annotations == nil {
+			m.Annotations = make(map[string]string, 1)
+		}
+		m.Annotations[key] = value
+	}
+}

@@ -128,9 +128,6 @@ spec:
                             description: Visibility is the network visibility for
                               the service
                             type: string
-                        required:
-                        - maxScale
-                        - minScale
                         type: object
                     type: object
                   fromImage:

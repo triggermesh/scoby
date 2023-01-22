@@ -13,19 +13,16 @@ import (
 
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 	deploymetr "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/deployment"
-	knservingr "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/deployment"
+	knservingr "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/knservice"
 )
 
 func NewReconciler(ctx context.Context, gvk schema.GroupVersionKind, reg common.Registration, mgr manager.Manager) (reconcile.Reconciler, error) {
 	switch {
 	case reg.GetWorkload().FormFactor.KnativeService != nil:
 		return knservingr.NewComponentReconciler(ctx, gvk, reg, mgr)
-
 	default:
+		// Defaults to deployment
 		return deploymetr.NewComponentReconciler(ctx, gvk, reg, mgr)
-		// Default to deployment. The renderer will be able to
-		// deal with an empty deployment form factor.
-		// r.renderer = deployment.New(reg, log)
 	}
 
 }
