@@ -28,7 +28,7 @@ type Reconciler struct {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	r.log.V(1).Info("Reconciling CRD registration", "request", req)
+	r.log.V(1).Info("reconciling CRD registration", "request", req)
 
 	// TODO deletion case
 

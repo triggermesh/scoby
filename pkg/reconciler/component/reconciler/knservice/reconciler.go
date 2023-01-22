@@ -67,14 +67,18 @@ type reconciler struct {
 var _ ComponentReconciler = (*reconciler)(nil)
 
 func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	r.log.Info("Reconciling request", "request", req)
+	r.log.V(1).Info("reconciling request", "request", req)
 
 	obj := r.NewObject()
 	if err := r.client.Get(ctx, req.NamespacedName, obj); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	r.log.Info("Object read", "obj", obj)
+	if !obj.GetDeletionTimestamp().IsZero() {
+		// Return and let the ownership clean
+		// owned resources.
+		return reconcile.Result{}, nil
+	}
 
 	// render service
 	desired, err := r.createKnServiceFrom(obj)
@@ -82,7 +86,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	r.log.V(1).Info("rendered desired object", "object", desired)
+	r.log.V(5).Info("desired knative service object", "object", desired)
 
 	existing := &servingv1.Service{}
 	err = r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
@@ -90,7 +94,6 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	case err == nil:
 		if !semantic.Semantic.DeepEqual(desired, existing) {
 			r.log.Info("rendered knative service does not match the expected object", "object", desired)
-
 			r.log.V(5).Info("mismatched knative service", "desired", *desired, "existing", *existing)
 
 			// resourceVersion must be returned to the API server unmodified for
@@ -106,7 +109,8 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 
 	case apierrs.IsNotFound(err):
-		r.log.Info("Creating knative service", "object", desired)
+		r.log.Info("creating knative service", "object", desired)
+		r.log.V(5).Info("desired knative service", "object", *desired)
 		if err = r.client.Create(ctx, desired); err != nil {
 			return reconcile.Result{}, fmt.Errorf("could not create controlled object: %w", err)
 		}
