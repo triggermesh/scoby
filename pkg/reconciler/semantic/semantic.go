@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/conversion"
 
-	network "knative.dev/networking/pkg"
+	network "knative.dev/networking/pkg/apis/networking"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 

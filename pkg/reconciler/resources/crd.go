@@ -45,18 +45,14 @@ func NewCRD(name string, opts ...CRDOption) (*apiextensionsv1.CustomResourceDefi
 		},
 	}
 
-	// metav1.ObjectMeta{
-	// 	Name:            name,
-	// 	OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(cr)},
-	// 	Labels:          decoration.Labels,
-	// 	Annotations:     decoration.Annotations,
-	// },
-
+	var err error
 	for _, opt := range opts {
-		opt(crd)
+		if err = opt(crd); err != nil {
+			return nil, err
+		}
 	}
 
-	return crd, nil
+	return crd, err
 }
 
 func CRDWithMetaOptions(opts ...MetaOption) CRDOption {
