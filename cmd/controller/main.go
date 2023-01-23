@@ -16,8 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
@@ -45,7 +43,7 @@ func main() {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	mgr, err := manager.New(cfg, manager.Options{
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme,
 	})
 	if err != nil {
@@ -72,7 +70,7 @@ func main() {
 	}
 
 	// Parent context.
-	ctx := signals.SetupSignalHandler()
+	ctx := ctrl.SetupSignalHandler()
 
 	cl := log.WithName("component")
 	reg := registry.New(ctx, mgr, &cl)

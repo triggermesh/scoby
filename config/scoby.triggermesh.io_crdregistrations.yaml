@@ -12,8 +12,10 @@ spec:
     kind: CRDRegistration
     listKind: CRDRegistrationList
     plural: crdregistrations
+    shortNames:
+    - crdreg
     singular: crdregistration
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v1alpha1
     schema:
