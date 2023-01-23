@@ -16,12 +16,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
+	scobyv1alpha1 "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
 	"github.com/triggermesh/scoby/pkg/reconciler/registration/crd"
 )
@@ -45,7 +43,7 @@ func main() {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	mgr, err := manager.New(cfg, manager.Options{
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme,
 	})
 	if err != nil {
@@ -54,7 +52,7 @@ func main() {
 	}
 	log.V(1).Info("controller manager created")
 
-	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := scobyv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "could not add scoby API to scheme")
 		os.Exit(1)
 	}
@@ -72,7 +70,7 @@ func main() {
 	}
 
 	// Parent context.
-	ctx := signals.SetupSignalHandler()
+	ctx := ctrl.SetupSignalHandler()
 
 	cl := log.WithName("component")
 	reg := registry.New(ctx, mgr, &cl)
@@ -81,7 +79,7 @@ func main() {
 		Registry: reg,
 	}
 	if err := builder.ControllerManagedBy(mgr).
-		For(&v1alpha1.CRDRegistration{}).
+		For(&scobyv1alpha1.CRDRegistration{}).
 		Complete(r); err != nil {
 		log.Error(err, "could not build controller for CRD registration")
 		os.Exit(1)

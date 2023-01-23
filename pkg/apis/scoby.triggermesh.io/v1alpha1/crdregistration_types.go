@@ -31,6 +31,7 @@ type CRDRegistrationStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:scope=Cluster,shortName={"crdreg"}
 
 // CRDRegistration uses existing CRDs to provide generic controllers for them.
 type CRDRegistration struct {

@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	fixtureDeploymentPath     = "../../../test/fixtures/deployment.json"
-	fixtureKnServicePath      = "../../../test/fixtures/knService.json"
-	fixtureServiceAccountPath = "../../../test/fixtures/serviceAccount.json"
+	fixtureDeploymentPath     = "./testdata/deployment.json"
+	fixtureKnServicePath      = "./testdata/knService.json"
+	fixtureServiceAccountPath = "./testdata/serviceAccount.json"
 )
 
 func TestDeploymentEqual(t *testing.T) {

@@ -4,6 +4,8 @@ go 1.19
 
 require (
 	github.com/go-logr/logr v1.2.3
+	github.com/onsi/ginkgo/v2 v2.6.0
+	github.com/onsi/gomega v1.24.1
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/zap v1.24.0
 	k8s.io/api v0.26.0
