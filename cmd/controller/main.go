@@ -21,7 +21,7 @@ import (
 
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
+	scobyv1alpha1 "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
 	"github.com/triggermesh/scoby/pkg/reconciler/registration/crd"
 )
@@ -54,7 +54,7 @@ func main() {
 	}
 	log.V(1).Info("controller manager created")
 
-	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := scobyv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "could not add scoby API to scheme")
 		os.Exit(1)
 	}
@@ -81,7 +81,7 @@ func main() {
 		Registry: reg,
 	}
 	if err := builder.ControllerManagedBy(mgr).
-		For(&v1alpha1.CRDRegistration{}).
+		For(&scobyv1alpha1.CRDRegistration{}).
 		Complete(r); err != nil {
 		log.Error(err, "could not build controller for CRD registration")
 		os.Exit(1)

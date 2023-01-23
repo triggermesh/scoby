@@ -1,6 +1,9 @@
 # Developer local files
 .local/
 
+# Generated assets
+/_output/
+
 # Binaries for programs and plugins
 *.exe
 *.exe~

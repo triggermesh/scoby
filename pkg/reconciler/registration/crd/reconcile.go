@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
+	scobyv1alpha1 "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
 )
 
@@ -32,7 +32,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	// TODO deletion case
 
-	cr := &v1alpha1.CRDRegistration{}
+	cr := &scobyv1alpha1.CRDRegistration{}
 	if err := r.Get(ctx, req.NamespacedName, cr); err != nil {
 		if apierrs.IsNotFound(err) {
 			// TODO for the deletion case, this is all good
