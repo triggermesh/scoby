@@ -64,7 +64,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionControllerReady,
 			"CONTROLLERFAILED", err.Error())
 		r.log.V(2).Info("Updating status after ensure CRD controller failed")
-		r.Client.Status().Update(ctx, cr)
+		if err := r.Client.Status().Update(ctx, cr); err != nil {
+			r.log.Error(err, "error updating status after ensure CRD controller failed")
+		}
 		return reconcile.Result{}, err
 	}
 
