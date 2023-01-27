@@ -14,3 +14,25 @@ func (r *CRDRegistration) GetWorkload() *common.Workload {
 func (r *CRDRegistration) GetConfiguration() *common.Configuration {
 	return r.Spec.Configuration
 }
+
+const (
+	CRDRegistrationConditionControllerReady = "ControllerReady"
+)
+
+func (s *CRDRegistration) GetStatusManager() *common.StatusManager {
+	sm := common.NewStatusManager(
+		&s.Status.Status,
+		"Ready",
+		map[string]struct{}{
+			CRDRegistrationConditionControllerReady: {},
+			"Ready":                                 {},
+		})
+
+	// Status manager is being retrieved to update the state,
+	// set the status generation to the object's to reflect the
+	// reconciled generation.
+	sm.InitializeforUpdate(s.GetGeneration())
+
+	return sm
+
+}
