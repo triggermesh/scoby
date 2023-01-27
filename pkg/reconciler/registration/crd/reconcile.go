@@ -30,17 +30,18 @@ type Reconciler struct {
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	r.log.V(1).Info("reconciling CRD registration", "request", req)
 
-	// TODO deletion case
-
 	cr := &scobyv1alpha1.CRDRegistration{}
 	if err := r.Get(ctx, req.NamespacedName, cr); err != nil {
 		if apierrs.IsNotFound(err) {
-			// TODO for the deletion case, this is all good
+			// might have been deleted, just log some info
+			r.log.Info("reconciled CRD registration object %s was not found", req)
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
 	}
 	r.log.V(5).Info("CRD registration retrieved", "object", cr)
+
+	sm := cr.GetStatusManager()
 
 	// lookup the information for the CRD registration.
 	key := types.NamespacedName{Name: cr.Spec.CRD}
@@ -54,7 +55,22 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
+	// Deletion case
+	// if !cr.DeletionTimestamp.IsZero() {
+	// 	// TODO
+	// }
+
 	if err := r.Registry.EnsureComponentController(crd, cr); err != nil {
+		sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionControllerReady,
+			"CONTROLLERFAILED", err.Error())
+		r.log.V(2).Info("Updating status after ensure CRD controller failed")
+		r.Client.Status().Update(ctx, cr)
+		return reconcile.Result{}, err
+	}
+
+	sm.MarkConditionTrue(scobyv1alpha1.CRDRegistrationConditionControllerReady, "CONTROLLERSTARTED")
+	r.log.V(2).Info("Updating status after ensuring CRD controller", "status", cr.Status)
+	if err := r.Client.Status().Update(ctx, cr); err != nil {
 		return reconcile.Result{}, err
 	}
 

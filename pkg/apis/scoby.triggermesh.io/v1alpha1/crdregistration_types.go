@@ -25,8 +25,7 @@ type CRDRegistrationSpec struct {
 
 // CRDRegistrationStatus defines the observed state of CRDRegistration
 type CRDRegistrationStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	common.Status `json:",inline"`
 }
 
 //+kubebuilder:object:root=true
@@ -34,11 +33,15 @@ type CRDRegistrationStatus struct {
 //+kubebuilder:resource:scope=Cluster,shortName={"crdreg"}
 
 // CRDRegistration uses existing CRDs to provide generic controllers for them.
+// +kubebuilder:printcolumn:name="CRD",type="string",JSONPath=".spec.crd"
+// +kubebuilder:printcolumn:name="last run",type="string",JSONPath=".status.lastRun",format="date"
 type CRDRegistration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CRDRegistrationSpec   `json:"spec"`
+	Spec CRDRegistrationSpec `json:"spec"`
+
+	// +optional
 	Status CRDRegistrationStatus `json:"status,omitempty"`
 }
 
