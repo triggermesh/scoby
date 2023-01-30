@@ -117,9 +117,24 @@ func (sm *StatusManager) InitializeforUpdate(generation int64) {
 	// make sure all expected conditions are listed at the current status
 	// by moving them to the front of the slice keeping the index.
 	i := 0
+	happyStatus := metav1.ConditionTrue
 	for _, c := range sm.status.Conditions {
-		if _, ok := sm.conditionTypes[c.Type]; !ok {
+		if _, ok := sm.conditionTypes[c.Type]; ok {
 			sm.status.Conditions[i] = c
+
+			// track readiness
+			switch c.Status {
+			case metav1.ConditionFalse:
+				if happyStatus != metav1.ConditionFalse {
+					happyStatus = metav1.ConditionFalse
+				}
+			case metav1.ConditionUnknown:
+				if happyStatus == metav1.ConditionTrue {
+					happyStatus = metav1.ConditionUnknown
+				}
+			}
+
+			// advance index of valid conditions
 			i++
 		}
 	}
@@ -130,11 +145,16 @@ func (sm *StatusManager) InitializeforUpdate(generation int64) {
 	}
 
 	// some expected conditions might be missing, or some not expected conditions
-	// might e present
+	// might be present
 	//
-	// this condition should be false almost always, nested loops inside should
+	// this loop should is not expected often, almost never. Nested loops inside should
 	// not impact performance.
 	if len(sm.conditionTypes) != len(sm.status.Conditions) {
+		// new elements are going to be added, set global readiness to unknown
+		if happyStatus == metav1.ConditionTrue {
+			happyStatus = metav1.ConditionUnknown
+		}
+
 		tt := sm.time.Now()
 		for k := range sm.conditionTypes {
 			found := false
@@ -155,6 +175,14 @@ func (sm *StatusManager) InitializeforUpdate(generation int64) {
 					Status:             metav1.ConditionUnknown,
 					LastTransitionTime: tt,
 				})
+		}
+	}
+
+	// adjust happiness
+	for i := range sm.status.Conditions {
+		if sm.status.Conditions[i].Type == sm.happyConditionType && sm.status.Conditions[i].Status != happyStatus {
+			sm.status.Conditions[i].Status = happyStatus
+			break
 		}
 	}
 

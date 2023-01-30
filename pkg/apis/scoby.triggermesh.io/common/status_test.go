@@ -27,13 +27,13 @@ type mockTime struct{}
 
 func (mockTime) Now() metav1.Time { return tLastTransition }
 
-func TestStatusManager(t *testing.T) {
+func TestStatusManagerInitialize(t *testing.T) {
 	testCases := map[string]struct {
-		status             *Status
+		inConditions       []Condition
 		expectedConditions []Condition
 	}{
 		"empty status": {
-			status: &Status{},
+			inConditions: []Condition{},
 			expectedConditions: []Condition{
 				{
 					Type:               "Condition1",
@@ -57,21 +57,208 @@ func TestStatusManager(t *testing.T) {
 				},
 			},
 		},
+		"previously initialized": {
+			inConditions: []Condition{
+				{
+					Type:               "Condition1",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Condition2",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Condition3",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Ready",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+			},
+			expectedConditions: []Condition{
+				{
+					Type:               "Condition1",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Condition2",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Condition3",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Ready",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+			},
+		},
+		"partialy initialized": {
+			inConditions: []Condition{
+				{
+					Type:               "Condition1",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+			},
+			expectedConditions: []Condition{
+				{
+					Type:               "Condition1",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Condition2",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Condition3",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Ready",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+			},
+		},
+		"happiness from true to unknown": {
+			inConditions: []Condition{
+				{
+					Type:               "Condition1",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Ready",
+					Status:             metav1.ConditionTrue,
+					LastTransitionTime: tLastTransition,
+				},
+			},
+			expectedConditions: []Condition{
+				{
+					Type:               "Condition1",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Condition2",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Condition3",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Ready",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+			},
+		},
+		"some true entries": {
+			inConditions: []Condition{
+				{
+					Type:               "Condition1",
+					Status:             metav1.ConditionTrue,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Ready",
+					Status:             metav1.ConditionTrue,
+					LastTransitionTime: tLastTransition,
+				},
+			},
+			expectedConditions: []Condition{
+				{
+					Type:               "Condition1",
+					Status:             metav1.ConditionTrue,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Condition2",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Condition3",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Ready",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+			},
+		},
+		"some false entries": {
+			inConditions: []Condition{
+				{
+					Type:               "Condition1",
+					Status:             metav1.ConditionFalse,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Ready",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+			},
+			expectedConditions: []Condition{
+				{
+					Type:               "Condition1",
+					Status:             metav1.ConditionFalse,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Condition2",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Condition3",
+					Status:             metav1.ConditionUnknown,
+					LastTransitionTime: tLastTransition,
+				},
+				{
+					Type:               "Ready",
+					Status:             metav1.ConditionFalse,
+					LastTransitionTime: tLastTransition,
+				},
+			},
+		},
 	}
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			sm := NewStatusManager(tc.status, tHappyCondition, tConditions)
+			status := &Status{Conditions: tc.inConditions}
+			sm := NewStatusManager(status, tHappyCondition, tConditions)
 
 			// Deterministic time for tests
 			sm.time = mockTime{}
 
 			sm.InitializeforUpdate(tGeneration)
 
-			t.Log(tc.status)
+			t.Logf("expected conditions: %+v", tc.expectedConditions)
+			t.Logf("real conditions %+v", status.Conditions)
 
-			assert.ElementsMatch(t, tc.expectedConditions, tc.status.Conditions)
-			assert.Equal(t, tGeneration, tc.status.ObservedGeneration)
+			assert.ElementsMatch(t, tc.expectedConditions, status.Conditions)
+			assert.Equal(t, tGeneration, status.ObservedGeneration)
 		})
 	}
 
