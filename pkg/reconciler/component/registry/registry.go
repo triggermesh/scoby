@@ -24,8 +24,8 @@ import (
 // ComponentRegistry keeps track of the controllers created
 // for each registered component.
 type ComponentRegistry interface {
-	EnsureComponentController(crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration) error
-	RemoveComponentController(crd *apiextensionsv1.CustomResourceDefinition) error
+	EnsureComponentController(reg common.Registration, crd *apiextensionsv1.CustomResourceDefinition) error
+	RemoveComponentController(reg common.Registration)
 }
 
 type entry struct {
@@ -35,8 +35,9 @@ type entry struct {
 }
 
 type componentRegisty struct {
-	// controllers keeps a map for GVR to dynamically created controllers.
-	controllers map[schema.GroupVersionKind]*entry
+	// controllers keeps a map of dynamically created controllers
+	// for registrations.
+	controllers map[string]*entry
 
 	lock    sync.RWMutex
 	mgr     manager.Manager
@@ -49,7 +50,7 @@ func New(ctx context.Context, mgr manager.Manager, logger *logr.Logger) Componen
 	logger.Info("Creating new controller registry")
 
 	return &componentRegisty{
-		controllers: make(map[schema.GroupVersionKind]*entry),
+		controllers: make(map[string]*entry),
 		mgr:         mgr,
 		context:     ctx,
 		logger:      logger,
@@ -71,7 +72,7 @@ func CRDPriotizedVersion(crd *apiextensionsv1.CustomResourceDefinition) *apiexte
 	return crdv
 }
 
-func (cr *componentRegisty) EnsureComponentController(crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration) error {
+func (cr *componentRegisty) EnsureComponentController(reg common.Registration, crd *apiextensionsv1.CustomResourceDefinition) error {
 	cr.logger.V(1).Info("EnsureComponentController", "crd", crd.Name)
 	ver := CRDPriotizedVersion(crd)
 	cr.lock.Lock()
@@ -83,7 +84,7 @@ func (cr *componentRegisty) EnsureComponentController(crd *apiextensionsv1.Custo
 		Kind:    crd.Spec.Names.Kind,
 	}
 
-	_, found := cr.controllers[gvk]
+	_, found := cr.controllers[reg.GetName()]
 	if found {
 		return nil
 	}
@@ -97,33 +98,29 @@ func (cr *componentRegisty) EnsureComponentController(crd *apiextensionsv1.Custo
 		return err
 	}
 
-	cr.controllers[gvk] = &entry{
+	cr.controllers[reg.GetName()] = &entry{
 		reconciler: r,
 		cancel:     cancel,
 	}
 	return nil
 }
 
-func (cr *componentRegisty) RemoveComponentController(crd *apiextensionsv1.CustomResourceDefinition) error {
+func (cr *componentRegisty) RemoveComponentController(reg common.Registration) {
 	cr.lock.Lock()
 	defer cr.lock.Unlock()
 
-	gvk := crd.GroupVersionKind()
-	entry, found := cr.controllers[gvk]
-	if !found {
-		cr.logger.Info("Component Controller does not exists. Skipping removal", zap.Any("gvk", gvk))
-		return nil
+	rn := reg.GetName()
+	if entry, found := cr.controllers[rn]; found {
+		cr.logger.Info("Unloading component controller", zap.String("registration", rn))
+		// TODO use context to cancel the controller.
+		// depends on: https://github.com/kubernetes-sigs/controller-runtime/pull/2099
+
+		entry.cancel()
+		delete(cr.controllers, rn)
+	} else {
+		cr.logger.Info("Component Controller does not exists. Skipping removal", zap.String("registration", rn))
+		return
 	}
-
-	cr.logger.Info("Unloading component controller", zap.Any("gvk", gvk))
-
-	// TODO use context to cancel the controller.
-	// depends on: https://github.com/kubernetes-sigs/controller-runtime/pull/2099
-
-	entry.cancel()
-	delete(cr.controllers, gvk)
-
-	return nil
 }
 
 type ReconcilerBuilder func(ctx context.Context, gvk schema.GroupVersionKind, reg common.Registration, mgr manager.Manager) reconcile.Reconciler

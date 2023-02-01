@@ -34,13 +34,13 @@ all: build
 generate-code: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object object:headerFile="hack/boilerplate.go.txt" paths="./pkg/apis/..."
 
-.PHONY: generate-crds
-generate-crds: controller-gen ## Generate CRDs from code APIs.
+.PHONY: generate-manifests
+generate-manifests: controller-gen ## Generate manifests from code APIs.
 	$(CONTROLLER_GEN) crd rbac:roleName=controller-perms \
-		 output:crd:artifacts:config=./config paths="./pkg/apis/..."
+		 output:crd:artifacts:config=./config paths="./pkg/..."
 
 .PHONY: generate
-generate: generate-code generate-crds ## Generate assets from code.
+generate: generate-code generate-manifests ## Generate assets from code.
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -51,12 +51,12 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: generate-crds generate-code fmt vet envtest ## Run tests.
+test: generate fmt vet envtest ## Run tests.
 	@mkdir -p $(COVER_OUTPUT_DIR)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile $(COVER_OUTPUT_DIR)/cover.out
 
 .PHONY: build
-build: generate-crds generate-code vet $(COMMANDS)  ## Build all artifacts
+build: generate vet $(COMMANDS)  ## Build all artifacts
 
 $(COMMANDS):
 	go build -ldflags "$(LDFLAGS_STATIC)" -o $(BIN_OUTPUT_DIR)/$@ ./cmd/$@

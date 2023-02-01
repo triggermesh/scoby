@@ -117,16 +117,29 @@ spec:
                       run instances of the component's workload.
                     properties:
                       deployment:
-                        description: Deployment hosting the user workload
+                        description: Deployment hosting the user workload.
                         properties:
                           replicas:
-                            description: Replicas for the deployment
+                            description: Replicas for the deployment.
                             type: integer
+                          service:
+                            description: Service to create pointing to the deployment.
+                            properties:
+                              port:
+                                description: Port exposed at the service.
+                                type: integer
+                              targetPort:
+                                description: Port exposed at the target deployment.
+                                type: integer
+                            required:
+                            - port
+                            - targetPort
+                            type: object
                         required:
                         - replicas
                         type: object
                       knativeService:
-                        description: KnativeService hosting the user workload
+                        description: KnativeService hosting the user workload.
                         properties:
                           maxScale:
                             description: MaxScale is the service maximum scaling replicas
