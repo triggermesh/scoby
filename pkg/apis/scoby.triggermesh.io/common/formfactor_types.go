@@ -5,16 +5,27 @@ package common
 
 // FormFactor contains workload form factor settings.
 type FormFactor struct {
-	// Deployment hosting the user workload
+	// Deployment hosting the user workload.
 	Deployment *DeploymentFormFactor `json:"deployment,omitempty"`
-	// KnativeService hosting the user workload
+	// KnativeService hosting the user workload.
 	KnativeService *KnativeServiceFormFactor `json:"knativeService,omitempty"`
 }
 
 // DeploymentFormFactor contains parameters for Deployment choice.
 type DeploymentFormFactor struct {
-	// Replicas for the deployment
+	// Replicas for the deployment.
 	Replicas int `json:"replicas"`
+
+	// Service to create pointing to the deployment.
+	// +optional
+	Service *DeploymentService `json:"service"`
+}
+
+type DeploymentService struct {
+	// Port exposed at the service.
+	Port int `json:"port"`
+	// Port exposed at the target deployment.
+	TargetPort int `json:"targetPort"`
 }
 
 // KnativeServiceFormFactor contains parameters for Deployment choice.

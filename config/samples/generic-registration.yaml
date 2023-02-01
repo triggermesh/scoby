@@ -1,9 +1,0 @@
-apiVersion: scoby.triggermesh.io/v1alpha1
-kind: GenericRegistration
-metadata:
-  name: kuard.mygroup.io
-spec:
-  generate:
-    names:
-      singular: kuard
-      plural: kuards

@@ -12,6 +12,8 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+
+	scobycommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 )
 
 // Semantic can do semantic deep equality checks for Kubernetes API objects.
@@ -26,6 +28,7 @@ var Semantic = conversion.EqualitiesOrDie(
 	deploymentEqual,
 	knServiceEqual,
 	serviceAccountEqual,
+	statusEqual,
 )
 
 // eq is an instance of Equalities for internal deep derivative comparisons
@@ -159,6 +162,21 @@ func serviceAccountEqual(a, b *corev1.ServiceAccount) bool {
 		return false
 	}
 	if !eq.DeepDerivative(&a.AutomountServiceAccountToken, &b.AutomountServiceAccountToken) {
+		return false
+	}
+
+	return true
+}
+
+func statusEqual(a, b *scobycommon.Status) bool {
+	if a == b {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+
+	if !eq.DeepDerivative(a, b) {
 		return false
 	}
 

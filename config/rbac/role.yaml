@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: controller-perms
+rules:
+- apiGroups:
+  - scoby.triggermesh.io
+  resources:
+  - crdregistrations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - scoby.triggermesh.io
+  resources:
+  - crdregistrations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - scoby.triggermesh.io
+  resources:
+  - crdregistrations/status
+  verbs:
+  - get
+  - patch
+  - update

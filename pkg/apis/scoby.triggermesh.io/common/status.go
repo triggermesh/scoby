@@ -5,12 +5,16 @@
 package common
 
 import (
-	"reflect"
 	"sort"
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	ConditionReasonUnknown    = "UNKNOWN"
+	ConditionReasonAllTrue    = "CONDITIONSOK"
+	ConditionReasonNotAllTrue = "CONDITIONSNOTOK"
 )
 
 type Condition struct {
@@ -104,16 +108,25 @@ type StatusManager struct {
 }
 
 func NewStatusManager(status *Status, happyCond string, conds map[string]struct{}) *StatusManager {
-	return &StatusManager{
+	return newStatusManagerWithTime(status, happyCond, conds, realTime{})
+}
+
+// Allows overriding time for tests
+func newStatusManagerWithTime(status *Status, happyCond string, conds map[string]struct{}, time Time) *StatusManager {
+	sm := &StatusManager{
 		status:             status,
 		happyConditionType: happyCond,
 		conditionTypes:     conds,
 
-		time: realTime{},
+		time: time,
 	}
+
+	sm.sanitizeConditions()
+
+	return sm
 }
 
-func (sm *StatusManager) InitializeforUpdate(generation int64) {
+func (sm *StatusManager) sanitizeConditions() {
 	// make sure all expected conditions are listed at the current status
 	// by moving them to the front of the slice keeping the index.
 	i := 0
@@ -122,7 +135,15 @@ func (sm *StatusManager) InitializeforUpdate(generation int64) {
 		if _, ok := sm.conditionTypes[c.Type]; ok {
 			sm.status.Conditions[i] = c
 
-			// track readiness
+			// advance index of valid conditions
+			i++
+
+			// track readiness, but don't let readiness vote
+			// on itself, only dependent conditions
+			if c.Type == sm.happyConditionType {
+				continue
+			}
+
 			switch c.Status {
 			case metav1.ConditionFalse:
 				if happyStatus != metav1.ConditionFalse {
@@ -134,8 +155,6 @@ func (sm *StatusManager) InitializeforUpdate(generation int64) {
 				}
 			}
 
-			// advance index of valid conditions
-			i++
 		}
 	}
 
@@ -143,6 +162,9 @@ func (sm *StatusManager) InitializeforUpdate(generation int64) {
 	if i != len(sm.conditionTypes)-1 {
 		sm.status.Conditions = sm.status.Conditions[:i]
 	}
+
+	// Use the same last transition time for all conditions
+	tt := sm.time.Now()
 
 	// some expected conditions might be missing, or some not expected conditions
 	// might be present
@@ -155,7 +177,6 @@ func (sm *StatusManager) InitializeforUpdate(generation int64) {
 			happyStatus = metav1.ConditionUnknown
 		}
 
-		tt := sm.time.Now()
 		for k := range sm.conditionTypes {
 			found := false
 			for i = range sm.status.Conditions {
@@ -174,22 +195,53 @@ func (sm *StatusManager) InitializeforUpdate(generation int64) {
 					Type:               k,
 					Status:             metav1.ConditionUnknown,
 					LastTransitionTime: tt,
+					Reason:             ConditionReasonUnknown,
 				})
 		}
 	}
 
 	// adjust happiness
 	for i := range sm.status.Conditions {
-		if sm.status.Conditions[i].Type == sm.happyConditionType && sm.status.Conditions[i].Status != happyStatus {
-			sm.status.Conditions[i].Status = happyStatus
+		if sm.status.Conditions[i].Type == sm.happyConditionType {
+			hp := &sm.status.Conditions[i]
+			if happyStatus == metav1.ConditionTrue {
+				if hp.Reason != ConditionReasonAllTrue || hp.Status != metav1.ConditionTrue {
+					hp.Reason = ConditionReasonAllTrue
+					hp.Status = metav1.ConditionTrue
+					hp.LastTransitionTime = tt
+					break
+				}
+			} else if hp.Reason != ConditionReasonNotAllTrue || hp.Status != metav1.ConditionFalse {
+				hp.Reason = ConditionReasonNotAllTrue
+				hp.Status = metav1.ConditionFalse
+				hp.LastTransitionTime = tt
+
+			}
 			break
 		}
 	}
 
 	sort.Slice(sm.status.Conditions, func(i, j int) bool { return sm.status.Conditions[i].Type < sm.status.Conditions[j].Type })
+}
 
-	// update observed generation according to the reconciliation
+func (sm *StatusManager) SetObservedGeneration(generation int64) {
 	sm.status.ObservedGeneration = generation
+}
+
+func (sm *StatusManager) SetCondition(c Condition) {
+	for i := range sm.status.Conditions {
+		sc := &sm.status.Conditions[i]
+		if sc.Type == c.Type {
+			// copy values to avoid creating a new object
+			sc.Message = c.Message
+			sc.LastTransitionTime = sm.time.Now()
+			sc.Status = c.Status
+			sc.Reason = c.Reason
+			break
+		}
+	}
+
+	sm.sanitizeConditions()
 }
 
 func (sm *StatusManager) SetAnnotation(key, value string) {
@@ -204,68 +256,6 @@ func (sm *StatusManager) DeleteAnnotation(key string) {
 		return
 	}
 	delete(sm.status.Annotations, key)
-}
-
-func (sm *StatusManager) SetCondition(c Condition) {
-	var cds Conditions
-
-	nonHappyMessages := []string{}
-	allTrue := c.Status
-	var happyReason string
-	for _, sc := range sm.status.Conditions {
-		switch sc.Type {
-		case sm.happyConditionType:
-			// Happy condition does not cast vote on happiness
-
-		case c.Type:
-			// If we'd only update the LastTransitionTime, then return.
-			sc.LastTransitionTime = c.LastTransitionTime
-			if reflect.DeepEqual(sc, c) {
-				return
-			}
-
-			if c.Status != metav1.ConditionTrue && c.Message != "" {
-				nonHappyMessages = append(nonHappyMessages, c.Message)
-			}
-
-		default:
-			// if a condition is not set to true, global happiness
-			// will be false.
-			if sc.Status != metav1.ConditionTrue &&
-				allTrue != metav1.ConditionFalse {
-				allTrue = metav1.ConditionFalse
-				happyReason = "NOTALLTRUE"
-
-				if sc.Message != "" {
-					// copy any message for this condition to the pool
-					nonHappyMessages = append(nonHappyMessages, sc.Message)
-				}
-			}
-
-			// add other conditions to the array
-			cds = append(cds, c)
-		}
-	}
-
-	// append created/updated condition
-	c.LastTransitionTime = sm.time.Now()
-	cds = append(cds, c)
-
-	if allTrue == metav1.ConditionTrue {
-		happyReason = "ALLTRUE"
-	}
-
-	// append happy condition
-	cds = append(cds, Condition{
-		Type:               sm.happyConditionType,
-		Status:             allTrue,
-		Message:            strings.Join(nonHappyMessages, "."),
-		Reason:             happyReason,
-		LastTransitionTime: c.LastTransitionTime,
-	})
-
-	sort.Slice(cds, func(i, j int) bool { return cds[i].Type < cds[j].Type })
-	sm.status.Conditions = cds
 }
 
 func (sm *StatusManager) MarkConditionTrue(condtype, reason string) {
