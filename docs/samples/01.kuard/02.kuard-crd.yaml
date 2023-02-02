@@ -1,0 +1,33 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: kuards.extensions.triggermesh.io
+spec:
+  group: extensions.triggermesh.io
+  scope: Namespaced
+  names:
+    plural: kuards
+    singular: kuard
+    kind: Kuard
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                variable1:
+                  type: string
+                variable2:
+                  type: string
+                group:
+                  type: object
+                  properties:
+                    variable3:
+                      type: boolean
+                    variable4:
+                      type: integer

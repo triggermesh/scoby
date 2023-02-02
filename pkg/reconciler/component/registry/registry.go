@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	"go.uber.org/zap"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -111,14 +110,14 @@ func (cr *componentRegisty) RemoveComponentController(reg common.Registration) {
 
 	rn := reg.GetName()
 	if entry, found := cr.controllers[rn]; found {
-		cr.logger.Info("Unloading component controller", zap.String("registration", rn))
+		cr.logger.Info("Unloading component controller", "registration", rn)
 		// TODO use context to cancel the controller.
 		// depends on: https://github.com/kubernetes-sigs/controller-runtime/pull/2099
 
 		entry.cancel()
 		delete(cr.controllers, rn)
 	} else {
-		cr.logger.Info("Component Controller does not exists. Skipping removal", zap.String("registration", rn))
+		cr.logger.Info("Component Controller does not exists. Skipping removal", "registration", rn)
 		return
 	}
 }
