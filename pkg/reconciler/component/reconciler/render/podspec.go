@@ -24,19 +24,19 @@ type PodSpecRenderer interface {
 	Render(obj client.Object) ([]resources.PodSpecOption, error)
 }
 
-type renderer struct {
+type podSpecRenderer struct {
 	name  string
 	image string
 }
 
 func NewPodSpecRenderer(name, image string) PodSpecRenderer {
-	return &renderer{
+	return &podSpecRenderer{
 		name:  name,
 		image: image,
 	}
 }
 
-func (r *renderer) Render(obj client.Object) ([]resources.PodSpecOption, error) {
+func (r *podSpecRenderer) Render(obj client.Object) ([]resources.PodSpecOption, error) {
 	pso := []resources.PodSpecOption{}
 	opts, err := r.parseObjectIntoContainer(obj)
 	if err != nil {
@@ -55,7 +55,7 @@ type value struct {
 	value  interface{}
 }
 
-func (r *renderer) parseObjectIntoContainer(obj client.Object) ([]resources.ContainerOption, error) {
+func (r *podSpecRenderer) parseObjectIntoContainer(obj client.Object) ([]resources.ContainerOption, error) {
 	copts := []resources.ContainerOption{}
 
 	uobj, ok := obj.(*unstructured.Unstructured)

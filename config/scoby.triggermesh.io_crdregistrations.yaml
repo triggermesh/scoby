@@ -127,9 +127,11 @@ spec:
                             properties:
                               port:
                                 description: Port exposed at the service.
+                                format: int32
                                 type: integer
                               targetPort:
                                 description: Port exposed at the target deployment.
+                                format: int32
                                 type: integer
                             required:
                             - port

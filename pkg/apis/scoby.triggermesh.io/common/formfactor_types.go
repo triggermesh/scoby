@@ -23,9 +23,9 @@ type DeploymentFormFactor struct {
 
 type DeploymentService struct {
 	// Port exposed at the service.
-	Port int `json:"port"`
+	Port int32 `json:"port"`
 	// Port exposed at the target deployment.
-	TargetPort int `json:"targetPort"`
+	TargetPort int32 `json:"targetPort"`
 }
 
 // KnativeServiceFormFactor contains parameters for Deployment choice.

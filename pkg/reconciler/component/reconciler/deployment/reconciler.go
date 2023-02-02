@@ -5,11 +5,13 @@ package deployment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -78,20 +80,35 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	// render deployment
-	desired, err := r.createDeploymentFrom(obj)
+	_, err := r.reconcileDeployment(ctx, obj)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	r.log.V(5).Info("desired deployment object", "object", desired)
+	if r.registration.GetWorkload().FormFactor.Deployment.Service != nil {
+		_, err = r.reconcileService(ctx, obj)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func (r *reconciler) reconcileDeployment(ctx context.Context, obj client.Object) (*appsv1.Deployment, error) {
+	desired, err := r.createDeploymentFromRegistered(obj)
+	if err != nil {
+		return nil, fmt.Errorf("could not render deployment object: %w", err)
+	}
+
+	r.log.V(5).Info("desired deployment object", "object", *desired)
 
 	existing := &appsv1.Deployment{}
 	err = r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
 	switch {
 	case err == nil:
 		if !semantic.Semantic.DeepEqual(desired, existing) {
-			r.log.Info("rendered deployment does not match the expected object", "object", desired)
+			r.log.Info("existing deployment does not match the expected", "object", desired)
 			r.log.V(5).Info("mismatched deployment", "desired", *desired, "existing", *existing)
 
 			// resourceVersion must be returned to the API server unmodified for
@@ -99,30 +116,25 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			desired.SetResourceVersion(existing.GetResourceVersion())
 
 			if err = r.client.Update(ctx, desired); err != nil {
-				return reconcile.Result{
-					Requeue: false,
-				}, fmt.Errorf("could not update deployment at reconciliation: %+w", err)
+				return nil, fmt.Errorf("could not update deployment object: %+w", err)
 			}
-			return reconcile.Result{}, nil
 		}
+		return desired, nil
 
 	case apierrs.IsNotFound(err):
 		r.log.Info("creating deployment", "object", desired)
 		r.log.V(5).Info("desired deployment", "object", *desired)
 		if err = r.client.Create(ctx, desired); err != nil {
-			return reconcile.Result{}, fmt.Errorf("could not create controlled object: %w", err)
+			return nil, fmt.Errorf("could not create deployment object: %w", err)
 		}
 
-	default:
-		return reconcile.Result{}, fmt.Errorf("could not retrieve controlled object %s: %w", client.ObjectKeyFromObject(desired), err)
 	}
 
-	// update status
-
-	return reconcile.Result{}, nil
+	// TODO update status
+	return nil, fmt.Errorf("could not retrieve controlled deployment %s: %w", client.ObjectKeyFromObject(desired), err)
 }
 
-func (r *reconciler) createDeploymentFrom(obj client.Object) (*appsv1.Deployment, error) {
+func (r *reconciler) createDeploymentFromRegistered(obj client.Object) (*appsv1.Deployment, error) {
 	// TODO generate names
 
 	// use parameter options to define parameters policy
@@ -157,6 +169,70 @@ func (r *reconciler) createDeploymentFrom(obj client.Object) (*appsv1.Deployment
 		)), nil
 }
 
+func (r *reconciler) reconcileService(ctx context.Context, obj client.Object) (*corev1.Service, error) {
+	desired, err := r.createServiceFromRegistered(obj)
+	if err != nil {
+		return nil, fmt.Errorf("could not render service object: %w", err)
+	}
+
+	r.log.V(5).Info("desired service object", "object", *desired)
+
+	existing := &corev1.Service{}
+	err = r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
+	switch {
+	case err == nil:
+		if !semantic.Semantic.DeepEqual(desired, existing) {
+			r.log.Info("existing service does not match the expected", "object", desired)
+			r.log.V(5).Info("mismatched service", "desired", *desired, "existing", *existing)
+
+			// resourceVersion must be returned to the API server unmodified for
+			// optimistic concurrency, as per Kubernetes API conventions
+			desired.SetResourceVersion(existing.GetResourceVersion())
+
+			if err = r.client.Update(ctx, desired); err != nil {
+				return nil, fmt.Errorf("could not update service object: %+w", err)
+			}
+		}
+		return desired, nil
+
+	case apierrs.IsNotFound(err):
+		r.log.Info("creating service", "object", desired)
+		r.log.V(5).Info("desired service", "object", *desired)
+		if err = r.client.Create(ctx, desired); err != nil {
+			return nil, fmt.Errorf("could not create service object: %w", err)
+		}
+
+	}
+
+	// TODO update status
+	return nil, fmt.Errorf("could not retrieve controlled service %s: %w", client.ObjectKeyFromObject(desired), err)
+}
+
+func (r *reconciler) createServiceFromRegistered(obj client.Object) (*corev1.Service, error) {
+	// TODO generate names
+
+	if r.registration.GetWorkload().FormFactor.Deployment == nil ||
+		r.registration.GetWorkload().FormFactor.Deployment.Service == nil {
+		return nil, errors.New("there is no service specification at the registration form factor")
+	}
+	ffscv := r.registration.GetWorkload().FormFactor.Deployment.Service
+
+	return resources.NewService(obj.GetNamespace(), obj.GetName(),
+		resources.ServiceWithMetaOptions(
+			resources.MetaAddLabel(resources.AppNameLabel, r.registration.GetName()),
+			resources.MetaAddLabel(resources.AppInstanceLabel, obj.GetName()),
+			resources.MetaAddLabel(resources.AppComponentLabel, render.ComponentWorkload),
+			resources.MetaAddLabel(resources.AppPartOfLabel, render.PartOf),
+			resources.MetaAddLabel(resources.AppManagedByLabel, render.ManagedBy),
+			resources.MetaAddOwner(obj, obj.GetObjectKind().GroupVersionKind()),
+		),
+		resources.ServiceAddSelectorLabel(resources.AppNameLabel, r.registration.GetName()),
+		resources.ServiceAddSelectorLabel(resources.AppInstanceLabel, obj.GetName()),
+		resources.ServiceAddSelectorLabel(resources.AppComponentLabel, render.ComponentWorkload),
+		resources.ServiceAddPort("", ffscv.Port, ffscv.TargetPort),
+	), nil
+}
+
 func (r *reconciler) InjectClient(c client.Client) error {
 	r.client = c
 	return nil
@@ -164,7 +240,7 @@ func (r *reconciler) InjectClient(c client.Client) error {
 
 func (r *reconciler) InjectLogger(l logr.Logger) error {
 	r.log = l.WithName("dynrecl")
-	l.V(5).Info("logger injected into dynamic component reconciler")
+	l.V(2).Info("logger injected into dynamic component reconciler")
 	return nil
 }
 

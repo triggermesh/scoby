@@ -47,7 +47,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	r.log.V(5).Info("CRD registration retrieved", "object", existing)
+	r.log.V(5).Info("CRD registration retrieved", "object", *existing)
 
 	if !existing.DeletionTimestamp.IsZero() {
 		return r.reconcileDeletion(ctx, existing)
@@ -110,6 +110,7 @@ func (r *Reconciler) reconcileRegistration(ctx context.Context, cr *scobyv1alpha
 	if err := r.Client.Get(ctx, key, crd, &client.GetOptions{}); err != nil {
 		sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionCRDExists, "CRDERROR", err.Error())
 		// TODO replace requeueAfter with a watch
+		// TODO if the component controller is running, stop it.
 		return ctrl.Result{RequeueAfter: time.Second * 15}, err
 	}
 	sm.MarkConditionTrue(scobyv1alpha1.CRDRegistrationConditionCRDExists, "CRDEXIST")
@@ -134,6 +135,6 @@ func (r *Reconciler) InjectClient(c client.Client) error {
 
 func (r *Reconciler) InjectLogger(l logr.Logger) error {
 	r.log = l.WithName("crdregistration")
-	l.V(5).Info("logger injected into CRD reconciler")
+	l.V(2).Info("logger injected into CRD reconciler")
 	return nil
 }

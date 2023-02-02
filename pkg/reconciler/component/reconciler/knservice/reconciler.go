@@ -86,7 +86,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	r.log.V(5).Info("desired knative service object", "object", desired)
+	r.log.V(5).Info("desired knative service object", "object", *desired)
 
 	existing := &servingv1.Service{}
 	err = r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
@@ -173,7 +173,7 @@ func (r *reconciler) InjectClient(c client.Client) error {
 
 func (r *reconciler) InjectLogger(l logr.Logger) error {
 	r.log = l.WithName("dynrecl")
-	l.V(5).Info("logger injected into dynamic component reconciler")
+	l.V(2).Info("logger injected into dynamic component reconciler")
 	return nil
 }
 
