@@ -12,6 +12,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -34,7 +35,14 @@ type ComponentReconciler interface {
 	NewObject() client.Object
 }
 
-func NewComponentReconciler(ctx context.Context, gvk schema.GroupVersionKind, reg common.Registration, mgr manager.Manager) (ComponentReconciler, error) {
+func NewComponentReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (ComponentReconciler, error) {
+	crdv := render.CRDPriotizedVersion(crd)
+	gvk := schema.GroupVersionKind{
+		Group:   crd.Spec.Group,
+		Version: crdv.Name,
+		Kind:    crd.Spec.Names.Kind,
+	}
+
 	log := mgr.GetLogger().WithName(gvk.GroupKind().String())
 
 	r := &reconciler{
@@ -49,7 +57,7 @@ func NewComponentReconciler(ctx context.Context, gvk schema.GroupVersionKind, re
 		Owns(resources.NewDeployment("", "")).
 		Owns(resources.NewService("", "")).
 		Complete(r); err != nil {
-		return nil, fmt.Errorf("could not build controller for %q: %w", gvk, err)
+		return nil, fmt.Errorf("could not build controller for %q: %w", crd.Name, err)
 	}
 
 	return r, nil
@@ -107,19 +115,20 @@ func (r *reconciler) reconcileDeployment(ctx context.Context, obj client.Object)
 	err = r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
 	switch {
 	case err == nil:
-		if !semantic.Semantic.DeepEqual(desired, existing) {
-			r.log.Info("existing deployment does not match the expected", "object", desired)
-			r.log.V(5).Info("mismatched deployment", "desired", *desired, "existing", *existing)
-
-			// resourceVersion must be returned to the API server unmodified for
-			// optimistic concurrency, as per Kubernetes API conventions
-			desired.SetResourceVersion(existing.GetResourceVersion())
-
-			if err = r.client.Update(ctx, desired); err != nil {
-				return nil, fmt.Errorf("could not update deployment object: %+w", err)
-			}
+		if semantic.Semantic.DeepEqual(desired, existing) {
+			return existing, nil
 		}
-		return desired, nil
+
+		r.log.Info("existing deployment does not match the expected", "object", desired)
+		r.log.V(5).Info("mismatched deployment", "desired", *desired, "existing", *existing)
+
+		// resourceVersion must be returned to the API server unmodified for
+		// optimistic concurrency, as per Kubernetes API conventions
+		desired.SetResourceVersion(existing.GetResourceVersion())
+
+		if err = r.client.Update(ctx, desired); err != nil {
+			return nil, fmt.Errorf("could not update deployment object: %+w", err)
+		}
 
 	case apierrs.IsNotFound(err):
 		r.log.Info("creating deployment", "object", desired)
@@ -128,10 +137,12 @@ func (r *reconciler) reconcileDeployment(ctx context.Context, obj client.Object)
 			return nil, fmt.Errorf("could not create deployment object: %w", err)
 		}
 
+	default:
+		return nil, fmt.Errorf("could not retrieve controlled object %s: %w", client.ObjectKeyFromObject(desired), err)
 	}
 
 	// TODO update status
-	return nil, fmt.Errorf("could not retrieve controlled deployment %s: %w", client.ObjectKeyFromObject(desired), err)
+	return desired, nil
 }
 
 func (r *reconciler) createDeploymentFromRegistered(obj client.Object) (*appsv1.Deployment, error) {
@@ -181,19 +192,20 @@ func (r *reconciler) reconcileService(ctx context.Context, obj client.Object) (*
 	err = r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
 	switch {
 	case err == nil:
-		if !semantic.Semantic.DeepEqual(desired, existing) {
-			r.log.Info("existing service does not match the expected", "object", desired)
-			r.log.V(5).Info("mismatched service", "desired", *desired, "existing", *existing)
-
-			// resourceVersion must be returned to the API server unmodified for
-			// optimistic concurrency, as per Kubernetes API conventions
-			desired.SetResourceVersion(existing.GetResourceVersion())
-
-			if err = r.client.Update(ctx, desired); err != nil {
-				return nil, fmt.Errorf("could not update service object: %+w", err)
-			}
+		if semantic.Semantic.DeepEqual(desired, existing) {
+			return desired, nil
 		}
-		return desired, nil
+
+		r.log.Info("existing service does not match the expected", "object", desired)
+		r.log.V(5).Info("mismatched service", "desired", *desired, "existing", *existing)
+
+		// resourceVersion must be returned to the API server unmodified for
+		// optimistic concurrency, as per Kubernetes API conventions
+		desired.SetResourceVersion(existing.GetResourceVersion())
+
+		if err = r.client.Update(ctx, desired); err != nil {
+			return nil, fmt.Errorf("could not update service object: %+w", err)
+		}
 
 	case apierrs.IsNotFound(err):
 		r.log.Info("creating service", "object", desired)
@@ -201,11 +213,12 @@ func (r *reconciler) reconcileService(ctx context.Context, obj client.Object) (*
 		if err = r.client.Create(ctx, desired); err != nil {
 			return nil, fmt.Errorf("could not create service object: %w", err)
 		}
-
+	default:
+		return nil, fmt.Errorf("could not retrieve controlled service %s: %w", client.ObjectKeyFromObject(desired), err)
 	}
 
 	// TODO update status
-	return nil, fmt.Errorf("could not retrieve controlled service %s: %w", client.ObjectKeyFromObject(desired), err)
+	return desired, nil
 }
 
 func (r *reconciler) createServiceFromRegistered(obj client.Object) (*corev1.Service, error) {

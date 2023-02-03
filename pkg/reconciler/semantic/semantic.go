@@ -26,6 +26,7 @@ import (
 // DeepDerivative comparisons to work as expected.
 var Semantic = conversion.EqualitiesOrDie(
 	deploymentEqual,
+	serviceEqual,
 	knServiceEqual,
 	serviceAccountEqual,
 	statusEqual,
@@ -104,6 +105,26 @@ var eq = conversion.EqualitiesOrDie(
 
 // deploymentEqual returns whether two Deployments are semantically equivalent.
 func deploymentEqual(a, b *appsv1.Deployment) bool {
+	if a == b {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+
+	if !eq.DeepDerivative(&a.ObjectMeta, &b.ObjectMeta) {
+		return false
+	}
+
+	if !eq.DeepDerivative(&a.Spec, &b.Spec) {
+		return false
+	}
+
+	return true
+}
+
+// serviceEqual returns whether two Services are semantically equivalent.
+func serviceEqual(a, b *corev1.Service) bool {
 	if a == b {
 		return true
 	}

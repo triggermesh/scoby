@@ -11,7 +11,6 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/version"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -56,32 +55,11 @@ func New(ctx context.Context, mgr manager.Manager, logger *logr.Logger) Componen
 	}
 }
 
-func CRDPriotizedVersion(crd *apiextensionsv1.CustomResourceDefinition) *apiextensionsv1.CustomResourceDefinitionVersion {
-	var crdv *apiextensionsv1.CustomResourceDefinitionVersion
-	for _, v := range crd.Spec.Versions {
-		if crdv == nil {
-			crdv = &v
-			continue
-		}
-
-		if version.CompareKubeAwareVersionStrings(v.Name, crdv.Name) > 0 {
-			crdv = &v
-		}
-	}
-	return crdv
-}
-
 func (cr *componentRegisty) EnsureComponentController(reg common.Registration, crd *apiextensionsv1.CustomResourceDefinition) error {
 	cr.logger.V(1).Info("EnsureComponentController", "crd", crd.Name)
-	ver := CRDPriotizedVersion(crd)
+
 	cr.lock.Lock()
 	defer cr.lock.Unlock()
-
-	gvk := schema.GroupVersionKind{
-		Group:   crd.Spec.Group,
-		Version: ver.Name,
-		Kind:    crd.Spec.Names.Kind,
-	}
 
 	_, found := cr.controllers[reg.GetName()]
 	if found {
@@ -91,7 +69,7 @@ func (cr *componentRegisty) EnsureComponentController(reg common.Registration, c
 	cr.logger.Info("Creating component controller for CRD", "name", crd.Name)
 
 	ctx, cancel := context.WithCancel(cr.context)
-	r, err := creconciler.NewReconciler(ctx, gvk, reg, cr.mgr)
+	r, err := creconciler.NewReconciler(ctx, crd, reg, cr.mgr)
 	if err != nil {
 		cancel()
 		return err

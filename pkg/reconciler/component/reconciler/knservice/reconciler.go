@@ -14,6 +14,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,7 +36,14 @@ type ComponentReconciler interface {
 	NewObject() client.Object
 }
 
-func NewComponentReconciler(ctx context.Context, gvk schema.GroupVersionKind, reg common.Registration, mgr manager.Manager) (ComponentReconciler, error) {
+func NewComponentReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (ComponentReconciler, error) {
+	crdv := render.CRDPriotizedVersion(crd)
+	gvk := schema.GroupVersionKind{
+		Group:   crd.Spec.Group,
+		Version: crdv.Name,
+		Kind:    crd.Spec.Names.Kind,
+	}
+
 	log := mgr.GetLogger().WithName(gvk.GroupKind().String())
 
 	r := &reconciler{
