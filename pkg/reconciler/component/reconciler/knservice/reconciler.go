@@ -120,7 +120,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		r.log.Info("creating knative service", "object", desired)
 		r.log.V(5).Info("desired knative service", "object", *desired)
 		if err = r.client.Create(ctx, desired); err != nil {
-			return reconcile.Result{}, fmt.Errorf("could not create controlled object: %w", err)
+			return reconcile.Result{}, fmt.Errorf("could not create knative service object: %w", err)
 		}
 
 	default:
