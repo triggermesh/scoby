@@ -6,7 +6,7 @@ package reconciler
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -16,13 +16,13 @@ import (
 	knservingr "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/knservice"
 )
 
-func NewReconciler(ctx context.Context, gvk schema.GroupVersionKind, reg common.Registration, mgr manager.Manager) (reconcile.Reconciler, error) {
+func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (reconcile.Reconciler, error) {
 	switch {
 	case reg.GetWorkload().FormFactor.KnativeService != nil:
-		return knservingr.NewComponentReconciler(ctx, gvk, reg, mgr)
+		return knservingr.NewComponentReconciler(ctx, crd, reg, mgr)
 	default:
 		// Defaults to deployment
-		return deploymetr.NewComponentReconciler(ctx, gvk, reg, mgr)
+		return deploymetr.NewComponentReconciler(ctx, crd, reg, mgr)
 	}
 
 }
