@@ -14,10 +14,8 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,8 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	rcrd "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/crd"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/render"
-
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )
@@ -36,19 +34,13 @@ type ComponentReconciler interface {
 	NewObject() client.Object
 }
 
-func NewComponentReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (ComponentReconciler, error) {
-	crdv := render.CRDPriotizedVersion(crd)
-	gvk := schema.GroupVersionKind{
-		Group:   crd.Spec.Group,
-		Version: crdv.Name,
-		Kind:    crd.Spec.Names.Kind,
-	}
-
-	log := mgr.GetLogger().WithName(gvk.GroupKind().String())
+func NewComponentReconciler(ctx context.Context, crd *rcrd.Registered, reg common.Registration, mgr manager.Manager) (ComponentReconciler, error) {
+	gvk := crd.GetGVK()
+	log := mgr.GetLogger().WithName(gvk.String())
 
 	r := &reconciler{
 		log:          log,
-		gvk:          gvk,
+		crd:          crd,
 		registration: reg,
 		psr:          render.NewPodSpecRenderer("adapter", reg.GetWorkload().FromImage.Repo),
 	}
@@ -57,14 +49,14 @@ func NewComponentReconciler(ctx context.Context, crd *apiextensionsv1.CustomReso
 		For(r.NewObject()).
 		Owns(resources.NewKnativeService("", "")).
 		Complete(r); err != nil {
-		return nil, fmt.Errorf("could not build controller for %q: %w", gvk, err)
+		return nil, fmt.Errorf("could not build controller for %q: %w", gvk.String(), err)
 	}
 
 	return r, nil
 }
 
 type reconciler struct {
-	gvk          schema.GroupVersionKind
+	crd          *rcrd.Registered
 	registration common.Registration
 	psr          render.PodSpecRenderer
 
@@ -187,10 +179,6 @@ func (r *reconciler) InjectLogger(l logr.Logger) error {
 
 func (r *reconciler) NewObject() client.Object {
 	obj := &unstructured.Unstructured{}
-	obj.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   r.gvk.Group,
-		Kind:    r.gvk.Kind,
-		Version: r.gvk.Version,
-	})
+	obj.SetGroupVersionKind(r.crd.GetGVK())
 	return obj
 }
