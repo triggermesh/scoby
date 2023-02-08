@@ -31,3 +31,7 @@ func (r *Registered) GetStatusFlag() StatusFlag {
 func (r *Registered) GetGVK() schema.GroupVersionKind {
 	return r.gvk
 }
+
+// func (r *Registered) GetStatusManager() StatusManager{
+
+// }

@@ -13,6 +13,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -31,22 +32,25 @@ const defaultReplicas = 1
 
 type ComponentReconciler interface {
 	reconcile.Reconciler
-	NewObject() client.Object
+	NewReconciled() ReconciledObject
 }
 
 func NewComponentReconciler(ctx context.Context, crd *rcrd.Registered, reg common.Registration, mgr manager.Manager) (ComponentReconciler, error) {
 	gvk := crd.GetGVK()
 	log := mgr.GetLogger().WithName(gvk.String())
 
+	smf := rcrd.NewStatusManagerFactory(crd.GetStatusFlag(), "Ready", map[string]struct{}{"Ready": {}, "Dummy": {}}, log)
+
 	r := &reconciler{
 		log:          log,
 		crd:          crd,
+		smf:          smf,
 		registration: reg,
 		psr:          render.NewPodSpecRenderer("adapter", reg.GetWorkload().FromImage.Repo),
 	}
 
 	if err := builder.ControllerManagedBy(mgr).
-		For(r.NewObject()).
+		For(r.NewReconciled().GetObject()).
 		Owns(resources.NewDeployment("", "")).
 		Owns(resources.NewService("", "")).
 		Complete(r); err != nil {
@@ -60,6 +64,7 @@ type reconciler struct {
 	crd          *rcrd.Registered
 	registration common.Registration
 	psr          render.PodSpecRenderer
+	smf          rcrd.StatusManagerFactory
 
 	client client.Client
 	log    logr.Logger
@@ -70,7 +75,8 @@ var _ ComponentReconciler = (*reconciler)(nil)
 func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	r.log.V(1).Info("reconciling request", "request", req)
 
-	obj := r.NewObject()
+	ro := r.NewReconciled()
+	obj := ro.GetObject()
 	if err := r.client.Get(ctx, req.NamespacedName, obj); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
@@ -81,9 +87,26 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
+	if r.crd.GetStatusFlag().AllowObservedGeneration() {
+		r.log.V(1).Info("updating observed generation")
+		ro.SetStatusObservedGeneration(obj.GetGeneration())
+		if err := r.client.Status().Update(ctx, obj); err != nil {
+			return reconcile.Result{}, err
+		}
+		r.log.V(1).Info("updated observed generation")
+	}
+
 	_, err := r.reconcileDeployment(ctx, obj)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	if r.crd.GetStatusFlag().AllowConditions() {
+		ro.SetStatusCondition("Dummy", metav1.ConditionTrue, "TEST", "")
+		if err := r.client.Status().Update(ctx, obj); err != nil {
+			return reconcile.Result{}, err
+		}
+		r.log.V(1).Info("updated conditions")
 	}
 
 	if r.registration.GetWorkload().FormFactor.Deployment.Service != nil {
@@ -250,8 +273,38 @@ func (r *reconciler) InjectLogger(l logr.Logger) error {
 	return nil
 }
 
-func (r *reconciler) NewObject() client.Object {
-	obj := &unstructured.Unstructured{}
-	obj.SetGroupVersionKind(r.crd.GetGVK())
-	return obj
+type ReconciledObject interface {
+	GetObject() client.Object
+	SetStatusObservedGeneration(generation int64)
+	SetStatusCondition(typ string, status metav1.ConditionStatus, reason, message string)
+}
+
+type reconciledObject struct {
+	unstructured *unstructured.Unstructured
+	sm           rcrd.StatusManager
+}
+
+func (ro *reconciledObject) SetStatusObservedGeneration(generation int64) {
+	ro.sm.SetObservedGeneration(generation)
+}
+
+func (ro *reconciledObject) SetStatusCondition(typ string, status metav1.ConditionStatus, reason, message string) {
+	ro.sm.SetCondition(typ, status, reason, message)
+}
+
+func (ro *reconciledObject) GetObject() client.Object {
+	return ro.unstructured
+}
+
+func (r *reconciler) NewReconciled() ReconciledObject {
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(r.crd.GetGVK())
+	ro := &reconciledObject{
+		unstructured: u,
+		sm:           r.smf.ForObject(u),
+	}
+
+	ro.sm.Init()
+
+	return ro
 }
