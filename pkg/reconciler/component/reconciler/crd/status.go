@@ -3,6 +3,7 @@ package crd
 import (
 	"errors"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -88,6 +89,7 @@ type statusManager struct {
 
 	time Time
 	log  logr.Logger
+	m    sync.Mutex
 }
 
 // creates the object["status"] element
@@ -109,6 +111,7 @@ func (sm *statusManager) sanitizeConditions() {
 		sm.log.V(2).Info("Skipping conditions: not supported by the CRD")
 		return
 	}
+
 	sm.ensureStatusRoot()
 	sm.log.V(2).Info("Ensuring status conditions")
 
@@ -213,6 +216,9 @@ func (sm *statusManager) SetCondition(typ string, status metav1.ConditionStatus,
 		return
 	}
 
+	sm.m.Lock()
+	defer sm.m.Unlock()
+
 	// make sure conditions are available.
 	sm.sanitizeConditions()
 
@@ -247,7 +253,7 @@ func (sm *statusManager) SetCondition(typ string, status metav1.ConditionStatus,
 			// This is the condition that we need to set
 			c["message"] = message
 			c["lastTransitionTime"] = sm.time.Now()
-			c["status"] = status
+			c["status"] = string(status)
 			c["reason"] = reason
 
 			found = true
@@ -278,23 +284,26 @@ func (sm *statusManager) updateConditionHappiness() {
 	conditions := ecs.([]interface{})
 
 	happyConditionIndex := -1
-	happyStatus := metav1.ConditionTrue
+	happyStatus := string(metav1.ConditionTrue)
 	happyReason := common.ConditionReasonAllTrue
 
 	for i := range conditions {
 		c, ok := conditions[i].(map[string]interface{})
 		if !ok {
+			sm.log.Error(errors.New("condition cannot be parsed"), "Could not process condition happiness", "condition", conditions[i])
 			continue
 		}
 
 		cType, ok := c["type"]
 		if !ok {
+			sm.log.Error(errors.New("condition does not have a type"), "Could not process condition happiness", "condition", c)
 			continue
 		}
 
 		// Expect that the type value is a string.
 		csType, ok := cType.(string)
 		if !ok {
+			sm.log.Error(errors.New("condition type is not a string"), "Could not process condition happiness", "type", cType)
 			continue
 		}
 
@@ -310,19 +319,22 @@ func (sm *statusManager) updateConditionHappiness() {
 			continue
 		}
 
-		ccStatus, ok := cStatus.(metav1.ConditionStatus)
+		sStatus, ok := cStatus.(string)
 		if !ok {
+			sm.log.Error(errors.New("condition status not expected"), "Could not process condition happiness", "status", cStatus)
 			continue
 		}
 
-		if ccStatus == metav1.ConditionFalse && happyStatus != metav1.ConditionFalse {
-			happyStatus = metav1.ConditionFalse
+		//cssStatus := metav1.ConditionStatus(sStatus)
+
+		if sStatus == string(metav1.ConditionFalse) && happyStatus != string(metav1.ConditionFalse) {
+			happyStatus = string(metav1.ConditionFalse)
 			happyReason = common.ConditionReasonNotAllTrue
 			continue
 		}
 
-		if ccStatus == metav1.ConditionUnknown && happyStatus != metav1.ConditionUnknown {
-			happyStatus = metav1.ConditionUnknown
+		if sStatus == string(metav1.ConditionUnknown) && happyStatus != string(metav1.ConditionUnknown) {
+			happyStatus = string(metav1.ConditionUnknown)
 			happyReason = common.ConditionReasonUnknown
 		}
 	}
@@ -344,6 +356,9 @@ func (sm *statusManager) SetObservedGeneration(g int64) {
 	if !sm.flag.AllowObservedGeneration() {
 		return
 	}
+
+	sm.m.Lock()
+	defer sm.m.Unlock()
 
 	sm.ensureStatusRoot()
 	typedStatus := sm.object.Object["status"].(map[string]interface{})
