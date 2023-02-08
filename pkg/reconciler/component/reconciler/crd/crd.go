@@ -50,6 +50,11 @@ func (sf StatusFlag) AllowObservedGeneration() bool {
 
 func CRDStatusFlag(crdv *apiextensionsv1.CustomResourceDefinitionVersion) StatusFlag {
 	var sf StatusFlag = 0
+
+	if crdv.Subresources == nil || crdv.Subresources.Status == nil {
+		return sf
+	}
+
 	status, ok := crdv.Schema.OpenAPIV3Schema.Properties["status"]
 	if !ok {
 		return sf
