@@ -8,12 +8,8 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-)
 
-const (
-	ConditionReasonUnknown    = "UNKNOWN"
-	ConditionReasonAllTrue    = "CONDITIONSOK"
-	ConditionReasonNotAllTrue = "CONDITIONSNOTOK"
+	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 )
 
 // Time is a helper wrap around time.Now that
@@ -40,7 +36,12 @@ type statusManagerFactory struct {
 	log  logr.Logger
 }
 
-func NewStatusManagerFactory(flag StatusFlag, happyCond string, conds map[string]struct{}, log logr.Logger) StatusManagerFactory {
+func NewStatusManagerFactory(flag StatusFlag, happyCond string, conditionSet []string, log logr.Logger) StatusManagerFactory {
+	conds := make(map[string]struct{}, len(conditionSet))
+	for _, c := range conditionSet {
+		conds[c] = struct{}{}
+	}
+
 	return &statusManagerFactory{
 		flag:      flag,
 		happyCond: happyCond,
@@ -51,7 +52,7 @@ func NewStatusManagerFactory(flag StatusFlag, happyCond string, conds map[string
 }
 
 type StatusManager interface {
-	Init()
+	// Init()
 	SetObservedGeneration(int64)
 	SetCondition(typ string, status metav1.ConditionStatus, reason, message string)
 }
@@ -66,8 +67,6 @@ func (smf *statusManagerFactory) ForObject(object *unstructured.Unstructured) St
 		time: smf.time,
 		log:  smf.log,
 	}
-
-	sm.sanitizeConditions()
 
 	return sm
 }
@@ -91,10 +90,6 @@ type statusManager struct {
 	log  logr.Logger
 }
 
-func (sm *statusManager) Init() {
-	sm.sanitizeConditions()
-}
-
 // creates the object["status"] element
 func (sm *statusManager) ensureStatusRoot() {
 	if sm.object.Object == nil {
@@ -106,26 +101,18 @@ func (sm *statusManager) ensureStatusRoot() {
 	}
 }
 
+// makes sure the set of expected conditions exist with their default value,
+// not overwritting the existing ones and removing any that should not exist.
 func (sm *statusManager) sanitizeConditions() {
 	// When no flags set there status at the object's CRD.
-	if sm.flag == 0 {
-		sm.log.V(2).Info("Skipping status: subresource is not present at CRD")
+	if !sm.flag.AllowConditions() {
+		sm.log.V(2).Info("Skipping conditions: not supported by the CRD")
 		return
 	}
-
 	sm.ensureStatusRoot()
+	sm.log.V(2).Info("Ensuring status conditions")
+
 	typedStatus := sm.object.Object["status"].(map[string]interface{})
-
-	if sm.flag.AllowObservedGeneration() {
-		sm.log.V(2).Info("Writing status observedGeneration")
-		_, ok := typedStatus["observedGeneration"]
-		if !ok {
-			typedStatus["observedGeneration"] = int64(0)
-		}
-	}
-
-	sm.log.V(2).Info("Writing status conditions")
-
 	ecs, ok := typedStatus["conditions"]
 	if !ok {
 		ecs = make([]interface{}, 0, len(sm.conditionTypes))
@@ -136,10 +123,6 @@ func (sm *statusManager) sanitizeConditions() {
 	// make sure all expected conditions are listed at the current status
 	// by moving them to the front of the slice keeping the index.
 	i := 0
-	// also keep track of the happiness by using the other existing
-	// consitions statuses.
-	happyStatus := metav1.ConditionTrue
-
 	for _, ec := range existingConditions {
 		// We expect each expected condition to be
 		// map[string]string. The casting must be done
@@ -176,29 +159,6 @@ func (sm *statusManager) sanitizeConditions() {
 		if csType == sm.happyConditionType {
 			continue
 		}
-
-		// look for the status element of this condition
-		s, ok := c["status"]
-		if !ok {
-			continue
-		}
-
-		// status value must be a string
-		ss, ok := s.(string)
-		if !ok {
-			continue
-		}
-
-		switch metav1.ConditionStatus(ss) {
-		case metav1.ConditionFalse:
-			if happyStatus != metav1.ConditionFalse {
-				happyStatus = metav1.ConditionFalse
-			}
-		case metav1.ConditionUnknown:
-			if happyStatus == metav1.ConditionTrue {
-				happyStatus = metav1.ConditionUnknown
-			}
-		}
 	}
 
 	// if there are conditions that we do not expect at the tail, remove them.
@@ -209,11 +169,6 @@ func (sm *statusManager) sanitizeConditions() {
 	// some expected conditions might be missing, or some not expected conditions
 	// might be present
 	if len(sm.conditionTypes) != len(existingConditions) {
-		// new elements are going to be added, set global readiness to unknown
-		if happyStatus == metav1.ConditionTrue {
-			happyStatus = metav1.ConditionUnknown
-		}
-
 		// Use the same last transition time for all conditions
 		tt := sm.time.Now()
 
@@ -238,7 +193,7 @@ func (sm *statusManager) sanitizeConditions() {
 					"type":               k,
 					"status":             string(metav1.ConditionUnknown),
 					"lastTransitionTime": tt.UTC().Format(time.RFC3339),
-					"reason":             ConditionReasonUnknown,
+					"reason":             common.ConditionReasonUnknown,
 					"message":            "",
 				})
 		}
@@ -250,8 +205,6 @@ func (sm *statusManager) sanitizeConditions() {
 		return tci["type"].(string) < tcj["type"].(string)
 	})
 
-	// TODO Adjust hapiness.
-
 	typedStatus["conditions"] = existingConditions
 }
 
@@ -260,7 +213,9 @@ func (sm *statusManager) SetCondition(typ string, status metav1.ConditionStatus,
 		return
 	}
 
-	sm.ensureStatusRoot()
+	// make sure conditions are available.
+	sm.sanitizeConditions()
+
 	typedStatus := sm.object.Object["status"].(map[string]interface{})
 
 	ecs, ok := typedStatus["conditions"]
@@ -272,28 +227,23 @@ func (sm *statusManager) SetCondition(typ string, status metav1.ConditionStatus,
 
 	found := false
 	for i := range existingConditions {
-		sm.log.Info("Debugdeleteme iterating condition 0", "i", i)
 		c, ok := existingConditions[i].(map[string]interface{})
 		if !ok {
 			continue
 		}
-		sm.log.Info("Debugdeleteme iterating condition 1", "i", i)
 
 		cType, ok := c["type"]
 		if !ok {
 			continue
 		}
-		sm.log.Info("Debugdeleteme iterating condition 2", "i", i)
 
 		// Expect that the type value is a string.
 		csType, ok := cType.(string)
 		if !ok {
 			continue
 		}
-		sm.log.Info("Debugdeleteme iterating condition 3", "i", i)
 
 		if csType == typ {
-			sm.log.Info("Debugdeleteme iterating BINGO!", "i", i)
 			// This is the condition that we need to set
 			c["message"] = message
 			c["lastTransitionTime"] = sm.time.Now()
@@ -310,7 +260,84 @@ func (sm *statusManager) SetCondition(typ string, status metav1.ConditionStatus,
 		return
 	}
 
-	sm.sanitizeConditions()
+	sm.updateConditionHappiness()
+}
+
+func (sm *statusManager) updateConditionHappiness() {
+	if !sm.flag.AllowConditions() {
+		return
+	}
+
+	typedStatus := sm.object.Object["status"].(map[string]interface{})
+
+	ecs, ok := typedStatus["conditions"]
+	if !ok {
+		ecs = make([]interface{}, 0, len(sm.conditionTypes))
+		typedStatus["conditions"] = ecs
+	}
+	conditions := ecs.([]interface{})
+
+	happyConditionIndex := -1
+	happyStatus := metav1.ConditionTrue
+	happyReason := common.ConditionReasonAllTrue
+
+	for i := range conditions {
+		c, ok := conditions[i].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		cType, ok := c["type"]
+		if !ok {
+			continue
+		}
+
+		// Expect that the type value is a string.
+		csType, ok := cType.(string)
+		if !ok {
+			continue
+		}
+
+		if csType == sm.happyConditionType {
+			// Happiness does not vote on itself
+			happyConditionIndex = i
+			continue
+		}
+
+		cStatus, ok := c["status"]
+		if !ok {
+			sm.log.Error(errors.New("condition does not have a status entry"), "Could not process condition happiness", "condition", c)
+			continue
+		}
+
+		ccStatus, ok := cStatus.(metav1.ConditionStatus)
+		if !ok {
+			continue
+		}
+
+		if ccStatus == metav1.ConditionFalse && happyStatus != metav1.ConditionFalse {
+			happyStatus = metav1.ConditionFalse
+			happyReason = common.ConditionReasonNotAllTrue
+			continue
+		}
+
+		if ccStatus == metav1.ConditionUnknown && happyStatus != metav1.ConditionUnknown {
+			happyStatus = metav1.ConditionUnknown
+			happyReason = common.ConditionReasonUnknown
+		}
+	}
+
+	if happyConditionIndex == -1 {
+		sm.log.Error(errors.New("conditions do not have the happy condition item"), "Could not process condition happiness", "happy", sm.happyConditionType)
+		return
+	}
+
+	hc := conditions[happyConditionIndex].(map[string]interface{})
+	if hc["status"] != happyStatus || hc["reason"] != happyReason {
+		hc["status"] = happyStatus
+		hc["reason"] = happyReason
+		hc["lastTransitionTime"] = sm.time.Now()
+	}
 }
 
 func (sm *statusManager) SetObservedGeneration(g int64) {

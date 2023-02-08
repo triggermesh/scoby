@@ -39,7 +39,7 @@ func NewComponentReconciler(ctx context.Context, crd *rcrd.Registered, reg commo
 	gvk := crd.GetGVK()
 	log := mgr.GetLogger().WithName(gvk.String())
 
-	smf := rcrd.NewStatusManagerFactory(crd.GetStatusFlag(), "Ready", map[string]struct{}{"Ready": {}, "Dummy": {}}, log)
+	smf := rcrd.NewStatusManagerFactory(crd.GetStatusFlag(), "Ready", []string{"Ready", "Dummy"}, log)
 
 	r := &reconciler{
 		log:          log,
@@ -102,7 +102,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	if r.crd.GetStatusFlag().AllowConditions() {
-		ro.SetStatusCondition("Dummy", metav1.ConditionTrue, "TEST", "")
+		ro.SetStatusCondition("Dummy", metav1.ConditionFalse, "TEST", "")
 		if err := r.client.Status().Update(ctx, obj); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -303,8 +303,6 @@ func (r *reconciler) NewReconciled() ReconciledObject {
 		unstructured: u,
 		sm:           r.smf.ForObject(u),
 	}
-
-	ro.sm.Init()
 
 	return ro
 }
