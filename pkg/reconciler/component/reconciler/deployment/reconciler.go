@@ -28,7 +28,13 @@ import (
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )
 
-const defaultReplicas = 1
+const (
+	defaultReplicas = 1
+
+	ConditionTypeDeploymentReady = "DeploymentReady"
+	ConditionTypeServiceReady    = "ServiceReady"
+	ConditionTypeReady           = "Ready"
+)
 
 type ComponentReconciler interface {
 	reconcile.Reconciler
@@ -39,7 +45,7 @@ func NewComponentReconciler(ctx context.Context, crd *rcrd.Registered, reg commo
 	gvk := crd.GetGVK()
 	log := mgr.GetLogger().WithName(gvk.String())
 
-	smf := rcrd.NewStatusManagerFactory(crd.GetStatusFlag(), "Ready", []string{"Ready", "Dummy"}, log)
+	smf := rcrd.NewStatusManagerFactory(crd.GetStatusFlag(), "Ready", []string{ConditionTypeDeploymentReady, ConditionTypeServiceReady, ConditionTypeReady}, log)
 
 	r := &reconciler{
 		log:          log,
@@ -96,13 +102,34 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		r.log.V(1).Info("updated observed generation")
 	}
 
-	_, err := r.reconcileDeployment(ctx, obj)
+	d, err := r.reconcileDeployment(ctx, obj)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	if r.crd.GetStatusFlag().AllowConditions() {
-		ro.SetStatusCondition("Dummy", metav1.ConditionFalse, "TEST", "")
+		reason := "DeploymentUnknown"
+		status := metav1.ConditionUnknown
+		message := ""
+		for _, c := range d.Status.Conditions {
+			if c.Type != appsv1.DeploymentAvailable {
+				continue
+			}
+			switch c.Status {
+			case corev1.ConditionTrue:
+				status = metav1.ConditionTrue
+				reason = c.Reason
+
+			case corev1.ConditionFalse:
+				status = metav1.ConditionFalse
+				reason = c.Reason
+				message = c.Message
+
+			}
+
+		}
+
+		ro.SetStatusCondition(ConditionTypeDeploymentReady, status, reason, message)
 		if err := r.client.Status().Update(ctx, obj); err != nil {
 			return reconcile.Result{}, err
 		}
