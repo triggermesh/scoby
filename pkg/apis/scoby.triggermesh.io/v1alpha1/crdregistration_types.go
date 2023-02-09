@@ -34,7 +34,7 @@ type CRDRegistrationStatus struct {
 
 // CRDRegistration uses existing CRDs to provide generic controllers for them.
 // +kubebuilder:printcolumn:name="CRD",type="string",JSONPath=".spec.crd"
-// +kubebuilder:printcolumn:name="last run",type="string",JSONPath=".status.lastRun",format="date"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
 type CRDRegistration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
