@@ -21,9 +21,9 @@ spec:
     - jsonPath: .spec.crd
       name: CRD
       type: string
-    - name: Ready
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
       type: string
-      jsonPath: ".status.conditions[?(@.type==\"Ready\")].status"
     name: v1alpha1
     schema:
       openAPIV3Schema:
