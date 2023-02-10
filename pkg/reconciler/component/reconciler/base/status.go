@@ -1,4 +1,4 @@
-package crd
+package base
 
 import (
 	"errors"
@@ -7,10 +7,15 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+)
+
+const (
+	ConditionTypeReady = "Ready"
 )
 
 // Time is a helper wrap around time.Now that
@@ -25,6 +30,11 @@ type realTime struct{}
 func (realTime) Now() metav1.Time { return metav1.NewTime(time.Now()) }
 
 type StatusManagerFactory interface {
+	// Configures the internal set of conditions for the
+	// generated status managers.
+	UpdateConditionSet(happyCond string, conditions ...string)
+
+	// Create a new status manager for the object.
 	ForObject(object *unstructured.Unstructured) StatusManager
 }
 
@@ -33,18 +43,19 @@ type statusManagerFactory struct {
 	happyCond string
 	conds     map[string]struct{}
 
-	time Time
-	log  logr.Logger
+	time  Time
+	log   logr.Logger
+	mutex sync.RWMutex
 }
 
-func NewStatusManagerFactory(flag StatusFlag, happyCond string, conditionSet []string, log logr.Logger) StatusManagerFactory {
+func NewStatusManagerFactory(crdv *apiextensionsv1.CustomResourceDefinitionVersion, happyCond string, conditionSet []string, log logr.Logger) StatusManagerFactory {
 	conds := make(map[string]struct{}, len(conditionSet))
 	for _, c := range conditionSet {
 		conds[c] = struct{}{}
 	}
 
 	return &statusManagerFactory{
-		flag:      flag,
+		flag:      CRDStatusFlag(crdv),
 		happyCond: happyCond,
 		conds:     conds,
 		time:      realTime{},
@@ -52,13 +63,29 @@ func NewStatusManagerFactory(flag StatusFlag, happyCond string, conditionSet []s
 	}
 }
 
-type StatusManager interface {
-	// Init()
-	SetObservedGeneration(int64)
-	SetCondition(typ string, status metav1.ConditionStatus, reason, message string)
+func (smf *statusManagerFactory) UpdateConditionSet(happyCond string, conditions ...string) {
+	smf.mutex.Lock()
+	defer smf.mutex.Unlock()
+
+	smf.happyCond = happyCond
+
+	conds := make(map[string]struct{}, len(conditions))
+	for _, c := range conditions {
+		conds[c] = struct{}{}
+	}
+
+	// if happy condition is missing from the set, add it.
+	if _, ok := conds[happyCond]; !ok {
+		conds[happyCond] = struct{}{}
+	}
+
+	smf.conds = conds
 }
 
 func (smf *statusManagerFactory) ForObject(object *unstructured.Unstructured) StatusManager {
+	smf.mutex.RLock()
+	defer smf.mutex.RUnlock()
+
 	sm := &statusManager{
 		object:             object,
 		happyConditionType: smf.happyCond,
@@ -66,10 +93,18 @@ func (smf *statusManagerFactory) ForObject(object *unstructured.Unstructured) St
 		flag:               smf.flag,
 
 		time: smf.time,
-		log:  smf.log,
+		log:  smf.log.WithName(object.GroupVersionKind().String()),
 	}
 
 	return sm
+}
+
+type StatusManager interface {
+	// Init()
+	GetObservedGeneration() int64
+	SetObservedGeneration(int64)
+	GetCondition(conditionType string) *apicommon.Condition
+	SetCondition(condition *apicommon.Condition)
 }
 
 type statusManager struct {
@@ -89,7 +124,7 @@ type statusManager struct {
 
 	time Time
 	log  logr.Logger
-	m    sync.Mutex
+	m    sync.RWMutex
 }
 
 // creates the object["status"] element
@@ -196,7 +231,7 @@ func (sm *statusManager) sanitizeConditions() {
 					"type":               k,
 					"status":             string(metav1.ConditionUnknown),
 					"lastTransitionTime": tt.UTC().Format(time.RFC3339),
-					"reason":             common.ConditionReasonUnknown,
+					"reason":             apicommon.ConditionReasonUnknown,
 					"message":            "",
 				})
 		}
@@ -211,7 +246,53 @@ func (sm *statusManager) sanitizeConditions() {
 	typedStatus["conditions"] = existingConditions
 }
 
-func (sm *statusManager) SetCondition(typ string, status metav1.ConditionStatus, reason, message string) {
+func (sm *statusManager) GetCondition(conditionType string) *apicommon.Condition {
+	if !sm.flag.AllowConditions() {
+		return nil
+	}
+
+	existingConditions, _, _ := unstructured.NestedSlice(sm.object.Object, "status", "conditions")
+
+	for i := range existingConditions {
+		c, ok := existingConditions[i].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		cType, ok := c["type"]
+		if !ok {
+			continue
+		}
+
+		// Expect that the type value is a string.
+		csType, ok := cType.(string)
+		if !ok {
+			continue
+		}
+
+		if csType == conditionType {
+			// This is the condition that we need to return
+
+			t, err := time.Parse(time.RFC3339, c["lastTransitionTime"].(string))
+			if err != nil {
+				sm.log.Error(err, "could not parse condition lastTransitionTime", "lastTransitionTime", c["lastTransitionTime"])
+			}
+
+			return &apicommon.Condition{
+				Type:               conditionType,
+				Message:            c["message"].(string),
+				LastTransitionTime: metav1.NewTime(t),
+				Status:             metav1.ConditionStatus(c["status"].(string)),
+				Reason:             c["reason"].(string),
+			}
+		}
+	}
+
+	sm.log.Info("Status condition not found", "type", conditionType)
+	return nil
+}
+
+func (sm *statusManager) SetCondition(condition *apicommon.Condition) {
 	if !sm.flag.AllowConditions() {
 		return
 	}
@@ -249,12 +330,12 @@ func (sm *statusManager) SetCondition(typ string, status metav1.ConditionStatus,
 			continue
 		}
 
-		if csType == typ {
+		if csType == condition.Type {
 			// This is the condition that we need to set
-			c["message"] = message
+			c["message"] = condition.Message
 			c["lastTransitionTime"] = sm.time.Now()
-			c["status"] = string(status)
-			c["reason"] = reason
+			c["status"] = string(condition.Status)
+			c["reason"] = condition.Reason
 
 			found = true
 			break
@@ -262,7 +343,7 @@ func (sm *statusManager) SetCondition(typ string, status metav1.ConditionStatus,
 	}
 
 	if !found {
-		sm.log.Error(errors.New("condition type was not found at the object's condition set"), "condition type not found", "type", typ)
+		sm.log.Error(errors.New("condition type was not found at the object's condition set"), "condition type not found", "type", condition.Type)
 		return
 	}
 
@@ -285,7 +366,7 @@ func (sm *statusManager) updateConditionHappiness() {
 
 	happyConditionIndex := -1
 	happyStatus := string(metav1.ConditionTrue)
-	happyReason := common.ConditionReasonAllTrue
+	happyReason := apicommon.ConditionReasonAllTrue
 
 	for i := range conditions {
 		c, ok := conditions[i].(map[string]interface{})
@@ -329,13 +410,13 @@ func (sm *statusManager) updateConditionHappiness() {
 
 		if sStatus == string(metav1.ConditionFalse) && happyStatus != string(metav1.ConditionFalse) {
 			happyStatus = string(metav1.ConditionFalse)
-			happyReason = common.ConditionReasonNotAllTrue
+			happyReason = apicommon.ConditionReasonNotAllTrue
 			continue
 		}
 
 		if sStatus == string(metav1.ConditionUnknown) && happyStatus != string(metav1.ConditionUnknown) {
 			happyStatus = string(metav1.ConditionUnknown)
-			happyReason = common.ConditionReasonUnknown
+			happyReason = apicommon.ConditionReasonUnknown
 		}
 	}
 
@@ -350,6 +431,18 @@ func (sm *statusManager) updateConditionHappiness() {
 		hc["reason"] = happyReason
 		hc["lastTransitionTime"] = sm.time.Now()
 	}
+}
+
+func (sm *statusManager) GetObservedGeneration() int64 {
+	if !sm.flag.AllowObservedGeneration() {
+		return 0
+	}
+
+	sm.m.RLock()
+	defer sm.m.RUnlock()
+
+	g, _, _ := unstructured.NestedInt64(sm.object.Object, "status", "observedGeneration")
+	return g
 }
 
 func (sm *statusManager) SetObservedGeneration(g int64) {
