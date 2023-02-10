@@ -8,6 +8,7 @@ import (
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
+	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )
 
 type ReconciledObject interface {
@@ -20,6 +21,7 @@ type ReconciledObject interface {
 	StatusSetObservedGeneration(generation int64)
 	StatusGetCondition(conditionType string) *apicommon.Condition
 	StatusSetCondition(condition *apicommon.Condition)
+	StatusIsEqual(client.Object) bool
 }
 
 type ReconciledObjectFactory interface {
@@ -44,7 +46,7 @@ func (rof *reconciledObjectFactory) NewReconciledObject() ReconciledObject {
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(rof.gvk)
 	ro := &reconciledObject{
-		Unstructured: *u,
+		Unstructured: u,
 
 		sm:  rof.smf.ForObject(u),
 		psr: rof.psr,
@@ -53,37 +55,14 @@ func (rof *reconciledObjectFactory) NewReconciledObject() ReconciledObject {
 	return ro
 }
 
-// func (rof *reconciledObjectFactory) NewObjectLegacy() client.Object {
-// 	fmt.Printf("DEBUG DELETEME this is the legacy call\n")
-// 	obj := &unstructured.Unstructured{}
-// 	obj.SetGroupVersionKind(rof.gvk)
-// 	fmt.Printf("DEBUG DELETEME this is the obj: %+v\n", obj)
-// 	return obj
-// }
-
-// smf := reccommon.NewStatusManagerFactory(crd.GetStatusFlag(), "Ready", []string{ConditionTypeDeploymentReady, ConditionTypeServiceReady, ConditionTypeReady}, log)
-
-// func NewReconciledObject ()ReconciledObject {
-// 	u := &unstructured.Unstructured{}
-// 	u.SetGroupVersionKind(r.gvk)
-
-// 	return &reconciledObject{
-// 		ro := &reconciledObject{
-// 			Unstructured: u,
-// 			sm:           r.smf.ForObject(u),
-// 		}
-
-// 	}
-// }
-
 type reconciledObject struct {
-	unstructured.Unstructured
+	*unstructured.Unstructured
 	sm  StatusManager
 	psr PodSpecRenderer
 }
 
 func (rof *reconciledObject) AsKubeObject() client.Object {
-	return &rof.Unstructured
+	return rof.Unstructured
 }
 
 func (ro *reconciledObject) RenderPodSpecOptions() ([]resources.PodSpecOption, error) {
@@ -105,21 +84,15 @@ func (ro *reconciledObject) StatusSetCondition(condition *apicommon.Condition) {
 func (ro *reconciledObject) StatusGetCondition(conditionType string) *apicommon.Condition {
 	return ro.sm.GetCondition(conditionType)
 }
+func (ro *reconciledObject) StatusIsEqual(in client.Object) bool {
+	u, ok := in.(*unstructured.Unstructured)
+	if !ok {
+		return false
+	}
 
-// func (ro *reconciledObject) GetObject() client.Object {
-// 	return ro.unstructured
-// }
+	if !semantic.Semantic.DeepEqual(u.Object["status"], ro.Unstructured.Object["status"]) {
+		return false
+	}
 
-// func (ro *reconciledObject) StatusEqual(reconciledObject ReconciledObject) bool {
-// 	// uIn := reconciledObject.GetObject().(*unstructured.Unstructured)
-// 	uIn := reconciledObject.(*unstructured.Unstructured)
-// 	// uIn := objIn.(*unstructured.Unstructured)
-// 	stIn, okIn := uIn.Object["status"]
-// 	st, ok := ro.unstructured.Object["status"]
-
-// 	if okIn != ok {
-// 		return false
-// 	}
-
-// 	return !semantic.Semantic.DeepEqual(&stIn, &st)
-// }
+	return true
+}

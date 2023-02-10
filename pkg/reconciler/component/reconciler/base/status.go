@@ -406,8 +406,6 @@ func (sm *statusManager) updateConditionHappiness() {
 			continue
 		}
 
-		//cssStatus := metav1.ConditionStatus(sStatus)
-
 		if sStatus == string(metav1.ConditionFalse) && happyStatus != string(metav1.ConditionFalse) {
 			happyStatus = string(metav1.ConditionFalse)
 			happyReason = apicommon.ConditionReasonNotAllTrue

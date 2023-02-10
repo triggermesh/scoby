@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,27 +35,14 @@ const (
 	ConditionTypeReady           = "Ready"
 )
 
-// type ComponentReconciler interface {
-// 	reconcile.Reconciler
-// 	NewReconciled() ReconciledObject
-// }
-
 // func NewComponentReconciler(ctx context.Context, crd *reccommon.Registered, reg common.Registration, mgr manager.Manager) (ComponentReconciler, error) {
 func NewComponentReconciler(ctx context.Context, base recbase.Reconciler, mgr manager.Manager) (reconcile.Reconciler, error) {
 	log := mgr.GetLogger().WithName(base.RegisteredGetName())
 	log.Info("Creating deployment styled reconciler")
 
-	// rof := reccommon.NewReconciledObjectFactory()
-
-	// smf := reccommon.NewStatusManagerFactory(crd.GetStatusFlag(), "Ready", []string{ConditionTypeDeploymentReady, ConditionTypeServiceReady, ConditionTypeReady}, log)
-
 	r := &reconciler{
 		log:  log,
 		base: base,
-		// crd:          crd,
-		// smf:          smf,
-		// registration: reg,
-		// psr:          render.NewPodSpecRenderer("adapter", reg.GetWorkload().FromImage.Repo),
 	}
 
 	// If a service associated to the deployment needs to be rendered, add the
@@ -82,12 +70,7 @@ func NewComponentReconciler(ctx context.Context, base recbase.Reconciler, mgr ma
 }
 
 type reconciler struct {
-	base recbase.Reconciler
-	// objectFactory reccommon.ReconciledObjectFactory
-	// crd           *reccommon.Registered
-	// registration  common.Registration
-	// psr           render.PodSpecRenderer
-	// smf           reccommon.StatusManagerFactory
+	base           recbase.Reconciler
 	serviceOptions *apicommon.DeploymentService
 
 	client client.Client
@@ -104,12 +87,9 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	r.log.V(1).Info("reconciling request", "request", req)
 
 	obj := r.base.NewReconciledObject()
-	// obj := ro.GetObject()
 	if err := r.client.Get(ctx, req.NamespacedName, obj.AsKubeObject()); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
-
-	// existing := obj.DeepCopyObject()
 
 	r.log.V(5).Info("Object retrieved", "object", obj)
 
@@ -120,45 +100,29 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	// // create a copy, we will compare after reconciling and decide if we need to
 	// // update or not.
-	// cp := obj.DeepCopyObject()
-	// cp.
+	cp := obj.AsKubeObject().DeepCopyObject()
 
 	res, err := r.reconcileObjectInstance(ctx, obj)
 
-	// TODO
-	// TODO compare statuses and update them if needed
+	// Update status if needed.
+	// TODO find a better expression for this
+	if !semantic.Semantic.DeepEqual(
+		obj.AsKubeObject().(*unstructured.Unstructured).Object["status"],
+		cp.(*unstructured.Unstructured).Object["status"]) {
+		if uperr := r.client.Status().Update(ctx, obj.AsKubeObject()); uperr != nil {
+			if err == nil {
+				return reconcile.Result{}, err
+			}
+			r.log.Error(err, "")
+		}
 
-	// // Update status if needed.
-	// //
-	// // We need to compare the internal status, which is covered by the semantic
-	// // comparer library
-	// if !semantic.Semantic.DeepEqual(&cr.Status.Status, &existing.Status.Status) {
-	// 	// The err variable is newly defined, if the update is unsuccessful
-	// 	// the error returned will be the update operation error.
-	// 	if err := r.Status().Update(ctx, cr); err != nil {
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
+	}
 
 	return res, err
 }
 
 func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.ReconciledObject) (reconcile.Result, error) {
-	// obj := ro.GetObject()
 	r.log.V(1).Info("reconciling object instance", "object", obj)
-
-	// // Update generation if needed
-	// if r.base.StatusGetSupportFlag().AllowObservedGeneration() {
-	// 	if g := obj.GetGeneration(); g != obj.StatusGetObservedGeneration() {
-	// 		r.log.V(1).Info("updating observed generation")
-	// 		obj.StatusSetObservedGeneration(g)
-	// 	}
-
-	// 	// if err := r.client.Status().Update(ctx, obj); err != nil {
-	// 	// 	return reconcile.Result{}, err
-	// 	// }
-	// 	// r.log.V(1).Info("updated observed generation")
-	// }
 
 	// Update generation if needed
 
@@ -167,49 +131,14 @@ func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.Re
 		obj.StatusSetObservedGeneration(g)
 	}
 
-	// if err := r.client.Status().Update(ctx, obj); err != nil {
-	// 	return reconcile.Result{}, err
-	// }
-	// r.log.V(1).Info("updated observed generation")
-
 	r.log.V(1).Info("reconciling deployment", "object", obj)
 	d, err := r.reconcileDeployment(ctx, obj)
 	if err != nil {
-		r.log.V(1).Info("DEBUG DELETEME error deployment", "err", err)
 		return reconcile.Result{}, err
 	}
 
 	r.log.V(1).Info("updating deployment status", "object", obj)
 	r.updateDeploymentStatus(obj, d)
-
-	// if r.crd.GetStatusFlag().AllowConditions() {
-	// 	reason := "DeploymentUnknown"
-	// 	status := metav1.ConditionUnknown
-	// 	message := ""
-	// 	for _, c := range d.Status.Conditions {
-	// 		if c.Type != appsv1.DeploymentAvailable {
-	// 			continue
-	// 		}
-	// 		switch c.Status {
-	// 		case corev1.ConditionTrue:
-	// 			status = metav1.ConditionTrue
-	// 			reason = c.Reason
-
-	// 		case corev1.ConditionFalse:
-	// 			status = metav1.ConditionFalse
-	// 			reason = c.Reason
-	// 			message = c.Message
-
-	// 		}
-
-	// 	}
-
-	// 	ro.SetStatusCondition(ConditionTypeDeploymentReady, status, reason, message)
-	// 	if err := r.client.Status().Update(ctx, obj); err != nil {
-	// 		return reconcile.Result{}, err
-	// 	}
-	// 	r.log.V(1).Info("updated conditions")
-	// }
 
 	if r.serviceOptions != nil {
 		r.log.V(1).Info("reconciling service", "object", obj)
@@ -294,55 +223,8 @@ func (r *reconciler) updateDeploymentStatus(obj recbase.ReconciledObject, d *app
 		}
 	}
 
-	// existing := obj.StatusGetCondition(ConditionTypeDeploymentReady)
-	// // do not compare the last transition time
-	// existing.LastTransitionTime = desired.LastTransitionTime
-	// if semantic.Semantic.DeepEqual(existing, desired) {
-	// 	return
-	// }
-
 	obj.StatusSetCondition(desired)
 }
-
-// ro.SetStatusCondition(ConditionTypeDeploymentReady, status, reason, message)
-// if err := r.client.Status().Update(ctx, obj); err != nil {
-// 	return reconcile.Result{}, err
-// }
-// r.log.V(1).Info("updated conditions")
-
-// 	existing := &appsv1.Deployment{}
-// 	err = r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
-// 	switch {
-// 	case err == nil:
-// 		if semantic.Semantic.DeepEqual(desired, existing) {
-// 			return existing, nil
-// 		}
-
-// 		r.log.Info("existing deployment does not match the expected", "object", desired)
-// 		r.log.V(5).Info("mismatched deployment", "desired", *desired, "existing", *existing)
-
-// 		// resourceVersion must be returned to the API server unmodified for
-// 		// optimistic concurrency, as per Kubernetes API conventions
-// 		desired.SetResourceVersion(existing.GetResourceVersion())
-
-// 		if err = r.client.Update(ctx, desired); err != nil {
-// 			return nil, fmt.Errorf("could not update deployment object: %+w", err)
-// 		}
-
-// 	case apierrs.IsNotFound(err):
-// 		r.log.Info("creating deployment", "object", desired)
-// 		r.log.V(5).Info("desired deployment", "object", *desired)
-// 		if err = r.client.Create(ctx, desired); err != nil {
-// 			return nil, fmt.Errorf("could not create deployment object: %w", err)
-// 		}
-
-// 	default:
-// 		return nil, fmt.Errorf("could not retrieve controlled object %s: %w", client.ObjectKeyFromObject(desired), err)
-// 	}
-
-// 	// TODO update status
-// 	return desired, nil
-// }
 
 func (r *reconciler) createDeploymentFromRegistered(obj recbase.ReconciledObject) (*appsv1.Deployment, error) {
 	// TODO generate names
@@ -458,64 +340,3 @@ func (r *reconciler) InjectClient(c client.Client) error {
 	r.client = c
 	return nil
 }
-
-// func (r *reconciler) InjectLogger(l logr.Logger) error {
-// 	r.log = l.WithName("dynrecl")
-// 	l.V(2).Info("logger injected into dynamic component reconciler")
-// 	return nil
-// }
-
-// type ReconciledObject interface {
-// 	GetObject() client.Object
-// 	SetStatusObservedGeneration(generation int64)
-// 	SetStatusCondition(typ string, status metav1.ConditionStatus, reason, message string)
-// }
-
-// type reconciledObject struct {
-// 	unstructured *unstructured.Unstructured
-// 	sm           rcrd.StatusManager
-// }
-
-// func (ro *reconciledObject) SetStatusObservedGeneration(generation int64) {
-// 	ro.sm.SetObservedGeneration(generation)
-// }
-
-// func (ro *reconciledObject) SetStatusCondition(typ string, status metav1.ConditionStatus, reason, message string) {
-// 	ro.sm.SetCondition(typ, status, reason, message)
-// }
-
-// func (ro *reconciledObject) GetObject() client.Object {
-// 	return ro.unstructured
-// }
-
-// func (ro *reconciledObject) StatusEqual(reconciledObject ReconciledObject) bool {
-// 	uIn := reconciledObject.GetObject().(*unstructured.Unstructured)
-// 	// uIn := objIn.(*unstructured.Unstructured)
-// 	stIn, okIn := uIn.Object["status"]
-// 	st, ok := ro.unstructured.Object["status"]
-
-// 	if okIn != ok {
-// 		return false
-// 	}
-
-// 	return !semantic.Semantic.DeepEqual(&stIn, &st)
-// }
-
-// // func (ro *reconciledObject) DeepCopy() ReconciledObject {
-// // 	u := ro.unstructured.DeepCopy()
-
-// // 	return &reconciledObject{
-
-// // 	}
-// // }
-
-// func (r *reconciler) NewReconciled() ReconciledObject {
-// 	u := &unstructured.Unstructured{}
-// 	u.SetGroupVersionKind(r.crd.GetGVK())
-// 	ro := &reconciledObject{
-// 		unstructured: u,
-// 		sm:           r.smf.ForObject(u),
-// 	}
-
-// 	return ro
-// }

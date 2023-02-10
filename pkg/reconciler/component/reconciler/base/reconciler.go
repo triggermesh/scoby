@@ -25,13 +25,6 @@ func NewReconciler(crd *apiextensionsv1.CustomResourceDefinition, reg apicommon.
 	// Choose CRD version
 	crdv := CRDPrioritizedVersion(crd)
 
-	// sf := CRDStatusFlag(crdv)
-	// gvk := schema.GroupVersionKind{
-	// 	Group:   crd.Spec.Group,
-	// 	Version: crdv.Name,
-	// 	Kind:    crd.Spec.Names.Kind,
-	// }
-
 	// The status factory is created using only the ConditionTypeReady condition, it is up
 	// to the base reconciler user to update with their set of conditions before using it.
 	smf := NewStatusManagerFactory(crdv, ConditionTypeReady, []string{ConditionTypeReady}, log)
@@ -45,14 +38,8 @@ func NewReconciler(crd *apiextensionsv1.CustomResourceDefinition, reg apicommon.
 	rof := NewReconciledObjectFactory(gvk, smf, psr)
 
 	return &reconciler{
-
-		gvk: schema.GroupVersionKind{
-			Group:   crd.Spec.Group,
-			Version: crdv.Name,
-			Kind:    crd.Spec.Names.Kind,
-		},
+		gvk: gvk,
 		log: &log,
-
 		reg: reg,
 		psr: psr,
 		smf: smf,
@@ -68,9 +55,6 @@ type reconciler struct {
 
 	psr PodSpecRenderer
 
-	// // Identify status support based on the CRD structure.
-	// statusFlag StatusFlag
-
 	// Status manager factory to create status managers per
 	// reconciling object.
 	smf StatusManagerFactory
@@ -82,27 +66,7 @@ type reconciler struct {
 
 func (r *reconciler) NewReconciledObject() ReconciledObject {
 	return r.rof.NewReconciledObject()
-	// u := &unstructured.Unstructured{}
-	// u.SetGroupVersionKind(r.gvk)
-	// ro := &reconciledObject{
-	// 	Unstructured: u,
-	// 	sm:           r.smf.ForObject(u),
-	// }
-
-	// return ro
 }
-
-// func (r *reconciler) NewObjectLegacy() client.Object {
-// 	return r.rof.NewObjectLegacy()
-// 	// u := &unstructured.Unstructured{}
-// 	// u.SetGroupVersionKind(r.gvk)
-// 	// ro := &reconciledObject{
-// 	// 	Unstructured: u,
-// 	// 	sm:           r.smf.ForObject(u),
-// 	// }
-
-// 	// return ro
-// }
 
 func (r *reconciler) RegisteredGetName() string {
 	return r.reg.GetName()
@@ -112,16 +76,7 @@ func (r *reconciler) RegisteredGetWorkload() *apicommon.Workload {
 	return r.reg.GetWorkload()
 }
 
-// // ConfigureStatusManager with conditions
-// func (r *reconciler) RenderPodSpec() {
-// 	r.psr.Render(r.)
-// }
-
 // ConfigureStatusManager with conditions
 func (r *reconciler) StatusConfigureManagerConditions(happy string, conditions ...string) {
 	r.smf.UpdateConditionSet(happy, conditions...)
 }
-
-// func (r *reconciler) StatusGetSupportFlag() StatusFlag {
-// 	return r.smf.statusFlag
-// }
