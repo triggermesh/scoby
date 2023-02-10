@@ -309,7 +309,7 @@ func (r *reconciler) updateServiceStatus(obj recbase.ReconciledObject, s *corev1
 		LastTransitionTime: metav1.Now(),
 	}
 
-	if s != nil {
+	if s == nil {
 		desired.Status = metav1.ConditionFalse
 		desired.Reason = "ServiceDoesNotExist"
 	}
