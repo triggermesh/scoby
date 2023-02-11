@@ -90,7 +90,7 @@ func (cr *componentRegisty) RemoveComponentController(reg common.Registration) {
 	if entry, found := cr.controllers[rn]; found {
 		cr.logger.Info("Unloading component controller", "registration", rn)
 		// TODO use context to cancel the controller.
-		// depends on: https://github.com/kubernetes-sigs/controller-runtime/pull/2099
+		// depends on: https://github.com/kubernetes-sigs/controller-runtime/pull/2159
 
 		entry.cancel()
 		delete(cr.controllers, rn)
