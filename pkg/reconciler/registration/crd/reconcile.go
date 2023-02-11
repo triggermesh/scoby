@@ -43,7 +43,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl
 
 	existing := &scobyv1alpha1.CRDRegistration{}
 	if err := r.Get(ctx, req.NamespacedName, existing); err != nil {
-		// Resource was deleted, no reconciliation needed.
+		// Return error (unless resource was deleted).
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
