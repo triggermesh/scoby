@@ -88,7 +88,7 @@ spec:
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			got := CRDPriotizedVersion(tc.in)
+			got := CRDPrioritizedVersion(tc.in)
 			assert.Equal(t, tc.schema, got.Schema.OpenAPIV3Schema.Properties)
 		})
 	}
@@ -404,7 +404,7 @@ spec:
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			sf := CRDStatusFlag(CRDPriotizedVersion(tc.in))
+			sf := CRDStatusFlag(CRDPrioritizedVersion(tc.in))
 
 			t.Logf("value is %+v", sf)
 			assert.Equal(t, tc.allowConditions, sf.AllowConditions(), "unexpected status conditions support")
