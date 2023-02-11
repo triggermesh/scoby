@@ -22,7 +22,6 @@ import (
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 	recbase "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
-
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )
@@ -32,13 +31,11 @@ const (
 
 	ConditionTypeDeploymentReady = "DeploymentReady"
 	ConditionTypeServiceReady    = "ServiceReady"
-	ConditionTypeReady           = "Ready"
 )
 
-// func NewComponentReconciler(ctx context.Context, crd *reccommon.Registered, reg common.Registration, mgr manager.Manager) (ComponentReconciler, error) {
 func NewComponentReconciler(ctx context.Context, base recbase.Reconciler, mgr manager.Manager) (reconcile.Reconciler, error) {
 	log := mgr.GetLogger().WithName(base.RegisteredGetName())
-	log.Info("Creating deployment styled reconciler")
+	log.Info("Creating deployment styled reconciler", "registration", base.RegisteredGetName())
 
 	r := &reconciler{
 		log:  log,
@@ -56,7 +53,7 @@ func NewComponentReconciler(ctx context.Context, base recbase.Reconciler, mgr ma
 
 	base.StatusConfigureManagerConditions(recbase.ConditionTypeReady, statusConditions...)
 
-	log.V(1).Info("Reconciler configured, adding to controller manager")
+	log.V(1).Info("Reconciler configured, adding to controller manager", "registration", base.RegisteredGetName())
 
 	if err := builder.ControllerManagedBy(mgr).
 		For(base.NewReconciledObject().AsKubeObject()).
@@ -79,10 +76,6 @@ type reconciler struct {
 
 var _ reconcile.Reconciler = (*reconciler)(nil)
 
-func (r *reconciler) ReconcileX(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	return reconcile.Result{}, nil
-}
-
 func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	r.log.V(1).Info("reconciling request", "request", req)
 
@@ -98,8 +91,8 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	// // create a copy, we will compare after reconciling and decide if we need to
-	// // update or not.
+	// create a copy, we will compare after reconciling
+	// and decide if we need to update or not.
 	cp := obj.AsKubeObject().DeepCopyObject()
 
 	res, err := r.reconcileObjectInstance(ctx, obj)
@@ -111,11 +104,10 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		cp.(*unstructured.Unstructured).Object["status"]) {
 		if uperr := r.client.Status().Update(ctx, obj.AsKubeObject()); uperr != nil {
 			if err == nil {
-				return reconcile.Result{}, err
+				return reconcile.Result{}, uperr
 			}
-			r.log.Error(err, "")
+			r.log.Error(uperr, "could not update the object status")
 		}
-
 	}
 
 	return res, err
@@ -125,19 +117,16 @@ func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.Re
 	r.log.V(1).Info("reconciling object instance", "object", obj)
 
 	// Update generation if needed
-
 	if g := obj.GetGeneration(); g != obj.StatusGetObservedGeneration() {
 		r.log.V(1).Info("updating observed generation", "generation", g)
 		obj.StatusSetObservedGeneration(g)
 	}
 
-	r.log.V(1).Info("reconciling deployment", "object", obj)
 	d, err := r.reconcileDeployment(ctx, obj)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	r.log.V(1).Info("updating deployment status", "object", obj)
 	r.updateDeploymentStatus(obj, d)
 
 	if r.serviceOptions != nil {
@@ -155,6 +144,8 @@ func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.Re
 }
 
 func (r *reconciler) reconcileDeployment(ctx context.Context, obj recbase.ReconciledObject) (*appsv1.Deployment, error) {
+	r.log.V(1).Info("reconciling deployment", "object", obj)
+
 	desired, err := r.createDeploymentFromRegistered(obj)
 	if err != nil {
 		return nil, fmt.Errorf("could not render deployment object: %w", err)
@@ -196,9 +187,7 @@ func (r *reconciler) reconcileDeployment(ctx context.Context, obj recbase.Reconc
 }
 
 func (r *reconciler) updateDeploymentStatus(obj recbase.ReconciledObject, d *appsv1.Deployment) {
-	if d == nil {
-		return
-	}
+	r.log.V(1).Info("updating deployment status", "object", obj)
 
 	desired := &apicommon.Condition{
 		Type:               ConditionTypeDeploymentReady,
@@ -207,19 +196,26 @@ func (r *reconciler) updateDeploymentStatus(obj recbase.ReconciledObject, d *app
 		LastTransitionTime: metav1.Now(),
 	}
 
-	for _, c := range d.Status.Conditions {
-		if c.Type != appsv1.DeploymentAvailable {
-			continue
-		}
-		switch c.Status {
-		case corev1.ConditionTrue:
-			desired.Status = metav1.ConditionTrue
-			desired.Reason = c.Reason
+	if d != nil {
+		for _, c := range d.Status.Conditions {
+			if c.Type != appsv1.DeploymentAvailable {
+				continue
+			}
+			switch c.Status {
+			case corev1.ConditionTrue:
+				desired.Status = metav1.ConditionTrue
+				desired.Reason = c.Reason
 
-		case corev1.ConditionFalse:
-			desired.Status = metav1.ConditionFalse
-			desired.Reason = c.Reason
-			desired.Message = c.Message
+			case corev1.ConditionFalse:
+				desired.Status = metav1.ConditionFalse
+				desired.Reason = c.Reason
+				desired.Message = c.Message
+			default:
+				desired.Message = fmt.Sprintf(
+					"%q condition for deployment contains an unexpected status: %s",
+					c.Type, c.Status)
+			}
+			break
 		}
 	}
 
