@@ -45,66 +45,6 @@ spec:
           spec:
             description: CRDRegistrationSpec defines the desired state of a CRD Registration
             properties:
-              configuration:
-                description: Configuration for rendering the CRD fields into the workload
-                  element.
-                properties:
-                  parameters:
-                    description: FromImage contains the container image information.
-                    items:
-                      description: Parameter defines key/values to be passed to components.
-                      properties:
-                        name:
-                          description: Name for the parameter.
-                          type: string
-                        required:
-                          description: Required flag for the parameter, must be a
-                            valid CRD type.
-                          type: boolean
-                        section:
-                          description: Section will set rendered parameter in a nested
-                            section element.
-                          type: string
-                        type:
-                          description: Type for the parameter, must be a valid CRD
-                            type.
-                          type: string
-                        valueFrom:
-                          description: ValueFrom indicates the reference source for
-                            the parameter.
-                          properties:
-                            fieldRef:
-                              description: ObjectFieldSelector selects an APIVersioned
-                                field of an object.
-                              properties:
-                                apiVersion:
-                                  description: Version of the schema the FieldPath
-                                    is written in terms of, defaults to "v1".
-                                  type: string
-                                fieldPath:
-                                  description: Path of the field to select in the
-                                    specified API version.
-                                  type: string
-                              required:
-                              - fieldPath
-                              type: object
-                              x-kubernetes-map-type: atomic
-                            referenceType:
-                              description: ReferenceType for the parameter.
-                              type: string
-                          required:
-                          - fieldRef
-                          - referenceType
-                          type: object
-                      required:
-                      - name
-                      - required
-                      - section
-                      - type
-                      - valueFrom
-                      type: object
-                    type: array
-                type: object
               crd:
                 description: Name of the CRD to be used.
                 type: string
@@ -163,28 +103,34 @@ spec:
                     required:
                     - repo
                     type: object
-                  parameterOptions:
-                    description: ParameterOptions sets how parameters from configuration
-                      and credentials are passed to workloads.
+                  parameterConfiguration:
+                    description: ParameterConfiguration sets how object elements are
+                      transformed into workload parameters.
                     properties:
-                      arbitraryParameters:
-                        description: ArbitraryParameters allows users to add any parameter
-                          to the component spec.
-                        type: boolean
-                      keyCasing:
-                        description: KeyCasing turns a parameter key casing when used
-                          at the workload.
-                        type: string
-                      keyPrefix:
-                        description: KeyPrefix adds a prefix to a parameter key when
-                          used at the workload.
-                        type: string
-                      keyStyle:
-                        description: KeyStyle turns a parameter key style when used
-                          at the workload.
-                        type: string
-                    required:
-                    - arbitraryParameters
+                      parameters:
+                        description: Per parameter configuration
+                        items:
+                          description: Parameter defines key/values to be passed to
+                            components.
+                          properties:
+                            parameters:
+                              description: Skip sets whether the object should skip
+                                rendering as a workload parameter.
+                              type: boolean
+                            path:
+                              description: JSONPath for the parameter.
+                              type: string
+                            render:
+                              description: Render options for the parameter.
+                              properties:
+                                literal:
+                                  description: Literal value for the workload parameter.
+                                  type: string
+                              type: object
+                          required:
+                          - path
+                          type: object
+                        type: array
                     type: object
                 required:
                 - fromImage

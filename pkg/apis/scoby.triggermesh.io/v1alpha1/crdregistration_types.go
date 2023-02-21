@@ -17,10 +17,10 @@ type CRDRegistrationSpec struct {
 	// Workload is information on how to create the user workload.
 	Workload common.Workload `json:"workload"`
 
-	// Configuration for rendering the CRD fields into
-	// the workload element.
-	// +optional
-	Configuration *common.Configuration `json:"configuration"`
+	// // Configuration for rendering the CRD fields into
+	// // the workload element.
+	// // +optional
+	// Configuration *common.Configuration `json:"configuration"`
 }
 
 // CRDRegistrationStatus defines the observed state of CRDRegistration

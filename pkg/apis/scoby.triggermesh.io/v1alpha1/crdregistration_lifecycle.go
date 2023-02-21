@@ -11,9 +11,9 @@ func (r *CRDRegistration) GetWorkload() *common.Workload {
 	return &r.Spec.Workload
 }
 
-func (r *CRDRegistration) GetConfiguration() *common.Configuration {
-	return r.Spec.Configuration
-}
+// func (r *CRDRegistration) GetConfiguration() *common.Configuration {
+// 	return r.Spec.Configuration
+// }
 
 const (
 	CRDRegistrationConditionCRDExists       = "CRDExists"

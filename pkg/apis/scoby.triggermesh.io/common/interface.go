@@ -14,5 +14,5 @@ type Registration interface {
 	metav1.Object
 
 	GetWorkload() *Workload
-	GetConfiguration() *Configuration
+	// GetConfiguration() *Configuration
 }

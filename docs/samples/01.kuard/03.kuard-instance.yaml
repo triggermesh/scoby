@@ -8,3 +8,7 @@ spec:
   group:
     variable3: false
     variable4: 42
+  array:
+  - alpha
+  - beta
+  - gamma
