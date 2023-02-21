@@ -5,24 +5,26 @@ package common
 
 import corev1 "k8s.io/api/core/v1"
 
-// Configuration contains parameter configuration for registered components.
-type Configuration struct {
-	// FromImage contains the container image information.
-	Parameters []Parameter `json:"parameters,omitempty"`
+// ParameterRender options.
+type ParameterRender struct {
+	// Literal value for the workload parameter.
+	// +optional
+	Literal *string `json:"literal,omitempty"`
 }
 
 // Parameter defines key/values to be passed to components.
 type Parameter struct {
-	// Name for the parameter.
-	Name string `json:"name"`
-	// Type for the parameter, must be a valid CRD type.
-	Type *string `json:"type"`
-	// Required flag for the parameter, must be a valid CRD type.
-	Required *bool `json:"required"`
-	// Section will set rendered parameter in a nested section element.
-	Section *string `json:"section"`
-	// ValueFrom indicates the reference source for the parameter.
-	ValueFrom *ParameterSource `json:"valueFrom"`
+	// JSONPath for the parameter.
+	Path string `json:"path"`
+
+	// Skip sets whether the object should skip rendering
+	// as a workload parameter.
+	// +optional
+	Skip *bool `json:"parameters,omitempty"`
+
+	// Render options for the parameter.
+	// +optional
+	Render *ParameterRender `json:"render,omitempty"`
 }
 
 type ReferenceType string

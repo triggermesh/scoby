@@ -33,6 +33,11 @@ spec:
                       type: boolean
                     variable4:
                       type: integer
+                array:
+                  type: array
+                  items:
+                    type: string
+
             status:
               description: CRDRegistrationStatus defines the observed state of CRDRegistration
               properties:

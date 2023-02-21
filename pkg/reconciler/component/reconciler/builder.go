@@ -18,7 +18,9 @@ import (
 )
 
 func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (reconcile.Reconciler, error) {
-	psr := base.NewPodSpecRenderer("adapter", reg.GetWorkload().FromImage.Repo)
+	wkl := reg.GetWorkload()
+	psr := base.NewPodSpecRenderer("adapter", wkl.FromImage.Repo, wkl.ParameterConfiguration)
+
 	b := base.NewReconciler(crd, reg, psr, mgr.GetLogger())
 
 	switch {
