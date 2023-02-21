@@ -74,6 +74,7 @@ func TestParseObjectIntoContainer(t *testing.T) {
 				resources.ContainerAddEnvFromValue("NUMBERS", "1,1.1,0"),
 				resources.ContainerAddEnvFromValue("SKILLS_COOKING", "false"),
 				resources.ContainerAddEnvFromValue("SKILLS_DANCING", "true"),
+				resources.ContainerAddEnvFromValue("SUBSTRUCT", `[{"a":1},{"b":2}]`),
 			),
 		},
 		"skip a value field": {
@@ -87,7 +88,6 @@ func TestParseObjectIntoContainer(t *testing.T) {
 			},
 			object: objectText,
 			podSpec: newPodSpec(
-				resources.ContainerAddEnvFromValue("AGE", "90"),
 				resources.ContainerAddEnvFromValue("ANIMALS", "dragonfly"),
 				resources.ContainerAddEnvFromValue("COLORS", "Green,white"),
 				resources.ContainerAddEnvFromValue("MIXED", "true,13,barnacle"),
@@ -95,13 +95,35 @@ func TestParseObjectIntoContainer(t *testing.T) {
 				resources.ContainerAddEnvFromValue("NUMBERS", "1,1.1,0"),
 				resources.ContainerAddEnvFromValue("SKILLS_COOKING", "false"),
 				resources.ContainerAddEnvFromValue("SKILLS_DANCING", "true"),
+				resources.ContainerAddEnvFromValue("SUBSTRUCT", `[{"a":1},{"b":2}]`),
 			),
 		},
-		"skip an array field": {
+		"skip an array of primitives field": {
 			configuration: &apicommon.ParameterConfiguration{
 				Parameters: []apicommon.Parameter{
 					{
-						Path: "$.spec.numbers",
+						Path: ".spec.numbers",
+						Skip: &tTrue,
+					},
+				},
+			},
+			object: objectText,
+			podSpec: newPodSpec(
+				resources.ContainerAddEnvFromValue("AGE", "90"),
+				resources.ContainerAddEnvFromValue("ANIMALS", "dragonfly"),
+				resources.ContainerAddEnvFromValue("COLORS", "Green,white"),
+				resources.ContainerAddEnvFromValue("MIXED", "true,13,barnacle"),
+				resources.ContainerAddEnvFromValue("NAME", "danny"),
+				resources.ContainerAddEnvFromValue("SKILLS_COOKING", "false"),
+				resources.ContainerAddEnvFromValue("SKILLS_DANCING", "true"),
+				resources.ContainerAddEnvFromValue("SUBSTRUCT", `[{"a":1},{"b":2}]`),
+			),
+		},
+		"skip an array of complex field": {
+			configuration: &apicommon.ParameterConfiguration{
+				Parameters: []apicommon.Parameter{
+					{
+						Path: "spec.substruct",
 						Skip: &tTrue,
 					},
 				},
@@ -118,11 +140,11 @@ func TestParseObjectIntoContainer(t *testing.T) {
 				resources.ContainerAddEnvFromValue("SKILLS_DANCING", "true"),
 			),
 		},
-		"change a liternal": {
+		"change a key liternal": {
 			configuration: &apicommon.ParameterConfiguration{
 				Parameters: []apicommon.Parameter{
 					{
-						Path: ".spec.age",
+						Path: ".spec.skills.cooking",
 						Render: &apicommon.ParameterRender{
 							Literal: &tLiteral,
 						},
@@ -135,10 +157,11 @@ func TestParseObjectIntoContainer(t *testing.T) {
 				resources.ContainerAddEnvFromValue("ANIMALS", "dragonfly"),
 				resources.ContainerAddEnvFromValue("COLORS", "Green,white"),
 				resources.ContainerAddEnvFromValue("MIXED", "true,13,barnacle"),
+				resources.ContainerAddEnvFromValue(tLiteral, "false"),
 				resources.ContainerAddEnvFromValue("NAME", "danny"),
 				resources.ContainerAddEnvFromValue("NUMBERS", "1,1.1,0"),
-				resources.ContainerAddEnvFromValue("SKILLS_COOKING", "false"),
 				resources.ContainerAddEnvFromValue("SKILLS_DANCING", "true"),
+				resources.ContainerAddEnvFromValue("SUBSTRUCT", `[{"a":1},{"b":2}]`),
 			),
 		},
 	}
@@ -153,62 +176,11 @@ func TestParseObjectIntoContainer(t *testing.T) {
 			// Create PodSpec with returned options to compare results
 			ps := resources.NewPodSpec(pso...)
 
-			// assert.Equal(t, corev1.TerminationMessageFallbackToLogsOnError, c.TerminationMessagePolicy)
-			if t == nil {
-				assert.Equal(t, tc.podSpec, ps)
-			}
-
+			assert.Equal(t, tc.podSpec, ps)
 		})
 	}
 
 }
-
-// // Delete this
-// func TestParseWithConfiguration(t *testing.T) {
-
-// 	testCases := map[string]struct {
-// 		configuration *apicommon.ParameterConfiguration
-// 		object        ReconciledObject
-// 	}{
-// 		"first try": {
-// 			configuration: &apicommon.ParameterConfiguration{
-// 				Parameters: []apicommon.Parameter{
-// 					{
-// 						Path: "$.spec.integer",
-// 						// Path: ".spec.integer",
-// 						//Path: "lala.land",
-// 						// Path: "2.spec.integer",
-// 					},
-// 				},
-// 			},
-// 			object: newReconciledObject(),
-// 		},
-// 	}
-
-// 	for name, tc := range testCases {
-// 		t.Run(name, func(t *testing.T) {
-// 			psr := podSpecRenderer{
-// 				configuration: tc.configuration,
-// 			}
-// 			_, err := psr.parseWithConfiguration(tc.object)
-// 			assert.NoError(t, err)
-// 		})
-// 	}
-
-// }
-
-// func newReconciledObject() ReconciledObject {
-// 	ro := &reconciledObject{
-// 		Unstructured: &unstructured.Unstructured{
-// 			Object: make(map[string]interface{}),
-// 		},
-// 	}
-
-// 	unstructured.SetNestedField(ro.Object, "20", "spec", "integer")
-// 	unstructured.SetNestedField(ro.Object, "hello", "spec", "string")
-
-// 	return ro
-// }
 
 func newReconciledObjectFromYaml(in string) ReconciledObject {
 	ro := &reconciledObject{
