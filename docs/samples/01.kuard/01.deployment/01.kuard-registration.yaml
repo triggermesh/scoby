@@ -14,10 +14,3 @@ spec:
 
     fromImage:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
-
-    parameterConfiguration:
-      parameters:
-      - path: .spec.array
-        render:
-          literal: PREFERRED_NAMES
-

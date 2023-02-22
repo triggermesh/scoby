@@ -1,0 +1,15 @@
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: kuard
+spec:
+  crd: kuards.extensions.triggermesh.io
+  workload:
+    formFactor:
+      knativeService:
+        minScale: 0
+        maxScale: 3
+        visibility: public
+
+    fromImage:
+      repo: gcr.io/kuar-demo/kuard-amd64:blue
