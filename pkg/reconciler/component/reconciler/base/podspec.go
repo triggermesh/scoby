@@ -28,22 +28,22 @@ type podSpecRenderer struct {
 	image string
 
 	// JSONPath indexed configuration parameters.
-	configuration map[string]apicommon.Parameter
+	configuration map[string]apicommon.CustomizeParameterConfiguration
 }
 
 func NewPodSpecRenderer(name, image string, configuration *apicommon.ParameterConfiguration) PodSpecRenderer {
 	psr := &podSpecRenderer{
 		name:          name,
 		image:         image,
-		configuration: map[string]apicommon.Parameter{},
+		configuration: map[string]apicommon.CustomizeParameterConfiguration{},
 	}
 
 	// index the path into a map to save time looking for rules.
 	if configuration != nil {
-		for i := range configuration.Parameters {
+		for i := range configuration.Customize {
 			// sanitize JSONPath to make it match the expected path at the parser
-			path := strings.TrimLeft(configuration.Parameters[i].Path, "$.")
-			psr.configuration[path] = configuration.Parameters[i]
+			path := strings.TrimLeft(configuration.Customize[i].Path, "$.")
+			psr.configuration[path] = configuration.Customize[i]
 		}
 	}
 
@@ -175,18 +175,20 @@ func (r *podSpecRenderer) valuesToContainerOptions(parsedValues []parsedValue) (
 		pValue := ""
 
 		// Check rules for the this value's JSONPath.
-		rule, ok := r.configuration[parsedValue.toJSONPath()]
-		if ok {
+		customize, ok := r.configuration[parsedValue.toJSONPath()]
+		if ok && customize.Render != nil {
+			rule := customize.Render
+
 			if rule.Skip != nil && *rule.Skip {
 				continue
 			}
-			if rule.Render != nil {
-				if rule.Render.Key != nil {
-					pKey = *rule.Render.Key
-				}
+
+			if rule.Key != nil {
+				pKey = *rule.Key
 			}
 		}
 
+		// TODO globals
 		// Keep the parameter key when set by a previous rule.
 		if pKey == "" {
 			pKey = strings.ToUpper(strings.Join(parsedValue.branch[1:], "_"))

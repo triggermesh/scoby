@@ -107,30 +107,63 @@ spec:
                     description: ParameterConfiguration sets how object elements are
                       transformed into workload parameters.
                     properties:
-                      parameters:
-                        description: Per parameter configuration
+                      add:
+                        description: Add contains parameters to be added to the workload
+                          not derived from the user instance.
                         items:
-                          description: Parameter defines key/values to be passed to
-                            components.
+                          description: AddParameters contains instructions to add
+                            arbitrary parameters to the workload.
+                          properties:
+                            key:
+                              description: Key is the name of the parameter to be
+                                added.
+                              type: string
+                            value:
+                              description: Value is a literal value to be assigned
+                                to the parameter.
+                              type: string
+                          type: object
+                        type: array
+                      customize:
+                        description: Customize contains instructions to modify parameters
+                          generation from the instance's spec.
+                        items:
+                          description: CustomizeParameters contains instructions to
+                            modify parameters generation from the instance's spec.
                           properties:
                             path:
-                              description: JSONPath for the parameter.
+                              description: JSON simplified path for the parameter.
                               type: string
                             render:
-                              description: Render options for the parameter.
+                              description: Render options for the parameter generation.
                               properties:
                                 key:
-                                  description: Key literal for the workload parameter.
+                                  description: Key is the name of the parameter to
+                                    be created.
+                                  type: string
+                                skip:
+                                  description: Skip sets whether the object should
+                                    skip rendering as a workload parameter.
+                                  type: boolean
+                                value:
+                                  description: Value is a literal value to be assigned
+                                    to the parameter.
                                   type: string
                               type: object
-                            skip:
-                              description: Skip sets whether the object should skip
-                                rendering as a workload parameter.
-                              type: boolean
                           required:
                           - path
                           type: object
                         type: array
+                      global:
+                        description: Global defines  theconfiguration to be applied
+                          to all generated parameters.
+                        properties:
+                          defaultPrefix:
+                            description: DefaultPrefix to be appeneded to keys by
+                              all generated parameters. This configuration does not
+                              affect parameter keys explicitly set by users.
+                            type: string
+                        type: object
                     type: object
                 required:
                 - fromImage

@@ -62,7 +62,7 @@ func TestParseObjectIntoContainer(t *testing.T) {
 	}{
 		"default rendering": {
 			configuration: &apicommon.ParameterConfiguration{
-				Parameters: []apicommon.Parameter{},
+				Customize: []apicommon.CustomizeParameterConfiguration{},
 			},
 			object: objectText,
 			podSpec: newPodSpec(
@@ -79,10 +79,12 @@ func TestParseObjectIntoContainer(t *testing.T) {
 		},
 		"skip a value field": {
 			configuration: &apicommon.ParameterConfiguration{
-				Parameters: []apicommon.Parameter{
+				Customize: []apicommon.CustomizeParameterConfiguration{
 					{
 						Path: "$.spec.age",
-						Skip: &tTrue,
+						Render: &apicommon.ParameterRenderConfiguration{
+							Skip: &tTrue,
+						},
 					},
 				},
 			},
@@ -100,10 +102,12 @@ func TestParseObjectIntoContainer(t *testing.T) {
 		},
 		"skip an array of primitives field": {
 			configuration: &apicommon.ParameterConfiguration{
-				Parameters: []apicommon.Parameter{
+				Customize: []apicommon.CustomizeParameterConfiguration{
 					{
 						Path: ".spec.numbers",
-						Skip: &tTrue,
+						Render: &apicommon.ParameterRenderConfiguration{
+							Skip: &tTrue,
+						},
 					},
 				},
 			},
@@ -121,10 +125,12 @@ func TestParseObjectIntoContainer(t *testing.T) {
 		},
 		"skip an array of complex field": {
 			configuration: &apicommon.ParameterConfiguration{
-				Parameters: []apicommon.Parameter{
+				Customize: []apicommon.CustomizeParameterConfiguration{
 					{
 						Path: "spec.substruct",
-						Skip: &tTrue,
+						Render: &apicommon.ParameterRenderConfiguration{
+							Skip: &tTrue,
+						},
 					},
 				},
 			},
@@ -142,10 +148,10 @@ func TestParseObjectIntoContainer(t *testing.T) {
 		},
 		"change a key liternal": {
 			configuration: &apicommon.ParameterConfiguration{
-				Parameters: []apicommon.Parameter{
+				Customize: []apicommon.CustomizeParameterConfiguration{
 					{
 						Path: ".spec.skills.cooking",
-						Render: &apicommon.ParameterRender{
+						Render: &apicommon.ParameterRenderConfiguration{
 							Key: &tKey,
 						},
 					},
