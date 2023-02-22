@@ -181,8 +181,8 @@ func (r *podSpecRenderer) valuesToContainerOptions(parsedValues []parsedValue) (
 				continue
 			}
 			if rule.Render != nil {
-				if rule.Render.Literal != nil {
-					pKey = *rule.Render.Literal
+				if rule.Render.Key != nil {
+					pKey = *rule.Render.Key
 				}
 			}
 		}

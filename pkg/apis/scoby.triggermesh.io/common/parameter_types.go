@@ -7,9 +7,9 @@ import corev1 "k8s.io/api/core/v1"
 
 // ParameterRender options.
 type ParameterRender struct {
-	// Literal value for the workload parameter.
+	// Key literal for the workload parameter.
 	// +optional
-	Literal *string `json:"literal,omitempty"`
+	Key *string `json:"key,omitempty"`
 }
 
 // Parameter defines key/values to be passed to components.
@@ -20,7 +20,7 @@ type Parameter struct {
 	// Skip sets whether the object should skip rendering
 	// as a workload parameter.
 	// +optional
-	Skip *bool `json:"parameters,omitempty"`
+	Skip *bool `json:"skip,omitempty"`
 
 	// Render options for the parameter.
 	// +optional
