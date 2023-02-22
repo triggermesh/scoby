@@ -48,8 +48,8 @@ spec:
 )
 
 var (
-	tTrue    = true
-	tLiteral = "My_New_Name"
+	tTrue = true
+	tKey  = "My_New_Name"
 )
 
 func TestParseObjectIntoContainer(t *testing.T) {
@@ -146,7 +146,7 @@ func TestParseObjectIntoContainer(t *testing.T) {
 					{
 						Path: ".spec.skills.cooking",
 						Render: &apicommon.ParameterRender{
-							Literal: &tLiteral,
+							Key: &tKey,
 						},
 					},
 				},
@@ -157,7 +157,7 @@ func TestParseObjectIntoContainer(t *testing.T) {
 				resources.ContainerAddEnvFromValue("ANIMALS", "dragonfly"),
 				resources.ContainerAddEnvFromValue("COLORS", "Green,white"),
 				resources.ContainerAddEnvFromValue("MIXED", "true,13,barnacle"),
-				resources.ContainerAddEnvFromValue(tLiteral, "false"),
+				resources.ContainerAddEnvFromValue(tKey, "false"),
 				resources.ContainerAddEnvFromValue("NAME", "danny"),
 				resources.ContainerAddEnvFromValue("NUMBERS", "1,1.1,0"),
 				resources.ContainerAddEnvFromValue("SKILLS_DANCING", "true"),

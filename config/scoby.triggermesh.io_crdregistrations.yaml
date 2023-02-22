@@ -113,20 +113,20 @@ spec:
                           description: Parameter defines key/values to be passed to
                             components.
                           properties:
-                            parameters:
-                              description: Skip sets whether the object should skip
-                                rendering as a workload parameter.
-                              type: boolean
                             path:
                               description: JSONPath for the parameter.
                               type: string
                             render:
                               description: Render options for the parameter.
                               properties:
-                                literal:
-                                  description: Literal value for the workload parameter.
+                                key:
+                                  description: Key literal for the workload parameter.
                                   type: string
                               type: object
+                            skip:
+                              description: Skip sets whether the object should skip
+                                rendering as a workload parameter.
+                              type: boolean
                           required:
                           - path
                           type: object
