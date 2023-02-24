@@ -17,8 +17,11 @@ spec:
 
     parameterConfiguration:
       customize:
-      # Use a specific env var key for variable2
-      - path: spec.variable2
+      # Reference a secret
+      - path: spec.refToSecret
         render:
-          key: KUARD_VARIABLE_TWO
+          key: FOO_CREDENTIALS
+          valueFromSecret:
+            name: spec.refToSecret.secretName
+            key: spec.refToSecret.secretKey
 

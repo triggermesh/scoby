@@ -299,8 +299,7 @@ func (v *parsedField) toJSONPath() string {
 }
 
 // restructure incoming object into a parsing friendly structure that
-// can be referred to using 'friendly' JSON, and only keeps leaf nodes
-// and arrays.
+// can be referred to using 'friendly' JSON.
 func restructureIntoParsedFields(root map[string]interface{}, branch []string) map[string]parsedField {
 	// Parsed fields indexed by JSONPath
 	parsedFields := map[string]parsedField{}
@@ -311,12 +310,16 @@ func restructureIntoParsedFields(root map[string]interface{}, branch []string) m
 		switch t := v.(type) {
 		case map[string]interface{}:
 			// Drill down intermediate nodes.
-			// We don't keep those nodes since we don't expect any
-			// processing from them but from their child nodes.
 			children := restructureIntoParsedFields(t, iter)
 			for k, v := range children {
 				parsedFields[k] = v
 			}
+
+			pf := parsedField{
+				branch: iter,
+				value:  v,
+			}
+			parsedFields[pf.toJSONPath()] = pf
 
 		case []interface{}:
 			// When running into an arrays we need to check if the
