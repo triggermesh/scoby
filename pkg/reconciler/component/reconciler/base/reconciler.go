@@ -19,12 +19,15 @@ type Reconciler interface {
 	// Create new object using the GVK
 	NewReconciledObject() ReconciledObject
 
+	// Render a ReconciledObject into data that can be
+	// used at reconciliation.
+	RenderReconciledObject(ReconciledObject) (RenderedObject, error)
+
 	// Status management
 	StatusConfigureManagerConditions(happy string, conditions ...string)
-	// StatusGetSupportFlag() StatusFlag
 }
 
-func NewReconciler(crd *apiextensionsv1.CustomResourceDefinition, reg apicommon.Registration, psr PodSpecRenderer, log logr.Logger) Reconciler {
+func NewReconciler(crd *apiextensionsv1.CustomResourceDefinition, reg apicommon.Registration, renderer Renderer, log logr.Logger) Reconciler {
 	// Choose CRD version
 	crdv := CRDPrioritizedVersion(crd)
 
@@ -38,15 +41,15 @@ func NewReconciler(crd *apiextensionsv1.CustomResourceDefinition, reg apicommon.
 		Kind:    crd.Spec.Names.Kind,
 	}
 
-	rof := NewReconciledObjectFactory(gvk, smf, psr)
+	rof := NewReconciledObjectFactory(gvk, smf, renderer)
 
 	return &reconciler{
-		gvk: gvk,
-		log: &log,
-		reg: reg,
-		psr: psr,
-		smf: smf,
-		rof: rof,
+		gvk:      gvk,
+		log:      &log,
+		reg:      reg,
+		renderer: renderer,
+		smf:      smf,
+		rof:      rof,
 	}
 }
 
@@ -56,7 +59,7 @@ type reconciler struct {
 
 	reg apicommon.Registration
 
-	psr PodSpecRenderer
+	renderer Renderer
 
 	// Status manager factory to create status managers per
 	// reconciling object.
@@ -69,6 +72,10 @@ type reconciler struct {
 
 func (r *reconciler) NewReconciledObject() ReconciledObject {
 	return r.rof.NewReconciledObject()
+}
+
+func (r *reconciler) RenderReconciledObject(obj ReconciledObject) (RenderedObject, error) {
+	return r.renderer.Render(obj)
 }
 
 func (r *reconciler) RegisteredGetName() string {

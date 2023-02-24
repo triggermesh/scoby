@@ -77,6 +77,24 @@ func TestNewContainer(t *testing.T) {
 					},
 				},
 			}},
+		"with environment variable": {
+			options: []ContainerOption{
+				ContainerAddEnv(
+					&corev1.EnvVar{
+						Name:  "test-env",
+						Value: "test-value",
+					}),
+			},
+			expected: corev1.Container{
+				Name:  tName,
+				Image: tImage,
+				Env: []corev1.EnvVar{
+					{
+						Name:  "test-env",
+						Value: "test-value",
+					},
+				},
+			}},
 		"with env from secret": {
 			options: []ContainerOption{
 				ContainerAddEnvVarFromSecret("test-env", "test-secret", "test-key"),

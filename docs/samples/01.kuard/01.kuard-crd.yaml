@@ -37,6 +37,20 @@ spec:
                   type: array
                   items:
                     type: string
+                refToSecret:
+                  type: object
+                  properties:
+                    secretName:
+                      type: string
+                    secretKey:
+                      type: string
+                refToConfigMap:
+                  type: object
+                  properties:
+                    configName:
+                      type: string
+                    configKey:
+                      type: string
 
             status:
               description: CRDRegistrationStatus defines the observed state of CRDRegistration

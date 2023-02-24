@@ -10,14 +10,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
-	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )
 
 type ReconciledObject interface {
 	client.Object
 
-	RenderPodSpecOptions() ([]resources.PodSpecOption, error)
+	// Render() (RenderedObject, error)
+	// RenderPodSpecOptions() ([]resources.PodSpecOption, error)
 	AsKubeObject() client.Object
 
 	StatusGetObservedGeneration() int64
@@ -31,18 +31,18 @@ type ReconciledObjectFactory interface {
 	NewReconciledObject() ReconciledObject
 }
 
-func NewReconciledObjectFactory(gvk schema.GroupVersionKind, smf StatusManagerFactory, psr PodSpecRenderer) ReconciledObjectFactory {
+func NewReconciledObjectFactory(gvk schema.GroupVersionKind, smf StatusManagerFactory, renderer Renderer) ReconciledObjectFactory {
 	return &reconciledObjectFactory{
-		gvk: gvk,
-		smf: smf,
-		psr: psr,
+		gvk:      gvk,
+		smf:      smf,
+		renderer: renderer,
 	}
 }
 
 type reconciledObjectFactory struct {
-	gvk schema.GroupVersionKind
-	smf StatusManagerFactory
-	psr PodSpecRenderer
+	gvk      schema.GroupVersionKind
+	smf      StatusManagerFactory
+	renderer Renderer
 }
 
 func (rof *reconciledObjectFactory) NewReconciledObject() ReconciledObject {
@@ -51,8 +51,8 @@ func (rof *reconciledObjectFactory) NewReconciledObject() ReconciledObject {
 	ro := &reconciledObject{
 		Unstructured: u,
 
-		sm:  rof.smf.ForObject(u),
-		psr: rof.psr,
+		sm:       rof.smf.ForObject(u),
+		renderer: rof.renderer,
 	}
 
 	return ro
@@ -60,17 +60,21 @@ func (rof *reconciledObjectFactory) NewReconciledObject() ReconciledObject {
 
 type reconciledObject struct {
 	*unstructured.Unstructured
-	sm  StatusManager
-	psr PodSpecRenderer
+	sm       StatusManager
+	renderer Renderer
 }
 
-func (rof *reconciledObject) AsKubeObject() client.Object {
-	return rof.Unstructured
+func (ro *reconciledObject) AsKubeObject() client.Object {
+	return ro.Unstructured
 }
 
-func (ro *reconciledObject) RenderPodSpecOptions() ([]resources.PodSpecOption, error) {
-	return ro.psr.Render(ro)
-}
+// func (ro *reconciledObject) RenderPodSpecOptions() ([]resources.PodSpecOption, error) {
+// 	return ro.renderer.Render(ro)
+// }
+
+// func (ro *reconciledObject) Render() (RenderedObject, error) {
+// 	return ro.renderer.Render(ro)
+// }
 
 func (ro *reconciledObject) StatusGetObservedGeneration() int64 {
 	return ro.sm.GetObservedGeneration()
