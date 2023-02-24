@@ -17,11 +17,16 @@ import (
 	knservice "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/knservice"
 )
 
+const (
+	defaultContainerName = "adapter"
+)
+
 func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (reconcile.Reconciler, error) {
 	wkl := reg.GetWorkload()
-	psr := base.NewPodSpecRenderer("adapter", wkl.FromImage.Repo, wkl.ParameterConfiguration)
+	renderer := base.NewRenderer(defaultContainerName, wkl.FromImage.Repo, *wkl.ParameterConfiguration)
+	// psr := base.NewPodSpecRenderer(defaultContainerName, wkl.FromImage.Repo, *wkl.ParameterConfiguration)
 
-	b := base.NewReconciler(crd, reg, psr, mgr.GetLogger())
+	b := base.NewReconciler(crd, reg, renderer, mgr.GetLogger())
 
 	switch {
 	case reg.GetWorkload().FormFactor.KnativeService != nil:

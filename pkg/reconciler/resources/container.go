@@ -24,6 +24,15 @@ func NewContainer(name, image string, opts ...ContainerOption) *corev1.Container
 	return c
 }
 
+func ContainerAddEnv(ev *corev1.EnvVar) ContainerOption {
+	return func(c *corev1.Container) {
+		if c.Env == nil {
+			c.Env = make([]corev1.EnvVar, 0, 1)
+		}
+		c.Env = append(c.Env, *ev)
+	}
+}
+
 func ContainerAddEnvFromValue(name, value string) ContainerOption {
 	return func(c *corev1.Container) {
 		if c.Env == nil {

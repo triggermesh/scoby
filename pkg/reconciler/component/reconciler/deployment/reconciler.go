@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
 	recbase "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
@@ -91,11 +92,17 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
+	// Perform the generic object rendering
+	ro, err := r.base.RenderReconciledObject(obj)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// create a copy, we will compare after reconciling
 	// and decide if we need to update or not.
 	cp := obj.AsKubeObject().DeepCopyObject()
 
-	res, err := r.reconcileObjectInstance(ctx, obj)
+	res, err := r.reconcileObjectInstance(ctx, obj, ro)
 
 	// Update status if needed.
 	// TODO find a better expression for this
@@ -113,7 +120,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return res, err
 }
 
-func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.ReconciledObject) (reconcile.Result, error) {
+func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.ReconciledObject, ro base.RenderedObject) (reconcile.Result, error) {
 	r.log.V(1).Info("reconciling object instance", "object", obj)
 
 	// Update generation if needed
@@ -122,7 +129,7 @@ func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.Re
 		obj.StatusSetObservedGeneration(g)
 	}
 
-	d, err := r.reconcileDeployment(ctx, obj)
+	d, err := r.reconcileDeployment(ctx, obj, ro)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -131,7 +138,7 @@ func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.Re
 
 	if r.serviceOptions != nil {
 		r.log.V(1).Info("reconciling service", "object", obj)
-		s, err := r.reconcileService(ctx, obj)
+		s, err := r.reconcileService(ctx, obj, ro)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -143,10 +150,10 @@ func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.Re
 	return reconcile.Result{}, nil
 }
 
-func (r *reconciler) reconcileDeployment(ctx context.Context, obj recbase.ReconciledObject) (*appsv1.Deployment, error) {
+func (r *reconciler) reconcileDeployment(ctx context.Context, obj recbase.ReconciledObject, ro recbase.RenderedObject) (*appsv1.Deployment, error) {
 	r.log.V(1).Info("reconciling deployment", "object", obj)
 
-	desired, err := r.createDeploymentFromRegistered(obj)
+	desired, err := r.createDeploymentFromRegistered(obj, ro)
 	if err != nil {
 		return nil, fmt.Errorf("could not render deployment object: %w", err)
 	}
@@ -222,14 +229,7 @@ func (r *reconciler) updateDeploymentStatus(obj recbase.ReconciledObject, d *app
 	obj.StatusSetCondition(desired)
 }
 
-func (r *reconciler) createDeploymentFromRegistered(obj recbase.ReconciledObject) (*appsv1.Deployment, error) {
-	// TODO generate names
-
-	ps, err := obj.RenderPodSpecOptions()
-	if err != nil {
-		return nil, err
-	}
-
+func (r *reconciler) createDeploymentFromRegistered(obj recbase.ReconciledObject, ro base.RenderedObject) (*appsv1.Deployment, error) {
 	wkl := r.base.RegisteredGetWorkload()
 
 	replicas := defaultReplicas
@@ -253,12 +253,12 @@ func (r *reconciler) createDeploymentFromRegistered(obj recbase.ReconciledObject
 		resources.DeploymentAddSelectorForTemplate(resources.AppComponentLabel, recbase.ComponentWorkload),
 
 		resources.DeploymentWithTemplateSpecOptions(
-			resources.PodTemplateSpecWithPodSpecOptions(ps...),
+			resources.PodTemplateSpecWithPodSpecOptions(ro.GetPodSpecOptions()...),
 		)), nil
 }
 
-func (r *reconciler) reconcileService(ctx context.Context, obj recbase.ReconciledObject) (*corev1.Service, error) {
-	desired, err := r.createServiceFromRegistered(obj)
+func (r *reconciler) reconcileService(ctx context.Context, obj recbase.ReconciledObject, ro base.RenderedObject) (*corev1.Service, error) {
+	desired, err := r.createServiceFromRegistered(obj, ro)
 	if err != nil {
 		return nil, fmt.Errorf("could not render service object: %w", err)
 	}
@@ -313,9 +313,7 @@ func (r *reconciler) updateServiceStatus(obj recbase.ReconciledObject, s *corev1
 	obj.StatusSetCondition(desired)
 }
 
-func (r *reconciler) createServiceFromRegistered(obj recbase.ReconciledObject) (*corev1.Service, error) {
-	// TODO generate names
-
+func (r *reconciler) createServiceFromRegistered(obj recbase.ReconciledObject, ro base.RenderedObject) (*corev1.Service, error) {
 	return resources.NewService(obj.GetNamespace(), obj.GetName(),
 		resources.ServiceWithMetaOptions(
 			resources.MetaAddLabel(resources.AppNameLabel, r.base.RegisteredGetName()),

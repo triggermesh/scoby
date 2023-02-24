@@ -119,7 +119,7 @@ Customization is being worked on, A checkbox indicates if the feature is availab
 
 The default behavior is to create parameters from each spec element (arrays will create just one element that includes any sub-elements). When a parameter customization is found, the default parameter generation for that element or any sub-element to the one indicated, will be skipped.
 
-- [ ] Avoid producing parameter.
+- [x] Avoid producing parameter.
 
 ```yaml
     parameterConfiguration:
@@ -129,7 +129,7 @@ The default behavior is to create parameters from each spec element (arrays will
           skip: true
 ```
 
-- [ ] Change key for generated param. Can be combined.
+- [x] Change key for generated param. Can be combined.
 
 ```yaml
     parameterConfiguration:
@@ -180,11 +180,10 @@ The default behavior is to create parameters from each spec element (arrays will
     parameterConfiguration:
       customize:
       - path: spec.destination
-        pipeline:
-        - function: resolveKubetoURL
         render:
           key: K_SINK
-          valueFromPipeline: true
+          valueFromBuiltInFunc:
+            Name: resolveKubetoURL
 ```
 
 - [ ] Function: JSON Marshal
@@ -193,10 +192,9 @@ The default behavior is to create parameters from each spec element (arrays will
     parameterConfiguration:
       customize:
       - path: spec.bar
-        pipeline:
-        - function: jsonMarshal
         render:
-          valueFromPipeline: true
+          valueFromBuiltInFunc:
+            Name: jsonMarshal
 ```
 
 ## Workload Status

@@ -84,11 +84,17 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
+	// Perform the generic object rendering
+	ro, err := r.base.RenderReconciledObject(obj)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// create a copy, we will compare after reconciling
 	// and decide if we need to update or not.
 	cp := obj.AsKubeObject().DeepCopyObject()
 
-	res, err := r.reconcileObjectInstance(ctx, obj)
+	res, err := r.reconcileObjectInstance(ctx, obj, ro)
 
 	// Update status if needed.
 	// TODO find a better expression for this
@@ -106,7 +112,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return res, err
 }
 
-func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.ReconciledObject) (reconcile.Result, error) {
+func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.ReconciledObject, ro recbase.RenderedObject) (reconcile.Result, error) {
 	r.log.V(1).Info("reconciling object instance", "object", obj)
 
 	// Update generation if needed
@@ -115,7 +121,7 @@ func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.Re
 		obj.StatusSetObservedGeneration(g)
 	}
 
-	ksvc, err := r.reconcileKnativeService(ctx, obj)
+	ksvc, err := r.reconcileKnativeService(ctx, obj, ro)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -125,11 +131,11 @@ func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.Re
 	return reconcile.Result{}, nil
 }
 
-func (r *reconciler) reconcileKnativeService(ctx context.Context, obj recbase.ReconciledObject) (*servingv1.Service, error) {
+func (r *reconciler) reconcileKnativeService(ctx context.Context, obj recbase.ReconciledObject, ro recbase.RenderedObject) (*servingv1.Service, error) {
 	r.log.V(1).Info("reconciling knative service", "object", obj)
 
 	// render service
-	desired, err := r.createKnServiceFromRegistered(obj)
+	desired, err := r.createKnServiceFromRegistered(obj, ro)
 	if err != nil {
 		return nil, fmt.Errorf("could not render knative service object: %w", err)
 	}
@@ -205,14 +211,7 @@ func (r *reconciler) updateKnativeServiceStatus(obj recbase.ReconciledObject, ks
 	obj.StatusSetCondition(desired)
 }
 
-func (r *reconciler) createKnServiceFromRegistered(obj recbase.ReconciledObject) (*servingv1.Service, error) {
-	// TODO generate names
-
-	ps, err := obj.RenderPodSpecOptions()
-	if err != nil {
-		return nil, err
-	}
-
+func (r *reconciler) createKnServiceFromRegistered(obj recbase.ReconciledObject, ro recbase.RenderedObject) (*servingv1.Service, error) {
 	metaopts := []resources.MetaOption{
 		resources.MetaAddLabel(resources.AppNameLabel, r.base.RegisteredGetName()),
 		resources.MetaAddLabel(resources.AppInstanceLabel, obj.GetName()),
@@ -224,7 +223,7 @@ func (r *reconciler) createKnServiceFromRegistered(obj recbase.ReconciledObject)
 	}
 
 	revspecopts := []resources.RevisionTemplateOption{
-		resources.RevisionSpecWithPodSpecOptions(ps...),
+		resources.RevisionSpecWithPodSpecOptions(ro.GetPodSpecOptions()...),
 	}
 
 	wkl := r.base.RegisteredGetWorkload()
