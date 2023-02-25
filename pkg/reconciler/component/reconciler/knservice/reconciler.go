@@ -51,7 +51,7 @@ func NewComponentReconciler(ctx context.Context, base recbase.Reconciler, mgr ma
 	log.V(1).Info("Reconciler configured, adding to controller manager", "registration", base.RegisteredGetName())
 
 	if err := builder.ControllerManagedBy(mgr).
-		For(base.NewReconciledObject().AsKubeObject()).
+		For(base.NewReconcilingObject().AsKubeObject()).
 		Owns(resources.NewKnativeService("", "")).
 		Complete(r); err != nil {
 		return nil, fmt.Errorf("could not build controller for %q: %w", base.RegisteredGetName(), err)
@@ -72,7 +72,7 @@ var _ reconcile.Reconciler = (*reconciler)(nil)
 func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	r.log.V(1).Info("reconciling request", "request", req)
 
-	obj := r.base.NewReconciledObject()
+	obj := r.base.NewReconcilingObject()
 	if err := r.client.Get(ctx, req.NamespacedName, obj.AsKubeObject()); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
@@ -85,7 +85,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	// Perform the generic object rendering
-	ro, err := r.base.RenderReconciledObject(obj)
+	ro, err := r.base.RenderReconciling(obj)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -112,7 +112,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return res, err
 }
 
-func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.ReconciledObject, ro recbase.RenderedObject) (reconcile.Result, error) {
+func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.ReconcilingObject, ro recbase.RenderedObject) (reconcile.Result, error) {
 	r.log.V(1).Info("reconciling object instance", "object", obj)
 
 	// Update generation if needed
@@ -131,7 +131,7 @@ func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.Re
 	return reconcile.Result{}, nil
 }
 
-func (r *reconciler) reconcileKnativeService(ctx context.Context, obj recbase.ReconciledObject, ro recbase.RenderedObject) (*servingv1.Service, error) {
+func (r *reconciler) reconcileKnativeService(ctx context.Context, obj recbase.ReconcilingObject, ro recbase.RenderedObject) (*servingv1.Service, error) {
 	r.log.V(1).Info("reconciling knative service", "object", obj)
 
 	// render service
@@ -175,7 +175,7 @@ func (r *reconciler) reconcileKnativeService(ctx context.Context, obj recbase.Re
 	return desired, nil
 }
 
-func (r *reconciler) updateKnativeServiceStatus(obj recbase.ReconciledObject, ksvc *servingv1.Service) {
+func (r *reconciler) updateKnativeServiceStatus(obj recbase.ReconcilingObject, ksvc *servingv1.Service) {
 	r.log.V(1).Info("updating knativeService status", "object", obj)
 
 	desired := &apicommon.Condition{
@@ -211,7 +211,7 @@ func (r *reconciler) updateKnativeServiceStatus(obj recbase.ReconciledObject, ks
 	obj.StatusSetCondition(desired)
 }
 
-func (r *reconciler) createKnServiceFromRegistered(obj recbase.ReconciledObject, ro recbase.RenderedObject) (*servingv1.Service, error) {
+func (r *reconciler) createKnServiceFromRegistered(obj recbase.ReconcilingObject, ro recbase.RenderedObject) (*servingv1.Service, error) {
 	metaopts := []resources.MetaOption{
 		resources.MetaAddLabel(resources.AppNameLabel, r.base.RegisteredGetName()),
 		resources.MetaAddLabel(resources.AppInstanceLabel, obj.GetName()),

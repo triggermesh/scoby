@@ -24,7 +24,6 @@ const (
 func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (reconcile.Reconciler, error) {
 	wkl := reg.GetWorkload()
 	renderer := base.NewRenderer(defaultContainerName, wkl.FromImage.Repo, *wkl.ParameterConfiguration)
-	// psr := base.NewPodSpecRenderer(defaultContainerName, wkl.FromImage.Repo, *wkl.ParameterConfiguration)
 
 	b := base.NewReconciler(crd, reg, renderer, mgr.GetLogger())
 

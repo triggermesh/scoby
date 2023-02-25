@@ -1,4 +1,4 @@
-package base
+package object
 
 import (
 	"encoding/json"
@@ -17,7 +17,7 @@ import (
 const rootObject = "spec"
 
 type Renderer interface {
-	Render(obj ReconciledObject) (RenderedObject, error)
+	Render(obj Reconciling) (Rendered, error)
 }
 
 type renderer struct {
@@ -65,7 +65,7 @@ func NewRenderer(containerName, containerImage string, configuration apicommon.P
 	return r
 }
 
-func (r *renderer) Render(obj ReconciledObject) (RenderedObject, error) {
+func (r *renderer) Render(obj Reconciling) (Rendered, error) {
 	uobj, ok := obj.AsKubeObject().(*unstructured.Unstructured)
 	if !ok {
 		return nil, fmt.Errorf("could not parse object into unstructured: %s", obj.GetName())
@@ -391,7 +391,7 @@ func restructureIntoParsedFields(root map[string]interface{}, branch []string) m
 	return parsedFields
 }
 
-type RenderedObject interface {
+type Rendered interface {
 	GetPodSpecOptions() []resources.PodSpecOption
 	GetAddressURL() string
 }
@@ -399,7 +399,7 @@ type RenderedObject interface {
 type renderedObject struct {
 	// Reference to the reconciled object that generates
 	// this rendering.
-	obj ReconciledObject
+	obj Reconciling
 
 	// Environment variables to be added to the workload,
 	// mapped by their JSON path.
