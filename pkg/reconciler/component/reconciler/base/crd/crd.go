@@ -1,7 +1,7 @@
 // Copyright 2023 TriggerMesh Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package base
+package crd
 
 import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"

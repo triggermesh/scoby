@@ -1,23 +1,21 @@
 // Copyright 2023 TriggerMesh Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package base
+package object
 
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/status"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )
 
-type ReconciledObject interface {
+type Reconciling interface {
 	client.Object
 
-	// Render() (RenderedObject, error)
-	// RenderPodSpecOptions() ([]resources.PodSpecOption, error)
 	AsKubeObject() client.Object
 
 	StatusGetObservedGeneration() int64
@@ -27,11 +25,11 @@ type ReconciledObject interface {
 	StatusIsEqual(client.Object) bool
 }
 
-type ReconciledObjectFactory interface {
-	NewReconciledObject() ReconciledObject
+type ReconcilingObjectFactory interface {
+	NewReconcilingObject() Reconciling
 }
 
-func NewReconciledObjectFactory(gvk schema.GroupVersionKind, smf StatusManagerFactory, renderer Renderer) ReconciledObjectFactory {
+func NewReconcilingObjectFactory(gvk schema.GroupVersionKind, smf status.StatusManagerFactory, renderer Renderer) ReconcilingObjectFactory {
 	return &reconciledObjectFactory{
 		gvk:      gvk,
 		smf:      smf,
@@ -41,11 +39,11 @@ func NewReconciledObjectFactory(gvk schema.GroupVersionKind, smf StatusManagerFa
 
 type reconciledObjectFactory struct {
 	gvk      schema.GroupVersionKind
-	smf      StatusManagerFactory
+	smf      status.StatusManagerFactory
 	renderer Renderer
 }
 
-func (rof *reconciledObjectFactory) NewReconciledObject() ReconciledObject {
+func (rof *reconciledObjectFactory) NewReconcilingObject() Reconciling {
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(rof.gvk)
 	ro := &reconciledObject{
@@ -60,21 +58,13 @@ func (rof *reconciledObjectFactory) NewReconciledObject() ReconciledObject {
 
 type reconciledObject struct {
 	*unstructured.Unstructured
-	sm       StatusManager
+	sm       status.StatusManager
 	renderer Renderer
 }
 
 func (ro *reconciledObject) AsKubeObject() client.Object {
 	return ro.Unstructured
 }
-
-// func (ro *reconciledObject) RenderPodSpecOptions() ([]resources.PodSpecOption, error) {
-// 	return ro.renderer.Render(ro)
-// }
-
-// func (ro *reconciledObject) Render() (RenderedObject, error) {
-// 	return ro.renderer.Render(ro)
-// }
 
 func (ro *reconciledObject) StatusGetObservedGeneration() int64 {
 	return ro.sm.GetObservedGeneration()

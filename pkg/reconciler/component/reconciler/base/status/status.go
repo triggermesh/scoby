@@ -1,7 +1,7 @@
 // Copyright 2023 TriggerMesh Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package base
+package status
 
 import (
 	"errors"
@@ -10,15 +10,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
-)
-
-const (
-	ConditionTypeReady = "Ready"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/crd"
 )
 
 // Time is a helper wrap around time.Now that
@@ -42,7 +40,7 @@ type StatusManagerFactory interface {
 }
 
 type statusManagerFactory struct {
-	flag      StatusFlag
+	flag      crd.StatusFlag
 	happyCond string
 	conds     map[string]struct{}
 
@@ -58,7 +56,7 @@ func NewStatusManagerFactory(crdv *apiextensionsv1.CustomResourceDefinitionVersi
 	}
 
 	return &statusManagerFactory{
-		flag:      CRDStatusFlag(crdv),
+		flag:      crd.CRDStatusFlag(crdv),
 		happyCond: happyCond,
 		conds:     conds,
 		time:      realTime{},
@@ -123,7 +121,7 @@ type statusManager struct {
 
 	// CRD information that informs about
 	// the status capabilities.
-	flag StatusFlag
+	flag crd.StatusFlag
 
 	time Time
 	log  logr.Logger

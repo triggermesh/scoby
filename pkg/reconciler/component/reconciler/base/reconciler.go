@@ -9,31 +9,37 @@ import (
 
 	"github.com/go-logr/logr"
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	basecrd "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/crd"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/object"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/status"
 )
 
+// The base reconciler is created using data from the registration
+// and exposes methods common to all reconciliations, no matter the
+// form factor.
 type Reconciler interface {
 	// Registered element information
 	RegisteredGetName() string
 	RegisteredGetWorkload() *apicommon.Workload
 
 	// Create new object using the GVK
-	NewReconciledObject() ReconciledObject
+	NewReconcilingObject() ReconcilingObject
 
-	// Render a ReconciledObject into data that can be
+	// Render a Reconciling into data that can be
 	// used at reconciliation.
-	RenderReconciledObject(ReconciledObject) (RenderedObject, error)
+	RenderReconciling(ReconcilingObject) (RenderedObject, error)
 
 	// Status management
 	StatusConfigureManagerConditions(happy string, conditions ...string)
 }
 
-func NewReconciler(crd *apiextensionsv1.CustomResourceDefinition, reg apicommon.Registration, renderer Renderer, log logr.Logger) Reconciler {
+func NewReconciler(crd *apiextensionsv1.CustomResourceDefinition, reg apicommon.Registration, renderer object.Renderer, log logr.Logger) Reconciler {
 	// Choose CRD version
-	crdv := CRDPrioritizedVersion(crd)
+	crdv := basecrd.CRDPrioritizedVersion(crd)
 
 	// The status factory is created using only the ConditionTypeReady condition, it is up
 	// to the base reconciler user to update with their set of conditions before using it.
-	smf := NewStatusManagerFactory(crdv, ConditionTypeReady, []string{ConditionTypeReady}, log)
+	smf := status.NewStatusManagerFactory(crdv, ConditionTypeReady, []string{ConditionTypeReady}, log)
 
 	gvk := schema.GroupVersionKind{
 		Group:   crd.Spec.Group,
@@ -41,7 +47,7 @@ func NewReconciler(crd *apiextensionsv1.CustomResourceDefinition, reg apicommon.
 		Kind:    crd.Spec.Names.Kind,
 	}
 
-	rof := NewReconciledObjectFactory(gvk, smf, renderer)
+	rof := object.NewReconcilingObjectFactory(gvk, smf, renderer)
 
 	return &reconciler{
 		gvk:      gvk,
@@ -59,29 +65,36 @@ type reconciler struct {
 
 	reg apicommon.Registration
 
-	renderer Renderer
+	renderer object.Renderer
 
 	// Status manager factory to create status managers per
 	// reconciling object.
-	smf StatusManagerFactory
+	smf status.StatusManagerFactory
 
-	rof ReconciledObjectFactory
+	rof object.ReconcilingObjectFactory
 
 	log *logr.Logger
 }
 
-func (r *reconciler) NewReconciledObject() ReconciledObject {
-	return r.rof.NewReconciledObject()
+// NewReconcilingObject creates a new empty reference of a reconciling
+// object that can be used by a kubernetes client to be filled with an
+// existing instance of the object at the cluster.
+func (r *reconciler) NewReconcilingObject() ReconcilingObject {
+	return r.rof.NewReconcilingObject()
 }
 
-func (r *reconciler) RenderReconciledObject(obj ReconciledObject) (RenderedObject, error) {
+// RenderReconciling uses the incoming reconciling object to process its data
+// and turn it into structures that can be used to render dependent objects.
+func (r *reconciler) RenderReconciling(obj ReconcilingObject) (RenderedObject, error) {
 	return r.renderer.Render(obj)
 }
 
+// Return the registration name.
 func (r *reconciler) RegisteredGetName() string {
 	return r.reg.GetName()
 }
 
+// Return the registration workload structure
 func (r *reconciler) RegisteredGetWorkload() *apicommon.Workload {
 	return r.reg.GetWorkload()
 }

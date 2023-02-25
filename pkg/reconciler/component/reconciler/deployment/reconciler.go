@@ -21,7 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
 	recbase "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
@@ -57,7 +56,7 @@ func NewComponentReconciler(ctx context.Context, base recbase.Reconciler, mgr ma
 	log.V(1).Info("Reconciler configured, adding to controller manager", "registration", base.RegisteredGetName())
 
 	if err := builder.ControllerManagedBy(mgr).
-		For(base.NewReconciledObject().AsKubeObject()).
+		For(base.NewReconcilingObject().AsKubeObject()).
 		Owns(resources.NewDeployment("", "")).
 		Owns(resources.NewService("", "")).
 		Complete(r); err != nil {
@@ -80,7 +79,7 @@ var _ reconcile.Reconciler = (*reconciler)(nil)
 func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	r.log.V(1).Info("reconciling request", "request", req)
 
-	obj := r.base.NewReconciledObject()
+	obj := r.base.NewReconcilingObject()
 	if err := r.client.Get(ctx, req.NamespacedName, obj.AsKubeObject()); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
@@ -93,7 +92,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	// Perform the generic object rendering
-	ro, err := r.base.RenderReconciledObject(obj)
+	ro, err := r.base.RenderReconciling(obj)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -120,7 +119,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return res, err
 }
 
-func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.ReconciledObject, ro base.RenderedObject) (reconcile.Result, error) {
+func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.ReconcilingObject, ro recbase.RenderedObject) (reconcile.Result, error) {
 	r.log.V(1).Info("reconciling object instance", "object", obj)
 
 	// Update generation if needed
@@ -150,7 +149,7 @@ func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.Re
 	return reconcile.Result{}, nil
 }
 
-func (r *reconciler) reconcileDeployment(ctx context.Context, obj recbase.ReconciledObject, ro recbase.RenderedObject) (*appsv1.Deployment, error) {
+func (r *reconciler) reconcileDeployment(ctx context.Context, obj recbase.ReconcilingObject, ro recbase.RenderedObject) (*appsv1.Deployment, error) {
 	r.log.V(1).Info("reconciling deployment", "object", obj)
 
 	desired, err := r.createDeploymentFromRegistered(obj, ro)
@@ -193,7 +192,7 @@ func (r *reconciler) reconcileDeployment(ctx context.Context, obj recbase.Reconc
 	return desired, nil
 }
 
-func (r *reconciler) updateDeploymentStatus(obj recbase.ReconciledObject, d *appsv1.Deployment) {
+func (r *reconciler) updateDeploymentStatus(obj recbase.ReconcilingObject, d *appsv1.Deployment) {
 	r.log.V(1).Info("updating deployment status", "object", obj)
 
 	desired := &apicommon.Condition{
@@ -229,7 +228,7 @@ func (r *reconciler) updateDeploymentStatus(obj recbase.ReconciledObject, d *app
 	obj.StatusSetCondition(desired)
 }
 
-func (r *reconciler) createDeploymentFromRegistered(obj recbase.ReconciledObject, ro base.RenderedObject) (*appsv1.Deployment, error) {
+func (r *reconciler) createDeploymentFromRegistered(obj recbase.ReconcilingObject, ro recbase.RenderedObject) (*appsv1.Deployment, error) {
 	wkl := r.base.RegisteredGetWorkload()
 
 	replicas := defaultReplicas
@@ -257,7 +256,7 @@ func (r *reconciler) createDeploymentFromRegistered(obj recbase.ReconciledObject
 		)), nil
 }
 
-func (r *reconciler) reconcileService(ctx context.Context, obj recbase.ReconciledObject, ro base.RenderedObject) (*corev1.Service, error) {
+func (r *reconciler) reconcileService(ctx context.Context, obj recbase.ReconcilingObject, ro recbase.RenderedObject) (*corev1.Service, error) {
 	desired, err := r.createServiceFromRegistered(obj, ro)
 	if err != nil {
 		return nil, fmt.Errorf("could not render service object: %w", err)
@@ -297,7 +296,7 @@ func (r *reconciler) reconcileService(ctx context.Context, obj recbase.Reconcile
 	return desired, nil
 }
 
-func (r *reconciler) updateServiceStatus(obj recbase.ReconciledObject, s *corev1.Service) {
+func (r *reconciler) updateServiceStatus(obj recbase.ReconcilingObject, s *corev1.Service) {
 	desired := &apicommon.Condition{
 		Type:               ConditionTypeServiceReady,
 		Reason:             "ServiceExist",
@@ -313,7 +312,7 @@ func (r *reconciler) updateServiceStatus(obj recbase.ReconciledObject, s *corev1
 	obj.StatusSetCondition(desired)
 }
 
-func (r *reconciler) createServiceFromRegistered(obj recbase.ReconciledObject, ro base.RenderedObject) (*corev1.Service, error) {
+func (r *reconciler) createServiceFromRegistered(obj recbase.ReconcilingObject, ro recbase.RenderedObject) (*corev1.Service, error) {
 	return resources.NewService(obj.GetNamespace(), obj.GetName(),
 		resources.ServiceWithMetaOptions(
 			resources.MetaAddLabel(resources.AppNameLabel, r.base.RegisteredGetName()),
