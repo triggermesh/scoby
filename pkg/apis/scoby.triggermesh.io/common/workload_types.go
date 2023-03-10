@@ -107,6 +107,16 @@ type ParameterRenderConfiguration struct {
 	Skip *bool `json:"skip,omitempty"`
 }
 
+func (prc *ParameterRenderConfiguration) IsValueOverriden() bool {
+	if prc == nil || (prc.Value == nil &&
+		prc.ValueFromConfigMap == nil &&
+		prc.ValueFromSecret == nil &&
+		prc.ValueFromBuiltInFunc == nil) {
+		return false
+	}
+	return true
+}
+
 // Selects a key from a Secret or ConfigMap.
 type ObjectReference struct {
 	// Object name
