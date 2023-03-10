@@ -109,8 +109,8 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 		evs: map[string]corev1.EnvVar{},
 	}
 
-	// Keep the JSONPath keys to be able to sort.
-	paths := []string{}
+	// Keep each envrionment variable key to be able to sort.
+	keys := []string{}
 
 	// Iterate all elements in the parsed fields structure.
 	for _, pf := range pfs {
@@ -130,6 +130,12 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 			continue
 		}
 
+		// Skip intermediate nodes. They exist only to allow
+		// them to be used for caluculations.
+		if pf.intermediateNode {
+			continue
+		}
+
 		// If key is overriden by customization set it, if not
 		// apply global prefix.
 		if key := renderConfig.GetKey(); key != "" {
@@ -139,7 +145,7 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 		}
 
 		switch {
-		case renderConfig == nil:
+		case !renderConfig.IsValueOverriden():
 			// By default process the value depending on the type.
 			switch {
 			case pf.array != nil:
@@ -149,8 +155,16 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 				primitive := true
 				primitiveArr := []string{}
 
-				for i := range pf.array {
-					switch v := pf.array[i].value.(type) {
+				// preserve order for arrays by iterating using the map key,
+				// which contains the ornidal
+				paths := make([]string, 0, len(pf.array))
+				for path := range pf.array {
+					paths = append(paths, path)
+				}
+				sort.Strings(paths)
+
+				for _, p := range paths {
+					switch v := pf.array[p].value.(type) {
 					case map[string]interface{}:
 						primitive = false
 					default:
@@ -171,16 +185,18 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 				}
 
 			case pf.value != nil:
-				// primitive values
+				// Primitive values
 				switch v := pf.value.(type) {
 				case string:
 					ev.Value = v
+
 				default:
 					vb, err := json.Marshal(v)
 					if err != nil {
 						return nil, err
 					}
 					ev.Value = string(vb)
+
 				}
 			default:
 				// TODO this is not expected
@@ -251,9 +267,8 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 			// TODO
 		}
 
-		path := pf.toJSONPath()
-		paths = append(paths, path)
-		rendered.evs[path] = ev
+		keys = append(keys, ev.Name)
+		rendered.evs[ev.Name] = ev
 	}
 
 	// Prepare the result as an ordered set of options.
@@ -261,9 +276,9 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 		resources.ContainerWithTerminationMessagePolicy(corev1.TerminationMessageFallbackToLogsOnError),
 	}
 
-	sort.Strings(paths)
-	for _, p := range paths {
-		ev := rendered.evs[p]
+	sort.Strings(keys)
+	for _, k := range keys {
+		ev := rendered.evs[k]
 		copts = append(copts, resources.ContainerAddEnv(&ev))
 	}
 
@@ -291,6 +306,11 @@ type parsedField struct {
 	// it easy to extend parsing capabilities using
 	// references to items in arrays.
 	array map[string]parsedField
+
+	// intermediate nodes are those maps that have sub nodes,
+	// and that we store to be able to use them when rendering
+	// if needed.
+	intermediateNode bool
 }
 
 // toJSONPath is a JSON
@@ -318,6 +338,10 @@ func restructureIntoParsedFields(root map[string]interface{}, branch []string) m
 			pf := parsedField{
 				branch: iter,
 				value:  v,
+				// Thos element contains sub-nodes which will probably be rendered.
+				// Mark it as intermediate node and let the renderer decide if this
+				// should be skipped or not.
+				intermediateNode: true,
 			}
 			parsedFields[pf.toJSONPath()] = pf
 
