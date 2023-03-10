@@ -64,6 +64,25 @@ func ContainerAddEnvVarFromSecret(name, secretName, secretKey string) ContainerO
 	}
 }
 
+func ContainerAddEnvVarFromConfigMap(name, cmName, cmKey string) ContainerOption {
+	return func(c *corev1.Container) {
+		if c.Env == nil {
+			c.Env = make([]corev1.EnvVar, 0, 1)
+		}
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name: name,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cmName,
+					},
+					Key: cmKey,
+				},
+			},
+		})
+	}
+}
+
 func ContainerAddEnvFromFieldRef(name, path string) ContainerOption {
 	return func(c *corev1.Container) {
 		if c.Env == nil {

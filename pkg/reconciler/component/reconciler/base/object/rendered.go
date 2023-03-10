@@ -103,17 +103,54 @@ func (r *renderer) Render(obj Reconciling) (Rendered, error) {
 
 func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObject, error) {
 
+	// Order parsed fields to be able to process elements that do custom rendering, and
+	// that need to avoid processing of nested elements. Secret and ConfigMap rednering are
+	// an example where:
+	//
+	// spec:
+	//   mySecret:
+	//     name: secret
+	//     key: password
+	//
+	// Will expect to generate an environment variable for spec.mySecret, but not for
+	// the inner elements.
+	fieldNames := make([]string, 0, len(pfs))
+	for fn := range pfs {
+		fieldNames = append(fieldNames, fn)
+	}
+
+	sort.Strings(fieldNames)
+
+	// Keep field name prefixes that should be avoided in this array.
+	avoidFieldPrefixes := []string{}
+
 	// Generated environment variables are stored in the renderedObject.ev map,
 	// indexed by JSONPath.
 	rendered := &renderedObject{
 		evs: map[string]corev1.EnvVar{},
 	}
 
-	// Keep each envrionment variable key to be able to sort.
-	keys := []string{}
+	// Keep each environment variable key to be able to sort.
+	envNames := []string{}
 
 	// Iterate all elements in the parsed fields structure.
-	for _, pf := range pfs {
+	for _, k := range fieldNames {
+
+		// Check if the field should be avoided. This works for nested items because
+		// the fields are sorted, and nested elements are parsed after root objects
+		// that might mark subpaths as non parseables.
+		avoid := false
+		for i := range avoidFieldPrefixes {
+			if strings.HasPrefix(k, avoidFieldPrefixes[i]) {
+				avoid = true
+				break
+			}
+		}
+		if avoid {
+			continue
+		}
+
+		pf := pfs[k]
 		// Retrieve custom render configuration for the field.
 		var renderConfig *apicommon.ParameterRenderConfiguration
 		if customize, ok := r.customization[pf.toJSONPath()]; ok && customize.Render != nil {
@@ -130,9 +167,11 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 			continue
 		}
 
-		// Skip intermediate nodes. They exist only to allow
-		// them to be used for caluculations.
-		if pf.intermediateNode {
+		// Skip intermediate nodes that have no customizations, they exist only
+		// to allow them to be used for caluculations.
+		// When customizations are defined they will need to parse to produce
+		// an environment variable
+		if pf.intermediateNode && renderConfig == nil {
 			continue
 		}
 
@@ -205,6 +244,10 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 		case renderConfig.Value != nil:
 			ev.Value = *renderConfig.Value
 
+			// If there are further internal elements, avoid
+			// parsing them.
+			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
+
 		case renderConfig.ValueFromConfigMap != nil:
 			refName, ok := pfs[renderConfig.ValueFromConfigMap.Name]
 			if !ok {
@@ -232,6 +275,10 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 				},
 			}
 
+			// If there are further internal elements, avoid
+			// parsing them.
+			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
+
 		case renderConfig.ValueFromSecret != nil:
 			refName, ok := pfs[renderConfig.ValueFromSecret.Name]
 			if !ok {
@@ -258,11 +305,20 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 					Key: key,
 				},
 			}
+
+			// If there are further internal elements, avoid
+			// parsing them.
+			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
+
 		case renderConfig.ValueFromBuiltInFunc != nil:
 			// TODO
+
+			// If there are further internal elements, avoid
+			// parsing them.
+			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
 		}
 
-		keys = append(keys, ev.Name)
+		envNames = append(envNames, ev.Name)
 		rendered.evs[ev.Name] = ev
 	}
 
@@ -271,8 +327,8 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 		resources.ContainerWithTerminationMessagePolicy(corev1.TerminationMessageFallbackToLogsOnError),
 	}
 
-	sort.Strings(keys)
-	for _, k := range keys {
+	sort.Strings(envNames)
+	for _, k := range envNames {
 		ev := rendered.evs[k]
 		copts = append(copts, resources.ContainerAddEnv(&ev))
 	}

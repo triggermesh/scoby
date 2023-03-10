@@ -115,6 +115,26 @@ func TestNewContainer(t *testing.T) {
 						},
 					}},
 			}},
+		"with env from configmap": {
+			options: []ContainerOption{
+				ContainerAddEnvVarFromConfigMap("test-env", "test-secret", "test-key"),
+			},
+			expected: corev1.Container{
+				Name:  tName,
+				Image: tImage,
+				Env: []corev1.EnvVar{
+					{
+						Name: "test-env",
+						ValueFrom: &corev1.EnvVarSource{
+							ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "test-secret",
+								},
+								Key: "test-key",
+							},
+						},
+					}},
+			}},
 		"with image pull policy": {
 			options: []ContainerOption{
 				ContainerWithImagePullPolicy(corev1.PullAlways),
