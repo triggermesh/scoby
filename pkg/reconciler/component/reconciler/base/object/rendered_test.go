@@ -200,6 +200,74 @@ func TestObjectRender(t *testing.T) {
 				resources.ContainerAddEnvFromValue("VALUEFROMREFERENCE_NAME", "reference-name"),
 			),
 		},
+		"render configmap": {
+			configuration: apicommon.ParameterConfiguration{
+				Customize: []apicommon.CustomizeParameterConfiguration{
+					{
+						Path: "spec.valueFromReference",
+						Render: &apicommon.ParameterRenderConfiguration{
+							ValueFromConfigMap: &apicommon.ObjectReference{
+								Name: "spec.valueFromReference.name",
+								Key:  "spec.valueFromReference.key",
+							},
+						},
+					},
+				},
+			},
+			object: object1,
+			expectedPodSpec: newPodSpec(
+				resources.ContainerAddEnvFromValue("AGE", "90"),
+				resources.ContainerAddEnvFromValue("ANIMALS", "dragonfly"),
+				resources.ContainerAddEnvFromValue("ARRAYCOMPLEXSUBSTRUCT", `[{"a":[{"x":1},{"y":2}]},{"b":[{"x":3},{"y":4}]}]`),
+				resources.ContainerAddEnvFromValue("ARRAYSUBSTRUCT", `[{"a":1},{"b":2}]`),
+				resources.ContainerAddEnvFromValue("COLORS", "Green,white"),
+				resources.ContainerAddEnvFromValue("MIXED", "true,13,barnacle"),
+				resources.ContainerAddEnvFromValue("NAME", "danny"),
+				resources.ContainerAddEnvFromValue("NUMBERS", "1,1.1,0"),
+				resources.ContainerAddEnvFromValue("SKILLS_COOKING", "false"),
+				resources.ContainerAddEnvFromValue("SKILLS_DANCING", "true"),
+				resources.ContainerAddEnvFromValue("URISINKBYREF_REF_APIVERSION", "v1"),
+				resources.ContainerAddEnvFromValue("URISINKBYREF_REF_KIND", "Service"),
+				resources.ContainerAddEnvFromValue("URISINKBYREF_REF_NAME", "test-name"),
+				resources.ContainerAddEnvFromValue("URISINKBYREF_REF_NAMESPACE", "test-namespace"),
+				resources.ContainerAddEnvFromValue("URISINKBYURI_URI", "http://dummy"),
+				resources.ContainerAddEnvVarFromConfigMap("VALUEFROMREFERENCE", "reference-name", "reference-key"),
+			),
+		},
+		"render secret": {
+			configuration: apicommon.ParameterConfiguration{
+				Customize: []apicommon.CustomizeParameterConfiguration{
+					{
+						Path: "spec.valueFromReference",
+						Render: &apicommon.ParameterRenderConfiguration{
+							ValueFromSecret: &apicommon.ObjectReference{
+								Name: "spec.valueFromReference.name",
+								Key:  "spec.valueFromReference.key",
+							},
+						},
+					},
+				},
+			},
+			object: object1,
+			expectedPodSpec: newPodSpec(
+				resources.ContainerAddEnvFromValue("AGE", "90"),
+				resources.ContainerAddEnvFromValue("ANIMALS", "dragonfly"),
+				resources.ContainerAddEnvFromValue("ARRAYCOMPLEXSUBSTRUCT", `[{"a":[{"x":1},{"y":2}]},{"b":[{"x":3},{"y":4}]}]`),
+				resources.ContainerAddEnvFromValue("ARRAYSUBSTRUCT", `[{"a":1},{"b":2}]`),
+				resources.ContainerAddEnvFromValue("COLORS", "Green,white"),
+				resources.ContainerAddEnvFromValue("MIXED", "true,13,barnacle"),
+				resources.ContainerAddEnvFromValue("NAME", "danny"),
+				resources.ContainerAddEnvFromValue("NUMBERS", "1,1.1,0"),
+				resources.ContainerAddEnvFromValue("SKILLS_COOKING", "false"),
+				resources.ContainerAddEnvFromValue("SKILLS_DANCING", "true"),
+				resources.ContainerAddEnvFromValue("URISINKBYREF_REF_APIVERSION", "v1"),
+				resources.ContainerAddEnvFromValue("URISINKBYREF_REF_KIND", "Service"),
+				resources.ContainerAddEnvFromValue("URISINKBYREF_REF_NAME", "test-name"),
+				resources.ContainerAddEnvFromValue("URISINKBYREF_REF_NAMESPACE", "test-namespace"),
+				resources.ContainerAddEnvFromValue("URISINKBYURI_URI", "http://dummy"),
+				resources.ContainerAddEnvVarFromSecret("VALUEFROMREFERENCE", "reference-name", "reference-key"),
+			),
+		},
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
