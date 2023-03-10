@@ -203,12 +203,7 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 			}
 
 		case renderConfig.Value != nil:
-			value, ok := pf.value.(string)
-			if !ok {
-				return nil, fmt.Errorf("value at %q is not a string: %v", pf.toJSONPath(), pf.value)
-			}
-
-			ev.Value = value
+			ev.Value = *renderConfig.Value
 
 		case renderConfig.ValueFromConfigMap != nil:
 			refName, ok := pfs[renderConfig.ValueFromConfigMap.Name]
@@ -330,7 +325,13 @@ func restructureIntoParsedFields(root map[string]interface{}, branch []string) m
 		switch t := v.(type) {
 		case map[string]interface{}:
 			// Drill down intermediate nodes.
-			children := restructureIntoParsedFields(t, iter)
+
+			// Send a copy of the slice and not a reference to it to
+			// avoid the call from modifying the value.
+			newBranch := make([]string, len(iter))
+			copy(newBranch, iter)
+
+			children := restructureIntoParsedFields(t, newBranch)
 			for k, v := range children {
 				parsedFields[k] = v
 			}
@@ -338,7 +339,7 @@ func restructureIntoParsedFields(root map[string]interface{}, branch []string) m
 			pf := parsedField{
 				branch: iter,
 				value:  v,
-				// Thos element contains sub-nodes which will probably be rendered.
+				// Element contains sub-nodes which will probably be rendered.
 				// Mark it as intermediate node and let the renderer decide if this
 				// should be skipped or not.
 				intermediateNode: true,
