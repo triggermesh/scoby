@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/resolver"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 )
 
@@ -23,6 +24,7 @@ type Renderer interface {
 type renderer struct {
 	containerName  string
 	containerImage string
+	resolver       resolver.Resolver
 
 	// JSONPath indexed configuration parameters.
 	// configuration map[string]apicommon.CustomizeParameterConfiguration
@@ -37,7 +39,7 @@ type renderer struct {
 	addEnv []corev1.EnvVar
 }
 
-func NewRenderer(containerName, containerImage string, configuration apicommon.ParameterConfiguration) Renderer {
+func NewRenderer(containerName, containerImage string, configuration apicommon.ParameterConfiguration, resolver resolver.Resolver) Renderer {
 	r := &renderer{
 		containerName:  containerName,
 		containerImage: containerImage,
