@@ -1,6 +1,7 @@
 package object
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -18,7 +19,7 @@ import (
 const rootObject = "spec"
 
 type Renderer interface {
-	Render(obj Reconciling) (Rendered, error)
+	Render(ctx context.Context, obj Reconciling) (Rendered, error)
 }
 
 type renderer struct {
@@ -67,7 +68,7 @@ func NewRenderer(containerName, containerImage string, configuration apicommon.P
 	return r
 }
 
-func (r *renderer) Render(obj Reconciling) (Rendered, error) {
+func (r *renderer) Render(ctx context.Context, obj Reconciling) (Rendered, error) {
 	uobj, ok := obj.AsKubeObject().(*unstructured.Unstructured)
 	if !ok {
 		return nil, fmt.Errorf("could not parse object into unstructured: %s", obj.GetName())
@@ -92,7 +93,7 @@ func (r *renderer) Render(obj Reconciling) (Rendered, error) {
 
 	// TODO status info
 
-	ro, err := r.renderParsedFields(parsedFields)
+	ro, err := r.renderParsedFields(ctx, parsedFields)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +104,7 @@ func (r *renderer) Render(obj Reconciling) (Rendered, error) {
 	return ro, nil
 }
 
-func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObject, error) {
+func (r *renderer) renderParsedFields(ctx context.Context, pfs map[string]parsedField) (*renderedObject, error) {
 
 	// Order parsed fields to be able to process elements that do custom rendering, and
 	// that need to avoid processing of nested elements. Secret and ConfigMap rednering are
@@ -127,9 +128,12 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 	avoidFieldPrefixes := []string{}
 
 	// Generated environment variables are stored in the renderedObject.ev map,
-	// indexed by JSONPath.
+	// indexed by JSONPath and environment variable name.
+	// This structure will be kept at the rendered object to be used when a
+	// calculation cross references a value from other element
 	rendered := &renderedObject{
-		evs: map[string]corev1.EnvVar{},
+		evsByPath: map[string]*corev1.EnvVar{},
+		evsByName: map[string]*corev1.EnvVar{},
 	}
 
 	// Keep each environment variable key to be able to sort.
@@ -160,11 +164,15 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 		}
 
 		// Create environment variable for this field.
-		ev := corev1.EnvVar{
+		ev := &corev1.EnvVar{
 			Name: strings.ToUpper(strings.Join(pf.branch[1:], "_")),
 		}
 
 		// Check soon if the value needs to be skipped, move over to the next.
+		//
+		// Note: maybe in the future we will find skip conbined with a function
+		// that would need to generate a result, probably because some other
+		// registration configuration references it.
 		if renderConfig.IsSkip() {
 			continue
 		}
@@ -313,7 +321,39 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
 
 		case renderConfig.ValueFromBuiltInFunc != nil:
-			// TODO
+			switch renderConfig.ValueFromBuiltInFunc.Name {
+			case "resolveAddress":
+				// element:
+				//   ref:
+				//     apiVersion:
+				//     group:
+				//     kind:
+				// 	   name:
+				//  uri:
+
+				addressable, ok := pf.value.(map[string]interface{})
+				if !ok {
+					return nil, fmt.Errorf("unexpected addressable structure at  %q: %+v", k, pf.value)
+				}
+
+				if uri, ok := addressable["uri"]; ok {
+					value, ok := uri.(string)
+					if !ok {
+						return nil, fmt.Errorf("uri value at %q is not a string", k)
+					}
+					ev.Value = value
+				} else if ref, ok := addressable["ref"]; ok {
+					// TODO is group usable here?
+					or := &corev1.ObjectReference{
+						// TODO use ref
+					}
+					uri, err := r.resolver.Resolve(ctx, or)
+					if err != nil {
+						return nil, err
+					}
+					ev.Value = uri
+				}
+			}
 
 			// If there are further internal elements, avoid
 			// parsing them.
@@ -321,7 +361,8 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 		}
 
 		envNames = append(envNames, ev.Name)
-		rendered.evs[ev.Name] = ev
+		rendered.evsByName[ev.Name] = ev
+		rendered.evsByPath[k] = ev
 	}
 
 	// Prepare the result as an ordered set of options.
@@ -331,8 +372,8 @@ func (r *renderer) renderParsedFields(pfs map[string]parsedField) (*renderedObje
 
 	sort.Strings(envNames)
 	for _, k := range envNames {
-		ev := rendered.evs[k]
-		copts = append(copts, resources.ContainerAddEnv(&ev))
+		ev := rendered.evsByName[k]
+		copts = append(copts, resources.ContainerAddEnv(ev))
 	}
 
 	rendered.podSpecOptions = []resources.PodSpecOption{
@@ -476,7 +517,8 @@ func restructureIntoParsedFields(root map[string]interface{}, branch []string) m
 
 type Rendered interface {
 	GetPodSpecOptions() []resources.PodSpecOption
-	GetAddressURL() string
+	GetEnvVarByPath(path string) *corev1.EnvVar
+	GetEnvVarByName(name string) *corev1.EnvVar
 }
 
 type renderedObject struct {
@@ -485,17 +527,15 @@ type renderedObject struct {
 	obj Reconciling
 
 	// Environment variables to be added to the workload,
-	// mapped by their JSON path.
+	// mapped by their JSON path and Name.
 	//
 	// These values are stored to be able to use them
-	// in for calculations.
-	evs map[string]corev1.EnvVar
+	// for calculations.
+	evsByPath map[string]*corev1.EnvVar
+	evsByName map[string]*corev1.EnvVar
 
 	// pre-baked PodSpecOptions including the workload container
 	podSpecOptions []resources.PodSpecOption
-
-	// address where the workload service (if any) can be reached.
-	addressURL string
 }
 
 // GetPodSpecOptions for the workload, including the configured container.
@@ -503,6 +543,14 @@ func (r *renderedObject) GetPodSpecOptions() []resources.PodSpecOption {
 	return r.podSpecOptions
 }
 
-func (r *renderedObject) GetAddressURL() string {
-	return r.addressURL
+// GetEnvVarByPath given an object data path, returns the associated
+// environment variable. Nil when not found.
+func (r *renderedObject) GetEnvVarByPath(path string) *corev1.EnvVar {
+	return r.evsByPath[path]
+}
+
+// GetEnvVarByName given an object data path, returns the associated
+// environment variable. Nil when not found.
+func (r *renderedObject) GetEnvVarByName(name string) *corev1.EnvVar {
+	return r.evsByName[name]
 }

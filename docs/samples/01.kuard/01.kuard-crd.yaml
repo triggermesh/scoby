@@ -22,10 +22,12 @@ spec:
             spec:
               type: object
               properties:
+                # Root variables demo
                 variable1:
                   type: string
                 variable2:
                   type: string
+                # Nested variables demo
                 group:
                   type: object
                   properties:
@@ -33,10 +35,12 @@ spec:
                       type: boolean
                     variable4:
                       type: integer
+                # Simple array demo
                 array:
                   type: array
                   items:
                     type: string
+                # Secret reference demo
                 refToSecret:
                   type: object
                   properties:
@@ -44,6 +48,7 @@ spec:
                       type: string
                     secretKey:
                       type: string
+                # ConfigMap reference demo
                 refToConfigMap:
                   type: object
                   properties:
@@ -51,6 +56,31 @@ spec:
                       type: string
                     configKey:
                       type: string
+                # URI resolving demo
+                refToAddress:
+                  type: object
+                  properties:
+                    ref:
+                      type: object
+                      properties:
+                        apiVersion:
+                          type: string
+                        group:
+                          type: string
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                      required:
+                      - kind
+                      - name
+                    uri:
+                      type: string
+                  oneOf:
+                  - required: [ref]
+                  - required: [uri]
 
             status:
               description: CRDRegistrationStatus defines the observed state of CRDRegistration

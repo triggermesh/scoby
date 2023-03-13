@@ -41,6 +41,7 @@ const (
 )
 
 type Resolver interface {
+	Resolve(ctx context.Context, ref *corev1.ObjectReference) (string, error)
 }
 
 func New(client client.Client, log logr.Logger) Resolver {
@@ -111,13 +112,13 @@ func (r *resolver) Resolve(ctx context.Context, ref *corev1.ObjectReference) (st
 		return fmt.Sprintf("http://%s.%s.svc.%s", ref.Name, ref.Namespace, r.domain), nil
 	}
 
-	ul, b, err := unstructured.NestedString(u.Object, "status", "address", "url")
+	url, b, err := unstructured.NestedString(u.Object, "status", "address", "url")
 	switch {
 	case err != nil:
-		return "", fmt.Errorf("unexpected value at 'status.address.url': %+v", err)
-	case !b:
-		return "", errors.New("object does not inform 'status.address.url'")
+		return "", fmt.Errorf(`unexpected value at "status.address.url": %+v`, err)
+	case !b || url == "":
+		return "", errors.New(`object does not inform "status.address.url"`)
 	}
 
-	return ul, nil
+	return url, nil
 }

@@ -85,7 +85,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	// Perform the generic object rendering
-	ro, err := r.base.RenderReconciling(obj)
+	ro, err := r.base.RenderReconciling(ctx, obj)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

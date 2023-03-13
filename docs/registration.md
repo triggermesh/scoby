@@ -183,18 +183,7 @@ The default behavior is to create parameters from each spec element (arrays will
         render:
           key: K_SINK
           valueFromBuiltInFunc:
-            Name: resolveKubetoURL
-```
-
-- [ ] Function: JSON Marshal
-
-```yaml
-    parameterConfiguration:
-      customize:
-      - path: spec.bar
-        render:
-          valueFromBuiltInFunc:
-            Name: jsonMarshal
+            name: resolveAddress
 ```
 
 ## Workload Status
@@ -206,8 +195,13 @@ TODO, this is a draft.
 - [ ] Use parameter value for status.
 
 ```yaml
-    statusConfiguration:
+    parameterConfiguration:
       customize:
+      - path: spec.destination
+        render:
+          valueFromBuiltInFunc:
+            name: resolveAddress
+    statusConfiguration:
       - path: status.uri
         render:
           valueFromParameter:
@@ -217,3 +211,17 @@ TODO, this is a draft.
 ## Examples
 
 TODO, see [kuard example](https://github.com/triggermesh/scoby/tree/main/docs/samples/01.kuard) while the examples section is worked on.
+
+### Pre-requisite
+
+All examples require Kuard CRD to be installed
+
+```console
+kubectl apply -f https://github.com/triggermesh/scoby/tree/main/docs/samples/01.kuard/01.kuard-crd.yaml
+```
+
+Kuard is an application created by the authors of Kubernetes Up and Ready book that is able to render a list of its environment variables. Our registration uses the Kuard image and a list of elements at the spec to demonstrate how to render them as environment variables in different ways.
+
+### Example with URL resolving
+
+A registered object is able to resolve a kubernetes object into a URL and use the result as an environment variable. To do so
