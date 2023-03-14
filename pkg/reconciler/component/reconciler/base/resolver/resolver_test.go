@@ -132,7 +132,9 @@ func newObject(opts ...objectOption) client.Object {
 
 func withStatusAddress(value interface{}) objectOption {
 	return func(u *unstructured.Unstructured) {
-		unstructured.SetNestedField(u.Object, value, "status", "address", "url")
+		if err := unstructured.SetNestedField(u.Object, value, "status", "address", "url"); err != nil {
+			panic(err)
+		}
 	}
 }
 
