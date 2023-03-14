@@ -224,4 +224,6 @@ Kuard is an application created by the authors of Kubernetes Up and Ready book t
 
 ### Example with URL resolving
 
-A registered object is able to resolve a kubernetes object into a URL and use the result as an environment variable. To do so
+A registered object is able to resolve a kubernetes object into a URL and use the result as an environment variable.
+
+// TODO
