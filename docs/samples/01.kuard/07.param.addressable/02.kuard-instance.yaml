@@ -12,6 +12,9 @@ spec:
   - alpha
   - beta
   - gamma
-  refToConfigMap:
-    configName: kuard-configmap
-    configKey: kuard-key
+  refToAddress:
+    ref:
+      apiVersion: eventing.triggermesh.io/v1alpha1
+      kind: MemoryBroker
+      name: kuard-broker
+

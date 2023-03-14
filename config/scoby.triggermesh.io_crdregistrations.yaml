@@ -265,7 +265,6 @@ spec:
                                       description: Function name
                                       type: string
                                   required:
-                                  - args
                                   - name
                                   type: object
                                 valueFromConfigMap:

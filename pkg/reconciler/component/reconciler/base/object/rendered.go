@@ -44,6 +44,7 @@ func NewRenderer(containerName, containerImage string, configuration apicommon.P
 	r := &renderer{
 		containerName:  containerName,
 		containerImage: containerImage,
+		resolver:       resolver,
 	}
 
 	if configuration.Global != nil {
@@ -89,11 +90,11 @@ func (r *renderer) Render(ctx context.Context, obj Reconciling) (Rendered, error
 
 	// do a first pass of the unstructured and turn it into an
 	// structure that can be used to apply the registered configuration.
-	parsedFields := restructureIntoParsedFields(root, []string{rootObject})
+	parsedFields := r.restructureIntoParsedFields(root, []string{rootObject})
 
 	// TODO status info
 
-	ro, err := r.renderParsedFields(ctx, parsedFields)
+	ro, err := r.renderParsedFields(ctx, obj.GetNamespace(), parsedFields)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +105,7 @@ func (r *renderer) Render(ctx context.Context, obj Reconciling) (Rendered, error
 	return ro, nil
 }
 
-func (r *renderer) renderParsedFields(ctx context.Context, pfs map[string]parsedField) (*renderedObject, error) {
+func (r *renderer) renderParsedFields(ctx context.Context, namespace string, pfs map[string]parsedField) (*renderedObject, error) {
 
 	// Order parsed fields to be able to process elements that do custom rendering, and
 	// that need to avoid processing of nested elements. Secret and ConfigMap rednering are
@@ -343,11 +344,7 @@ func (r *renderer) renderParsedFields(ctx context.Context, pfs map[string]parsed
 					}
 					ev.Value = value
 				} else if ref, ok := addressable["ref"]; ok {
-					// TODO is group usable here?
-					or := &corev1.ObjectReference{
-						// TODO use ref
-					}
-					uri, err := r.resolver.Resolve(ctx, or)
+					uri, err := r.resolveAddress(ctx, namespace, k, ref)
 					if err != nil {
 						return nil, err
 					}
@@ -414,7 +411,7 @@ func (v *parsedField) toJSONPath() string {
 
 // restructure incoming object into a parsing friendly structure that
 // can be referred to using 'friendly' JSON.
-func restructureIntoParsedFields(root map[string]interface{}, branch []string) map[string]parsedField {
+func (r *renderer) restructureIntoParsedFields(root map[string]interface{}, branch []string) map[string]parsedField {
 	// Parsed fields indexed by JSONPath
 	parsedFields := map[string]parsedField{}
 
@@ -430,7 +427,7 @@ func restructureIntoParsedFields(root map[string]interface{}, branch []string) m
 			newBranch := make([]string, len(iter))
 			copy(newBranch, iter)
 
-			children := restructureIntoParsedFields(t, newBranch)
+			children := r.restructureIntoParsedFields(t, newBranch)
 			for k, v := range children {
 				parsedFields[k] = v
 			}
@@ -464,7 +461,7 @@ func restructureIntoParsedFields(root map[string]interface{}, branch []string) m
 					//   element2: value2
 					//
 					// Drill down to continue inspecting those child items.
-					children := restructureIntoParsedFields(item, iterArray)
+					children := r.restructureIntoParsedFields(item, iterArray)
 
 					// For this type of array store both, the raw value
 					// and the parsed fields of each item of the array.
@@ -553,4 +550,40 @@ func (r *renderedObject) GetEnvVarByPath(path string) *corev1.EnvVar {
 // environment variable. Nil when not found.
 func (r *renderedObject) GetEnvVarByName(name string) *corev1.EnvVar {
 	return r.evsByName[name]
+}
+
+type Reference struct {
+	APIVersion string `json:"apiVersion"`
+	Kind       string `json:"kind"`
+	Namespace  string `json:"namespace,omitempty"`
+	Name       string `json:"name"`
+}
+
+func (r *renderer) resolveAddress(ctx context.Context, namespace, path string, pfv interface{}) (string, error) {
+	value, err := json.Marshal(pfv)
+	if err != nil {
+		return "", fmt.Errorf("could not parse reference structure as JSON at %q: %w", path, err)
+	}
+
+	// Convert json string to struct
+	ref := &Reference{}
+	if err := json.Unmarshal(value, &ref); err != nil {
+		return "", fmt.Errorf("not valid reference structure at %q: %w", path, err)
+	}
+
+	if ref.Namespace == "" {
+		ref.Namespace = namespace
+	}
+
+	uri, err := r.resolver.Resolve(ctx, &corev1.ObjectReference{
+		APIVersion: ref.APIVersion,
+		Kind:       ref.Kind,
+		Namespace:  ref.Namespace,
+		Name:       ref.Name,
+	})
+	if err != nil {
+		return "", fmt.Errorf("could not resolve reference at %q: %w", path, err)
+	}
+
+	return uri, nil
 }

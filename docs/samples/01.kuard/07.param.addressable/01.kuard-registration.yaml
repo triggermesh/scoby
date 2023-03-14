@@ -17,11 +17,10 @@ spec:
 
     parameterConfiguration:
       customize:
-      # Reference a ConfigMap
-      - path: spec.refToConfigMap
+      # Resolve an address
+      - path: spec.refToAddress
         render:
-          key: FOO_CONFIGURATION
-          valueFromConfigMap:
-            name: spec.refToConfigMap.configName
-            key: spec.refToConfigMap.configKey
+          key: FOO_SINK
+          valueFromBuiltInFunc:
+            name: resolveAddress
 
