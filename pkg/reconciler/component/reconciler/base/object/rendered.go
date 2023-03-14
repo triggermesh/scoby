@@ -16,7 +16,10 @@ import (
 )
 
 // rootObject where the renderer will start inspecting
-const rootObject = "spec"
+const (
+	rootObject    = "spec"
+	addEnvsPrefix = "$added."
+)
 
 type Renderer interface {
 	Render(ctx context.Context, obj Reconciling) (Rendered, error)
@@ -37,7 +40,7 @@ type renderer struct {
 
 	// Static set of environment variables to be added to as
 	// parameters to the workload.
-	addEnv []corev1.EnvVar
+	addEnvs []corev1.EnvVar
 }
 
 func NewRenderer(containerName, containerImage string, configuration apicommon.ParameterConfiguration, resolver resolver.Resolver) Renderer {
@@ -60,10 +63,10 @@ func NewRenderer(containerName, containerImage string, configuration apicommon.P
 		}
 	}
 
-	// Keep the list of extra environment variables to be appended .
+	// Keep the list of extra environment variables to be appended.
 	if configuration.AddEnvs != nil && len(configuration.AddEnvs) != 0 {
-		r.addEnv = make([]corev1.EnvVar, len(configuration.AddEnvs))
-		copy(configuration.AddEnvs, r.addEnv)
+		r.addEnvs = make([]corev1.EnvVar, len(configuration.AddEnvs))
+		copy(r.addEnvs, configuration.AddEnvs)
 	}
 
 	return r
@@ -139,6 +142,17 @@ func (r *renderer) renderParsedFields(ctx context.Context, namespace string, pfs
 
 	// Keep each environment variable key to be able to sort.
 	envNames := []string{}
+
+	// Add all added environment variables that are not related to
+	// the object's data
+	for _, ev := range r.addEnvs {
+		envNames = append(envNames, ev.Name)
+		rendered.evsByName[ev.Name] = &ev
+		// There is no path for added envrionment variables, but
+		// we want to keep consistency, so we also add them here
+		// using a prefix plus the variable name.
+		rendered.evsByPath[addEnvsPrefix+ev.Name] = &ev
+	}
 
 	// Iterate all elements in the parsed fields structure.
 	for _, k := range fieldNames {
