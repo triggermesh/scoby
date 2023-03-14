@@ -1,6 +1,7 @@
 package object
 
 import (
+	"context"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -271,9 +272,9 @@ func TestObjectRender(t *testing.T) {
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			r := NewRenderer(tName, tImage, tc.configuration)
+			r := NewRenderer(tName, tImage, tc.configuration, nil)
 
-			rendered, err := r.Render(newReconciledObjectFromYaml(tc.object))
+			rendered, err := r.Render(context.Background(), newReconciledObjectFromYaml(tc.object))
 			require.NoError(t, err)
 
 			// Create PodSpec with returned options to compare results

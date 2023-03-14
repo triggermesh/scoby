@@ -13,6 +13,7 @@ import (
 
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/resolver"
 	deployment "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/deployment"
 	knservice "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/knservice"
 )
@@ -23,7 +24,8 @@ const (
 
 func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (reconcile.Reconciler, error) {
 	wkl := reg.GetWorkload()
-	renderer := base.NewRenderer(defaultContainerName, wkl.FromImage.Repo, *wkl.ParameterConfiguration)
+	resolver := resolver.New(mgr.GetClient(), mgr.GetLogger())
+	renderer := base.NewRenderer(defaultContainerName, wkl.FromImage.Repo, *wkl.ParameterConfiguration, resolver)
 
 	b := base.NewReconciler(crd, reg, renderer, mgr.GetLogger())
 

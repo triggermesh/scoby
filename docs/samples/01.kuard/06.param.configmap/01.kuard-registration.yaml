@@ -1,0 +1,27 @@
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: kuard
+spec:
+  crd: kuards.extensions.triggermesh.io
+  workload:
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+
+    fromImage:
+      repo: gcr.io/kuar-demo/kuard-amd64:blue
+
+    parameterConfiguration:
+      customize:
+      # Reference a ConfigMap
+      - path: spec.refToConfigMap
+        render:
+          key: FOO_CONFIGURATION
+          valueFromConfigMap:
+            name: spec.refToConfigMap.configName
+            key: spec.refToConfigMap.configKey
+

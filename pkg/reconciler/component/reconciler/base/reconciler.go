@@ -4,6 +4,8 @@
 package base
 
 import (
+	"context"
+
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -27,7 +29,7 @@ type Reconciler interface {
 
 	// Render a Reconciling into data that can be
 	// used at reconciliation.
-	RenderReconciling(ReconcilingObject) (RenderedObject, error)
+	RenderReconciling(context.Context, ReconcilingObject) (RenderedObject, error)
 
 	// Status management
 	StatusConfigureManagerConditions(happy string, conditions ...string)
@@ -85,8 +87,8 @@ func (r *reconciler) NewReconcilingObject() ReconcilingObject {
 
 // RenderReconciling uses the incoming reconciling object to process its data
 // and turn it into structures that can be used to render dependent objects.
-func (r *reconciler) RenderReconciling(obj ReconcilingObject) (RenderedObject, error) {
-	return r.renderer.Render(obj)
+func (r *reconciler) RenderReconciling(ctx context.Context, obj ReconcilingObject) (RenderedObject, error) {
+	return r.renderer.Render(ctx, obj)
 }
 
 // Return the registration name.

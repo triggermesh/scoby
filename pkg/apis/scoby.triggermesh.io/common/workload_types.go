@@ -130,7 +130,8 @@ type BuiltInfunction struct {
 	// Function name
 	Name string `json:"name"`
 	// The key to select.
-	Args []string `json:"args"`
+	// +optional
+	Args []string `json:"args,omitempty"`
 }
 
 func (prc *ParameterRenderConfiguration) IsSkip() bool {
