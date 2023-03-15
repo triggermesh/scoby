@@ -185,6 +185,7 @@ func (r *reconciler) updateKnativeServiceStatus(obj recbase.ReconcilingObject, k
 		LastTransitionTime: metav1.Now(),
 	}
 
+	address := ""
 	if ksvc != nil {
 		for _, c := range ksvc.Status.Conditions {
 			if c.Type != servingv1.ServiceConditionReady {
@@ -206,8 +207,13 @@ func (r *reconciler) updateKnativeServiceStatus(obj recbase.ReconcilingObject, k
 			}
 			break
 		}
+
+		if ksvc.Status.Address != nil {
+			address = ksvc.Status.Address.URL.String()
+		}
 	}
 
+	obj.StatusSetAddressURL(address)
 	obj.StatusSetCondition(desired)
 }
 

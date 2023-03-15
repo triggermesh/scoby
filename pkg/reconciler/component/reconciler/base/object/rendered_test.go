@@ -71,13 +71,13 @@ var (
 
 func TestObjectRender(t *testing.T) {
 	testCases := map[string]struct {
-		configuration apicommon.ParameterConfiguration
+		configuration *apicommon.ParameterConfiguration
 		object        string
 
 		expectedPodSpec *corev1.PodSpec
 	}{
 		"default rendering": {
-			configuration: apicommon.ParameterConfiguration{
+			configuration: &apicommon.ParameterConfiguration{
 				Customize: []apicommon.CustomizeParameterConfiguration{},
 			},
 			object: object1,
@@ -102,7 +102,7 @@ func TestObjectRender(t *testing.T) {
 			),
 		},
 		"skip element rendering": {
-			configuration: apicommon.ParameterConfiguration{
+			configuration: &apicommon.ParameterConfiguration{
 				Customize: []apicommon.CustomizeParameterConfiguration{
 					{
 						Path: "spec.age",
@@ -138,7 +138,7 @@ func TestObjectRender(t *testing.T) {
 			),
 		},
 		"rename key": {
-			configuration: apicommon.ParameterConfiguration{
+			configuration: &apicommon.ParameterConfiguration{
 				Customize: []apicommon.CustomizeParameterConfiguration{
 					{
 						Path: "spec.name",
@@ -170,7 +170,7 @@ func TestObjectRender(t *testing.T) {
 			),
 		},
 		"replace value": {
-			configuration: apicommon.ParameterConfiguration{
+			configuration: &apicommon.ParameterConfiguration{
 				Customize: []apicommon.CustomizeParameterConfiguration{
 					{
 						Path: "spec.arrayComplexSubstruct",
@@ -202,7 +202,7 @@ func TestObjectRender(t *testing.T) {
 			),
 		},
 		"render configmap": {
-			configuration: apicommon.ParameterConfiguration{
+			configuration: &apicommon.ParameterConfiguration{
 				Customize: []apicommon.CustomizeParameterConfiguration{
 					{
 						Path: "spec.valueFromReference",
@@ -236,7 +236,7 @@ func TestObjectRender(t *testing.T) {
 			),
 		},
 		"render secret": {
-			configuration: apicommon.ParameterConfiguration{
+			configuration: &apicommon.ParameterConfiguration{
 				Customize: []apicommon.CustomizeParameterConfiguration{
 					{
 						Path: "spec.valueFromReference",

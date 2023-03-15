@@ -6,7 +6,6 @@ import (
 	"context"
 	"testing"
 
-	logrt "github.com/go-logr/logr/testing"
 	"github.com/stretchr/testify/assert"
 
 	corev1 "k8s.io/api/core/v1"
@@ -101,8 +100,7 @@ func TestObjectRender(t *testing.T) {
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
 			cb := fake.NewClientBuilder()
-			c := cb.WithObjects(tc.objects...).Build()
-			r := New(c, logrt.NewTestLogger(t))
+			r := New(cb.WithObjects(tc.objects...).Build())
 			url, err := r.Resolve(context.Background(), tc.ref)
 			if tc.expectedErr != "" {
 				assert.EqualError(t, err, tc.expectedErr)

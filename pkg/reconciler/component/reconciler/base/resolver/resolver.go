@@ -27,8 +27,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-logr/logr"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,27 +38,28 @@ const (
 	defaultDomainName   = "cluster.local"
 )
 
+var ClusterDomain string
+
+func init() {
+	domain, err := getClusterDomainNameFromResolv()
+	if err == nil {
+		ClusterDomain = domain
+	}
+
+	// Fallback to environment or hardcoded default.
+	if ClusterDomain = os.Getenv(clusterDomainEnvKey); len(ClusterDomain) == 0 {
+		ClusterDomain = defaultDomainName
+	}
+}
+
 type Resolver interface {
 	Resolve(ctx context.Context, ref *corev1.ObjectReference) (string, error)
 }
 
-func New(client client.Client, log logr.Logger) Resolver {
-	domain, err := getClusterDomainNameFromResolv()
-	if err != nil {
-		log.V(1).Info("cluster domain not found at resolv file", "error", err)
-
-		// Fallback to environment or hardcoded default.
-		if domain = os.Getenv(clusterDomainEnvKey); len(domain) == 0 {
-			domain = defaultDomainName
-		}
-
-		log.V(1).Info("cluster domain set", "domain", domain)
-	}
-
+func New(client client.Client) Resolver {
 	return &resolver{
 		client: client,
-		domain: domain,
-		log:    log,
+		domain: ClusterDomain,
 	}
 }
 
@@ -91,8 +90,6 @@ func getClusterDomainNameFromResolv() (string, error) {
 type resolver struct {
 	client client.Client
 	domain string
-
-	log logr.Logger
 }
 
 func (r *resolver) Resolve(ctx context.Context, ref *corev1.ObjectReference) (string, error) {

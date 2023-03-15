@@ -26,11 +26,5 @@ func (s *CRDRegistration) GetStatusManager() *common.StatusManager {
 			"Ready":                                 {},
 		})
 
-	// Status manager is being retrieved to update the state,
-	// set the status generation to the object's to reflect the
-	// reconciled generation.
-	// sm.InitializeforUpdate(s.GetGeneration())
-
 	return sm
-
 }

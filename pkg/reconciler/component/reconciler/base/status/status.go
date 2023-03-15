@@ -101,11 +101,12 @@ func (smf *statusManagerFactory) ForObject(object *unstructured.Unstructured) St
 }
 
 type StatusManager interface {
-	// Init()
 	GetObservedGeneration() int64
 	SetObservedGeneration(int64)
 	GetCondition(conditionType string) *apicommon.Condition
 	SetCondition(condition *apicommon.Condition)
+	GetAddressURL() string
+	SetAddressURL(string)
 }
 
 type statusManager struct {
@@ -463,4 +464,54 @@ func (sm *statusManager) SetObservedGeneration(g int64) {
 	}
 
 	typedStatus["observedGeneration"] = g
+}
+
+func (sm *statusManager) GetAddressURL() string {
+	if !sm.flag.AllowAddressURL() {
+		return ""
+	}
+
+	sm.m.Lock()
+	defer sm.m.Unlock()
+
+	sm.ensureStatusRoot()
+	typedStatus := sm.object.Object["status"].(map[string]interface{})
+
+	address, ok := typedStatus["address"]
+	if !ok {
+		return ""
+	}
+
+	typedAddress, ok := address.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	url, ok := typedAddress["url"]
+	if !ok {
+		return ""
+	}
+
+	typedUrl, ok := url.(string)
+	if !ok {
+		return ""
+	}
+
+	return typedUrl
+}
+
+func (sm *statusManager) SetAddressURL(url string) {
+	if !sm.flag.AllowAddressURL() {
+		return
+	}
+
+	sm.m.Lock()
+	defer sm.m.Unlock()
+
+	sm.ensureStatusRoot()
+	typedStatus := sm.object.Object["status"].(map[string]interface{})
+
+	typedStatus["address"] = map[string]string{
+		"url": url,
+	}
 }
