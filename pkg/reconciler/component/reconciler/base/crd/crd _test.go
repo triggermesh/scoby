@@ -103,6 +103,7 @@ func TestCRDStatus(t *testing.T) {
 		allowConditions         bool
 		allowAnnotations        bool
 		allowObservedGeneration bool
+		allowAddressURL         bool
 	}{
 		"full status": {
 			in: readCRD(`
@@ -130,6 +131,11 @@ spec:
             status:
               description: CRDRegistrationStatus defines the observed state of CRDRegistration
               properties:
+                address:
+                  type: object
+                  properties:
+                    url:
+                      type: string
                 annotations:
                   additionalProperties:
                     type: string
@@ -199,6 +205,7 @@ spec:
 			allowConditions:         true,
 			allowObservedGeneration: true,
 			allowAnnotations:        true,
+			allowAddressURL:         true,
 		},
 		"full status but no subresource": {
 			in: readCRD(`
@@ -293,6 +300,7 @@ spec:
 			allowConditions:         false,
 			allowObservedGeneration: false,
 			allowAnnotations:        false,
+			allowAddressURL:         false,
 		},
 		"conditions only": {
 			in: readCRD(`
@@ -376,6 +384,7 @@ spec:
 			allowConditions:         true,
 			allowObservedGeneration: false,
 			allowAnnotations:        false,
+			allowAddressURL:         false,
 		},
 		"no status": {
 			in: readCRD(`
@@ -402,6 +411,44 @@ spec:
 			allowConditions:         false,
 			allowObservedGeneration: false,
 			allowAnnotations:        false,
+			allowAddressURL:         false,
+		},
+		"address url": {
+			in: readCRD(`
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: kuards.extensions.triggermesh.io
+spec:
+  group: extensions.triggermesh.io
+  scope: Namespaced
+  names:
+    plural: kuards
+    singular: kuard
+    kind: Kuard
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            status:
+              description: CRDRegistrationStatus defines the observed state of CRDRegistration
+              properties:
+                address:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+              type: object`),
+			allowConditions:         false,
+			allowObservedGeneration: false,
+			allowAnnotations:        false,
+			allowAddressURL:         true,
 		},
 	}
 
@@ -413,6 +460,7 @@ spec:
 			assert.Equal(t, tc.allowConditions, sf.AllowConditions(), "unexpected status conditions support")
 			assert.Equal(t, tc.allowAnnotations, sf.AllowAnnotations(), "unexpected status annotations support")
 			assert.Equal(t, tc.allowObservedGeneration, sf.AllowObservedGeneration(), "unexpected status observedgeneration support")
+			assert.Equal(t, tc.allowAddressURL, sf.AllowAddressURL(), "unexpected status address url support")
 		})
 	}
 }

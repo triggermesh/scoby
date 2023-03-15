@@ -33,6 +33,7 @@ const (
 	StatusFlagConditionReason
 	StatusFlagConditionStatus
 	StatusFlagConditionType
+	StatusFlagAddressURL
 )
 
 func (sf StatusFlag) AllowConditions() bool {
@@ -49,6 +50,10 @@ func (sf StatusFlag) AllowAnnotations() bool {
 
 func (sf StatusFlag) AllowObservedGeneration() bool {
 	return sf&StatusFlagObservedGeneration != 0
+}
+
+func (sf StatusFlag) AllowAddressURL() bool {
+	return sf&StatusFlagAddressURL != 0
 }
 
 func CRDStatusFlag(crdv *apiextensionsv1.CustomResourceDefinitionVersion) StatusFlag {
@@ -73,6 +78,12 @@ func CRDStatusFlag(crdv *apiextensionsv1.CustomResourceDefinitionVersion) Status
 		annotations.AdditionalProperties != nil &&
 		annotations.AdditionalProperties.Schema.Type == "string" {
 		sf |= StatusFlagAnnotations
+	}
+
+	if address, ok := status.Properties["address"]; ok && address.Type == "object" {
+		if url, ok := address.Properties["url"]; ok && url.Type == "string" {
+			sf |= StatusFlagAddressURL
+		}
 	}
 
 	conditions, ok := status.Properties["conditions"]
