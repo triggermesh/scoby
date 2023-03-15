@@ -75,16 +75,16 @@ Customization is being worked on, A checkbox indicates if the feature is availab
 
 ```yaml
     parameterConfiguration:
-      add:
+      addEnvs:
       - key: FOO_NEW_VAR
         value: 42
 ```
 
-- [ ] Create new parameter with downward api value
+- [x] Create new parameter with downward api value
 
 ```yaml
     parameterConfiguration:
-      add:
+      addEnvs:
       - key: FOO_NEW_VAR
         valueFrom:
           fieldRef:
@@ -149,7 +149,7 @@ The default behavior is to create parameters from each spec element (arrays will
           value: hello scoby
 ```
 
-- [ ] Generate secret parameter from element.
+- [x] Generate secret parameter from element.
 
 ```yaml
     parameterConfiguration:
@@ -162,7 +162,7 @@ The default behavior is to create parameters from each spec element (arrays will
             key: spec.preferences.key
 ```
 
-- [ ] Generate configmap parameter from element.
+- [x] Generate configmap parameter from element.
 
 ```yaml
     parameterConfiguration:
@@ -174,7 +174,7 @@ The default behavior is to create parameters from each spec element (arrays will
             key: spec.preferences.key
 ```
 
-- [ ] Function: resolve object to internal URL
+- [x] Function: resolve object to internal URL
 
 ```yaml
     parameterConfiguration:
@@ -188,10 +188,6 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ## Workload Status
 
-TODO, this is a draft.
-
-- [ ] Add status annotation.
-- [ ] Use parameter value for annotation.
 - [ ] Use parameter value for status.
 
 ```yaml
@@ -199,10 +195,11 @@ TODO, this is a draft.
       customize:
       - path: spec.destination
         render:
+          key: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
     statusConfiguration:
-      - path: status.uri
+      - path: status.sinkUri
         render:
           valueFromParameter:
             path: spec.destination

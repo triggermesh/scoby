@@ -84,6 +84,16 @@ spec:
             status:
               description: CRDRegistrationStatus defines the observed state of CRDRegistration
               properties:
+                address:
+                  description: URL exposed by this workload.
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                sinkUri:
+                  description: URI this workload is pointing to.
+                  type: string
+                  format: uri
                 annotations:
                   additionalProperties:
                     type: string
