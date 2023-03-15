@@ -22,6 +22,7 @@ type Reconciling interface {
 	StatusSetObservedGeneration(generation int64)
 	StatusGetCondition(conditionType string) *apicommon.Condition
 	StatusSetCondition(condition *apicommon.Condition)
+	StatusSetAddressURL(string)
 	StatusIsEqual(client.Object) bool
 }
 
@@ -78,9 +79,14 @@ func (ro *reconciledObject) StatusSetCondition(condition *apicommon.Condition) {
 	ro.sm.SetCondition(condition)
 }
 
+func (ro *reconciledObject) StatusSetAddressURL(url string) {
+	ro.sm.SetAddressURL(url)
+}
+
 func (ro *reconciledObject) StatusGetCondition(conditionType string) *apicommon.Condition {
 	return ro.sm.GetCondition(conditionType)
 }
+
 func (ro *reconciledObject) StatusIsEqual(in client.Object) bool {
 	u, ok := in.(*unstructured.Unstructured)
 	if !ok {

@@ -43,11 +43,15 @@ type renderer struct {
 	addEnvs []corev1.EnvVar
 }
 
-func NewRenderer(containerName, containerImage string, configuration apicommon.ParameterConfiguration, resolver resolver.Resolver) Renderer {
+func NewRenderer(containerName, containerImage string, configuration *apicommon.ParameterConfiguration, resolver resolver.Resolver) Renderer {
 	r := &renderer{
 		containerName:  containerName,
 		containerImage: containerImage,
 		resolver:       resolver,
+	}
+
+	if configuration == nil {
+		return r
 	}
 
 	if configuration.Global != nil {

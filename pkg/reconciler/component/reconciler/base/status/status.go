@@ -511,15 +511,7 @@ func (sm *statusManager) SetAddressURL(url string) {
 	sm.ensureStatusRoot()
 	typedStatus := sm.object.Object["status"].(map[string]interface{})
 
-	address, ok := typedStatus["address"]
-	if !ok {
-		return
+	typedStatus["address"] = map[string]string{
+		"url": url,
 	}
-
-	typedAddress, ok := address.(map[string]interface{})
-	if !ok {
-		return
-	}
-
-	typedAddress["url"] = url
 }

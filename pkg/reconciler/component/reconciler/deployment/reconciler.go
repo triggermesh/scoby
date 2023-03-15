@@ -22,6 +22,7 @@ import (
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 	recbase "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/resolver"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )
@@ -304,11 +305,16 @@ func (r *reconciler) updateServiceStatus(obj recbase.ReconcilingObject, s *corev
 		LastTransitionTime: metav1.Now(),
 	}
 
+	address := ""
 	if s == nil {
 		desired.Status = metav1.ConditionFalse
 		desired.Reason = "ServiceDoesNotExist"
+
+	} else {
+		address = fmt.Sprintf("http://%s.%s.svc.%s", s.Name, s.Namespace, resolver.ClusterDomain)
 	}
 
+	obj.StatusSetAddressURL(address)
 	obj.StatusSetCondition(desired)
 }
 
