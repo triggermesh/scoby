@@ -6,7 +6,7 @@ Generic controller for simple workloads.
 
 Scoby is a controller that makes it easy to manage application instances as Kubernetes objects.
 
-![scoby summary](hdocs/../docs/assets/scoby-summary.png)
+![scoby summary](docs/../docs/assets/scoby-summary.png)
 
 Scoby registrations contain references to user provided container image and CRD, and workload generation parameters.
 
@@ -75,3 +75,5 @@ spec:
   - If Custom Resources created by users contain a `.spec.account.passwordSecret` element, an environment variable named `MY_EXAMPLE_AUTH_PASSWORD` will be created using a Kubernetes secret reference as value.
 
 Read more at the [registration documentation](docs/registration.md).
+
+Follow the [getting started guide](docs/getting-started/README.md).
