@@ -197,7 +197,7 @@ Now create the same kuard instance we created for the deployment registration:
 kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/02.knative-service/02.kuard-instance.yaml
 ```
 
-The service generates a pod whose environment variables can be inspected:
+The service generates a pod whose environment variables can be inspected using a Knative Service version of the label filter that we used for the deployment:
 
 ```console
 kubectl get po -l serving.knative.dev/service=my-kuard-extension -ojsonpath='{.items[0].spec.containers[0].env}' | jq .
@@ -247,6 +247,167 @@ You can find some Knative Serving variables being added, and the same Scoby vari
 ```
 
 Let's clean up the example.
+
+```console
+kubectl delete kuard my-kuard-extension
+kubectl delete crdregistration kuard
+```
+
+### Skip Parameter Rendering
+
+When an element in the spec is not meant to generate an environment variable, the rendering can be skipped via a configuration parameter.
+
+```yaml
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: kuard
+spec:
+  crd: kuards.extensions.triggermesh.io
+  workload:
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+    fromImage:
+      repo: gcr.io/kuar-demo/kuard-amd64:blue
+    parameterConfiguration:
+      customize:
+      # Skip variable2 from generating a parameter for the workload
+      - path: spec.variable2
+        render:
+          skip: true
+
+```
+
+The `spec.workload.parameterConfiguration.customize[].render.skip` boolean indicates whether the environment variable for the element should be generated.
+
+Create the registration:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/03.param.skip/01.kuard-registration.yaml
+```
+
+Create the same instance we have created so far:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/03.param.skip/02.kuard-instance.yaml
+```
+
+Inspect generated environment variables:
+
+```console
+kubectl get po -l app.kubernetes.io/name=kuard -ojsonpath='{.items[0].spec.containers[0].env}' | jq .
+```
+
+Look at the result:
+
+```json
+[
+  {
+    "name": "ARRAY",
+    "value": "alpha,beta,gamma"
+  },
+  {
+    "name": "GROUP_VARIABLE3",
+    "value": "false"
+  },
+  {
+    "name": "GROUP_VARIABLE4",
+    "value": "42"
+  },
+  {
+    "name": "VARIABLE1",
+    "value": "value 1"
+  }
+]
+```
+
+Rendering skipped `.spec.variable2` rendering.
+Clean up the example:
+
+```console
+kubectl delete kuard my-kuard-extension
+kubectl delete crdregistration kuard
+```
+
+### Parameter Renaming
+
+Most often expected environment variables at the container do not match Scoby's automatic rendering. All generated environment variables can be renamed using ``spec.workload.parameterConfiguration.customize[].render.key`.
+
+```yaml
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: kuard
+spec:
+  crd: kuards.extensions.triggermesh.io
+  workload:
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+    fromImage:
+      repo: gcr.io/kuar-demo/kuard-amd64:blue
+    parameterConfiguration:
+      customize:
+      # Skip variable2 from generating a parameter for the workload
+      - path: spec.variable2
+        render:
+          key: KUARD_VARIABLE_TWO
+```
+
+Create the registration:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/04.param.rename/01.kuard-registration.yaml
+```
+
+Create the same instance we have created so far:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/04.param.rename/02.kuard-instance.yaml
+```
+
+Inspect generated environment variables:
+
+```console
+kubectl get po -l app.kubernetes.io/name=kuard -ojsonpath='{.items[0].spec.containers[0].env}' | jq .
+```
+
+Look at the result:
+
+```json
+[
+  {
+    "name": "ARRAY",
+    "value": "alpha,beta,gamma"
+  },
+  {
+    "name": "GROUP_VARIABLE3",
+    "value": "false"
+  },
+  {
+    "name": "GROUP_VARIABLE4",
+    "value": "42"
+  },
+  {
+    "name": "VARIABLE1",
+    "value": "value 1"
+  },
+  {
+    "name": "KUARD_VARIABLE_TWO",
+    "value": "value 2"
+  }
+]
+```
+
+Note the variable at `.spec.variable2` renamed as `KUARD_VARIABLE_TWO`.
+Clean up the example:
 
 ```console
 kubectl delete kuard my-kuard-extension
