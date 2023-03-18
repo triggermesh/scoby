@@ -74,5 +74,8 @@ spec:
   - If Custom Resources created by users contain a `.spec.account.name` element, an environment variable named `MY_EXAMPLE_AUTH_USER` will be created using the element's value.
   - If Custom Resources created by users contain a `.spec.account.passwordSecret` element, an environment variable named `MY_EXAMPLE_AUTH_PASSWORD` will be created using a Kubernetes secret reference as value.
 
-- Read more at the [registration documentation](docs/registration.md).
-- Follow the [getting started guide](docs/getting-started/README.md).
+For further information
+
+- :computer_mouse: Start using Scoby with the [getting started guide](docs/getting-started/README.md).
+- :bookmark_tabs: Learn more about registration at the [registration documentation](docs/registration.md).
+
