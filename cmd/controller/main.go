@@ -6,6 +6,7 @@ package main
 import (
 	"flag"
 	"os"
+	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,6 +23,10 @@ import (
 	scobyv1alpha1 "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
 	"github.com/triggermesh/scoby/pkg/reconciler/registration/crd"
+)
+
+const (
+	registryGracefulTimeout = 5 * time.Second
 )
 
 func main() {
@@ -78,6 +83,7 @@ func main() {
 	r := &crd.Reconciler{
 		Registry: reg,
 	}
+
 	if err := builder.ControllerManagedBy(mgr).
 		For(&scobyv1alpha1.CRDRegistration{}).
 		Complete(r); err != nil {
@@ -86,12 +92,22 @@ func main() {
 
 	}
 
+	// TODO setup metrics
+	// TODO setup profiler
+
 	// Start manager
 	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "could not start manager")
 		os.Exit(1)
 	}
 
-	// TODO setup metrics
-	// TODO setup profiler
+	// Make sure registered controllers exit as cleanly as possible
+	select {
+	case err := <-reg.WaitStopChannel():
+		if err != nil {
+			cl.Error(err, "registered controllers did not shut down gracefully")
+		}
+	case <-time.After(registryGracefulTimeout):
+		cl.Error(err, "registered controllers stop timed out", "timeout", registryGracefulTimeout)
+	}
 }
