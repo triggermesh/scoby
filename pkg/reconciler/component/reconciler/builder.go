@@ -9,7 +9,6 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
@@ -22,7 +21,7 @@ const (
 	defaultContainerName = "adapter"
 )
 
-func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (reconcile.Reconciler, error) {
+func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (chan error, error) {
 	wkl := reg.GetWorkload()
 	resolver := resolver.New(mgr.GetClient())
 	renderer := base.NewRenderer(defaultContainerName, wkl.FromImage.Repo, wkl.ParameterConfiguration, resolver)

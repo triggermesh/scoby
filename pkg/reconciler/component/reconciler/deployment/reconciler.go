@@ -15,10 +15,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 	recbase "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
@@ -34,7 +36,7 @@ const (
 	ConditionTypeServiceReady    = "ServiceReady"
 )
 
-func NewComponentReconciler(ctx context.Context, base recbase.Reconciler, mgr manager.Manager) (reconcile.Reconciler, error) {
+func NewComponentReconciler(ctx context.Context, base recbase.Reconciler, mgr manager.Manager) (chan error, error) {
 	log := mgr.GetLogger().WithName(base.RegisteredGetName())
 	log.Info("Creating deployment styled reconciler", "registration", base.RegisteredGetName())
 
@@ -54,17 +56,36 @@ func NewComponentReconciler(ctx context.Context, base recbase.Reconciler, mgr ma
 
 	base.StatusConfigureManagerConditions(recbase.ConditionTypeReady, statusConditions...)
 
-	log.V(1).Info("Reconciler configured, adding to controller manager", "registration", base.RegisteredGetName())
+	log.Info("Reconciler configured, adding to controller manager", "registration", base.RegisteredGetName())
 
-	if err := builder.ControllerManagedBy(mgr).
-		For(base.NewReconcilingObject().AsKubeObject()).
-		Owns(resources.NewDeployment("", "")).
-		Owns(resources.NewService("", "")).
-		Complete(r); err != nil {
+	ctrl, err := controller.NewUnmanaged(base.RegisteredGetName(), mgr, controller.Options{Reconciler: r})
+	if err != nil {
 		return nil, fmt.Errorf("could not build controller for %q: %w", base.RegisteredGetName(), err)
 	}
 
-	return r, nil
+	obj := base.NewReconcilingObject().AsKubeObject()
+	if err := ctrl.Watch(&source.Kind{Type: obj}, &handler.EnqueueRequestForObject{}); err != nil {
+		return nil, fmt.Errorf("could not set watcher on registered object %q: %w", base.RegisteredGetName(), err)
+	}
+
+	if err := ctrl.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    obj}); err != nil {
+		return nil, fmt.Errorf("could not set watcher on deployments owned by registered object %q: %w", base.RegisteredGetName(), err)
+	}
+
+	if err := ctrl.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    obj}); err != nil {
+		return nil, fmt.Errorf("could not set watcher on services owned by registered object %q: %w", base.RegisteredGetName(), err)
+	}
+
+	stCh := make(chan error)
+	go func() {
+		stCh <- ctrl.Start(ctx)
+	}()
+
+	return stCh, nil
 }
 
 type reconciler struct {

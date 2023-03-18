@@ -71,7 +71,7 @@ Customization is being worked on, A checkbox indicates if the feature is availab
 
 ### Add New Parameters
 
-- [ ] Create new parameter with literal value
+- [x] Create new parameter with literal value
 
 ```yaml
     parameterConfiguration:
@@ -218,9 +218,3 @@ kubectl apply -f https://github.com/triggermesh/scoby/tree/main/docs/samples/01.
 ```
 
 Kuard is an application created by the authors of Kubernetes Up and Ready book that is able to render a list of its environment variables. Our registration uses the Kuard image and a list of elements at the spec to demonstrate how to render them as environment variables in different ways.
-
-### Example with URL resolving
-
-A registered object is able to resolve a kubernetes object into a URL and use the result as an environment variable.
-
-// TODO
