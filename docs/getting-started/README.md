@@ -50,8 +50,6 @@ kubectl get po my-rendered-pod -ojsonpath='{.items[0].spec.containers[0].env}' |
 
 We will stick to the pod inspecting method but for the first example, where we will use both.
 
-**Important Note**: Due to limitations at controller-runtime, and the fact that we are re-registering the same CRD at every test, the controller needs to be re-started before each of the example entries in this guide.
-
 ### Deployment Registration
 
 The deployment registration is going to be used for most examples at this guide due to not requiring any added software compared with the Knative Service registration. The form factor at this example is configured to create one pod and a service that listens on 80 and forward requests to the pod's 8080, where the kuard application is listening:
@@ -421,3 +419,5 @@ Remove the registered CRD. Note: the controller is still not able to remove info
 ```console
 kubectl delete crd kuards.extensions.triggermesh.io
 ```
+
+**Important Note**: Due to limitations at controller-runtime, removing a CRD that has been watched will lead to logging errors at the still existing informer. That can be solved restarting the informer and will be solved after [this issue](https://github.com/kubernetes-sigs/controller-runtime/issues/1884) is solved.
