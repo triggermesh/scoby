@@ -139,7 +139,7 @@ The default behavior is to create parameters from each spec element (arrays will
           key: FOO_BAR
 ```
 
-- [ ] Change value to literal.
+- [x] Change value to literal.
 
 ```yaml
     parameterConfiguration:
