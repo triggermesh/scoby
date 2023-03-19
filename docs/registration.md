@@ -53,11 +53,7 @@ Scoby uses instances of registered CRDs to create the workload, passing the inst
 - Values for arrays of primitive elements will be serialized as a single string consisting of comma separated values.
 - Values for arrays of complex elements (that contain sub-elements) will be serialized as a single string consisting of a JSON marshalled representation of the inner elements.
 
-TODO add example
-
 Customization for generated parameters is possible through the `spec.workload.parameterConfiguration`
-
-Customization is being worked on, A checkbox indicates if the feature is available at main branch.
 
 ### Global Customization
 
@@ -91,28 +87,28 @@ Customization is being worked on, A checkbox indicates if the feature is availab
             fieldPath: metadata.name
 ```
 
-- [ ] Create new parameter with secret
+- [x] Create new parameter with secret
 
 ```yaml
     parameterConfiguration:
       add:
       - key: FOO_MY_CREDS
         valueFrom:
-            secretKeyRef:
-              name: mycreds
-              key: token
+          secretKeyRef:
+            name: mycreds
+            key: token
 ```
 
-- [ ] Create new parameter with configmap
+- [x] Create new parameter with configmap
 
 ```yaml
     parameterConfiguration:
       add:
       - key: FOO_MY_BACKGROUND
         valueFrom:
-            configMapKeyRef:
-              name: mypreferences
-              key: background
+          configMapKeyRef:
+            name: mypreferences
+            key: background
 ```
 
 ### Customize Parameters From Spec
@@ -188,7 +184,7 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ## Workload Status
 
-- [ ] Use parameter value for status.
+- [ ] Use parameter value for status. NOT IMPLEMENTED YET
 
 ```yaml
     parameterConfiguration:
@@ -207,14 +203,4 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ## Examples
 
-TODO, see [kuard example](https://github.com/triggermesh/scoby/tree/main/docs/samples/01.kuard) while the examples section is worked on.
-
-### Pre-requisite
-
-All examples require Kuard CRD to be installed
-
-```console
-kubectl apply -f https://github.com/triggermesh/scoby/tree/main/docs/samples/01.kuard/01.kuard-crd.yaml
-```
-
-Kuard is an application created by the authors of Kubernetes Up and Ready book that is able to render a list of its environment variables. Our registration uses the Kuard image and a list of elements at the spec to demonstrate how to render them as environment variables in different ways.
+The [getting started guide](getting-started/README.md) drives you through the [examples found at the Scoby repository](https://github.com/triggermesh/scoby/tree/main/docs/samples/01.kuard).
