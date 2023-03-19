@@ -1,0 +1,22 @@
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: kuard
+spec:
+  crd: kuards.extensions.triggermesh.io
+  workload:
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+    fromImage:
+      repo: gcr.io/kuar-demo/kuard-amd64:blue
+
+    parameterConfiguration:
+      customize:
+      # Override variable2 value
+      - path: spec.variable2
+        render:
+          value: new variable2 value

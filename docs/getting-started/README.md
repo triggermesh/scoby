@@ -333,7 +333,7 @@ kubectl delete crdregistration kuard
 
 ### Parameter Renaming
 
-Most often expected environment variables at the container do not match Scoby's automatic rendering. All generated environment variables can be renamed using ``spec.workload.parameterConfiguration.customize[].render.key`.
+Most often expected environment variables at the container do not match Scoby's automatic rendering. All generated environment variables can be renamed using `spec.workload.parameterConfiguration.customize[].render.key`.
 
 ```yaml
 apiVersion: scoby.triggermesh.io/v1alpha1
@@ -353,7 +353,7 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
       customize:
-      # Skip variable2 from generating a parameter for the workload
+      # Rename variable2
       - path: spec.variable2
         render:
           key: KUARD_VARIABLE_TWO
@@ -410,6 +410,182 @@ Clean up the example:
 ```console
 kubectl delete kuard my-kuard-extension
 kubectl delete crdregistration kuard
+```
+
+### Parameter Value Literal
+
+The value for an environment variable can be set to a literal value using `spec.workload.parameterConfiguration.customize[].render.value`.
+
+```yaml
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: kuard
+spec:
+  crd: kuards.extensions.triggermesh.io
+  workload:
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+    fromImage:
+      repo: gcr.io/kuar-demo/kuard-amd64:blue
+    parameterConfiguration:
+      customize:
+      # Override variable2 value
+      - path: spec.variable2
+        render:
+          value: new variable2 value
+```
+
+Create the registration:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/05.param.value/01.kuard-registration.yaml
+```
+
+Create the same instance we have created so far:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/05.param.value/02.kuard-instance.yaml
+```
+
+Inspect generated environment variables:
+
+```console
+kubectl get po -l app.kubernetes.io/name=kuard -ojsonpath='{.items[0].spec.containers[0].env}' | jq .
+```
+
+Look at the result:
+
+```json
+[
+  {
+    "name": "ARRAY",
+    "value": "alpha,beta,gamma"
+  },
+  {
+    "name": "GROUP_VARIABLE3",
+    "value": "false"
+  },
+  {
+    "name": "GROUP_VARIABLE4",
+    "value": "42"
+  },
+  {
+    "name": "VARIABLE1",
+    "value": "value 1"
+  },
+  {
+    "name": "VARIABLE2",
+    "value": "new variable2 value"
+  }
+]
+```
+
+Note the variable at `.spec.variable2` value has been overriden.
+Clean up the example:
+
+```console
+kubectl delete kuard my-kuard-extension
+kubectl delete crdregistration kuard
+```
+
+### Parameter Value From Secret
+
+The value for an environment variable can reference a secret through the `spec.workload.parameterConfiguration.customize[].render.valueFromSecret` customization option, that needs the `name` and `key` subelements to be set. In this example we will also be setting the variable name.
+
+```yaml
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: kuard
+spec:
+  crd: kuards.extensions.triggermesh.io
+  workload:
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+    fromImage:
+      repo: gcr.io/kuar-demo/kuard-amd64:blue
+    parameterConfiguration:
+      customize:
+      # Reference a secret
+      - path: spec.refToSecret
+        render:
+          key: FOO_CREDENTIALS
+          valueFromSecret:
+            name: spec.refToSecret.secretName
+            key: spec.refToSecret.secretKey
+```
+
+Create the registration:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/06.param.secret/01.kuard-registration.yaml
+```
+
+Create the same instance we have created so far plus the secret it references:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/06.param.secret/02.kuard-instance.yaml
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/06.param.secret/03.secret.yaml
+```
+
+Inspect generated environment variables:
+
+```console
+kubectl get po -l app.kubernetes.io/name=kuard -ojsonpath='{.items[0].spec.containers[0].env}' | jq .
+```
+
+Look at the result:
+
+```json
+[
+  {
+    "name": "ARRAY",
+    "value": "alpha,beta,gamma"
+  },
+  {
+    "name": "FOO_CREDENTIALS",
+    "valueFrom": {
+      "secretKeyRef": {
+        "key": "kuard-key",
+        "name": "kuard-secret"
+      }
+    }
+  },
+  {
+    "name": "GROUP_VARIABLE3",
+    "value": "false"
+  },
+  {
+    "name": "GROUP_VARIABLE4",
+    "value": "42"
+  },
+  {
+    "name": "VARIABLE1",
+    "value": "value 1"
+  },
+  {
+    "name": "VARIABLE2",
+    "value": "value 2"
+  }
+]
+```
+
+Note the variable at `.spec.refToSecret` is rendered with name `FOO_CREDENTIALS` as a reference to a secret.
+Clean up the example:
+
+```console
+kubectl delete kuard my-kuard-extension
+kubectl delete crdregistration kuard
+kubectl delete secret kuard-secret
 ```
 
 ## Clean Up
