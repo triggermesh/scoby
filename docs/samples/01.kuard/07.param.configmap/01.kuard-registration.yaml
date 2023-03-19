@@ -20,7 +20,6 @@ spec:
       # Reference a ConfigMap
       - path: spec.refToConfigMap
         render:
-          key: FOO_CONFIGURATION
           valueFromConfigMap:
             name: spec.refToConfigMap.configName
             key: spec.refToConfigMap.configKey

@@ -495,7 +495,7 @@ kubectl delete crdregistration kuard
 
 ### Parameter Value From Secret
 
-The value for an environment variable can reference a secret through the `spec.workload.parameterConfiguration.customize[].render.valueFromSecret` customization option, that needs the `name` and `key` subelements to be set. In this example we will also be setting the variable name.
+The value for an environment variable can reference a Secret through the `spec.workload.parameterConfiguration.customize[].render.valueFromSecret` customization option, that needs the `name` and `key` subelements to be set. In this example we will also be setting the variable name.
 
 ```yaml
 apiVersion: scoby.triggermesh.io/v1alpha1
@@ -530,7 +530,7 @@ Create the registration:
 kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/06.param.secret/01.kuard-registration.yaml
 ```
 
-Create the same instance we have created so far plus the secret it references:
+Create the same instance we have created so far plus the Secret it references:
 
 ```console
 kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/06.param.secret/02.kuard-instance.yaml
@@ -586,6 +586,294 @@ Clean up the example:
 kubectl delete kuard my-kuard-extension
 kubectl delete crdregistration kuard
 kubectl delete secret kuard-secret
+```
+
+### Parameter Value From ConfigMap
+
+The value for an environment variable can reference a ConfigMap through the `spec.workload.parameterConfiguration.customize[].render.valueFromConfigMap` customization option, that needs the `name` and `key` subelements to be set.
+
+```yaml
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: kuard
+spec:
+  crd: kuards.extensions.triggermesh.io
+  workload:
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+    fromImage:
+      repo: gcr.io/kuar-demo/kuard-amd64:blue
+    parameterConfiguration:
+      customize:
+      # Reference a ConfigMap
+      - path: spec.refToConfigMap
+        render:
+          valueFromConfigMap:
+            name: spec.refToConfigMap.configName
+            key: spec.refToConfigMap.configKey
+```
+
+Create the registration:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/07.param.configmap/01.kuard-registration.yaml
+```
+
+Create the same instance we have created so far plus the ConfigMap it references:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/07.param.configmap/02.kuard-instance.yaml
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/07.param.configmap/03.configmap.yaml
+```
+
+Inspect generated environment variables:
+
+```console
+kubectl get po -l app.kubernetes.io/name=kuard -ojsonpath='{.items[0].spec.containers[0].env}' | jq .
+```
+
+Look at the result:
+
+```json
+[
+  {
+    "name": "ARRAY",
+    "value": "alpha,beta,gamma"
+  },
+  {
+    "name": "GROUP_VARIABLE3",
+    "value": "false"
+  },
+  {
+    "name": "GROUP_VARIABLE4",
+    "value": "42"
+  },
+  {
+    "name": "REFTOCONFIGMAP",
+    "valueFrom": {
+      "configMapKeyRef": {
+        "key": "kuard-key",
+        "name": "kuard-configmap"
+      }
+    }
+  },
+  {
+    "name": "VARIABLE1",
+    "value": "value 1"
+  },
+  {
+    "name": "VARIABLE2",
+    "value": "value 2"
+  }
+]
+```
+
+Note the variable at `.spec.refToConfigMap` is rendered with name `REFTOCONFIGMAP` as a reference to a ConfigMap.
+Clean up the example:
+
+```console
+kubectl delete kuard my-kuard-extension
+kubectl delete crdregistration kuard
+kubectl delete configmap kuard-configmap
+```
+
+### Parameter Value From Function: resolveAddress
+
+If part of a spec uses a [Destination duck type](https://pkg.go.dev/knative.dev/pkg/apis/duck/v1#Destination) to express a location, just like [Knative Sinks](https://knative.dev/docs/eventing/sinks/#sink-as-a-parameter) do, the registration can be used to resolve it and use the result as an environment variable.
+
+A destination duck type informs either an URI, a Kubernetes service, or a Kubernetes object that contains a URL at `status.address.url`.
+
+```yaml
+  destination:
+    ref:
+      apiVersion: <version>
+      kind: <kind>
+      namespace: <namespace - optional>
+      name: <name>
+    uri: <uri>
+```
+
+Use the built-in function `spec.workload.parameterConfiguration.customize[].valueFromBuiltInFunc.resolveAddress` on the element that contains the Destination type.
+
+```yaml
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: kuard
+spec:
+  crd: kuards.extensions.triggermesh.io
+  workload:
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+    fromImage:
+      repo: gcr.io/kuar-demo/kuard-amd64:blue
+    parameterConfiguration:
+      customize:
+      # Resolve an address
+      - path: spec.refToAddress
+        render:
+          key: FOO_SINK
+          valueFromBuiltInFunc:
+            name: resolveAddress
+```
+
+Create the registration:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/08.param.addressable/01.kuard-registration.yaml
+```
+
+Create a service or addressable and reference it from a kuard instance:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/08.param.addressable/02.kuard-instance.yaml
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/08.param.addressable/03.service.yaml
+```
+
+Inspect generated environment variables:
+
+```console
+kubectl get po -l app.kubernetes.io/name=kuard -ojsonpath='{.items[0].spec.containers[0].env}' | jq .
+```
+
+Look at the result:
+
+```json
+[
+  {
+    "name": "ARRAY",
+    "value": "alpha,beta,gamma"
+  },
+  {
+    "name": "FOO_SINK",
+    "value": "http://my-service.default.svc.cluster.local"
+  },
+  {
+    "name": "GROUP_VARIABLE3",
+    "value": "false"
+  },
+  {
+    "name": "GROUP_VARIABLE4",
+    "value": "42"
+  },
+  {
+    "name": "VARIABLE1",
+    "value": "value 1"
+  },
+  {
+    "name": "VARIABLE2",
+    "value": "value 2"
+  }
+]
+```
+
+Note the variable at `.spec.refToAddress` is rendered with name `FOO_SINK` containing the DNS address for the service.
+Clean up the example:
+
+```console
+kubectl delete kuard my-kuard-extension
+kubectl delete crdregistration kuard
+kubectl delete service my-service
+```
+
+### Add New Parameter
+
+In scenarios where parameters unrelated to the instance `.spec` data needs to be added, the `spec.workload.parameterConfiguration.addEnvs[]` is used. An array of [EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#envvar-v1-core) can be provided referencing literal values, ConfigMaps, Secrets or the Downward API.
+
+```yaml
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: kuard
+spec:
+  crd: kuards.extensions.triggermesh.io
+  workload:
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+    fromImage:
+      repo: gcr.io/kuar-demo/kuard-amd64:blue
+    parameterConfiguration:
+      # A new variable will be created using a reference to the object's field.
+      addEnvs:
+      - name: MY_POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+```
+
+Create the registration:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/09.param.add.metadata/01.kuard-registration.yaml
+```
+
+Create a kuard instance:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/09.param.add.metadata/02.kuard-instance.yaml
+```
+
+Inspect generated environment variables:
+
+```console
+kubectl get po -l app.kubernetes.io/name=kuard -ojsonpath='{.items[0].spec.containers[0].env}' | jq .
+```
+
+Look at the result:
+
+```json
+[
+  {
+    "name": "ARRAY",
+    "value": "alpha,beta,gamma"
+  },
+  {
+    "name": "GROUP_VARIABLE3",
+    "value": "false"
+  },
+  {
+    "name": "GROUP_VARIABLE4",
+    "value": "42"
+  },
+  {
+    "name": "MY_POD_NAME",
+    "valueFrom": {
+      "fieldRef": {
+        "apiVersion": "v1",
+        "fieldPath": "metadata.name"
+      }
+    }
+  },
+  {
+    "name": "VARIABLE1",
+    "value": "value 1"
+  },
+  {
+    "name": "VARIABLE2",
+    "value": "value 2"
+  }
+]
+```
+
+Note the variable named `MY_POD_NAME` using the Downward API.
+Clean up the example:
+
+```console
+kubectl delete kuard my-kuard-extension
+kubectl delete crdregistration kuard
 ```
 
 ## Clean Up

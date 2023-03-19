@@ -11,10 +11,8 @@ spec:
         service:
           port: 80
           targetPort: 8080
-
     fromImage:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
-
     parameterConfiguration:
       # A new variable will be created using a reference to the object's field.
       addEnvs:
