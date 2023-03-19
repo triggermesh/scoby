@@ -14,7 +14,7 @@ spec:
   - gamma
   refToAddress:
     ref:
-      apiVersion: eventing.triggermesh.io/v1alpha1
-      kind: MemoryBroker
-      name: kuard-broker
+      apiVersion: v1
+      kind: Service
+      name: my-service
 
