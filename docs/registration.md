@@ -195,6 +195,7 @@ The default behavior is to create parameters from each spec element (arrays will
           valueFromBuiltInFunc:
             name: resolveAddress
     statusConfiguration:
+      addElements:
       - path: status.sinkUri
         render:
           valueFromParameter:

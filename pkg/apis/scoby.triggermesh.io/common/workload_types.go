@@ -19,6 +19,10 @@ type Workload struct {
 	// are transformed into workload parameters.
 	// +optional
 	ParameterConfiguration *ParameterConfiguration `json:"parameterConfiguration,omitempty"`
+	// StatusConfiguration contains rules to populate
+	// a controlled instance status.
+	// +optional
+	StatusConfiguration *StatusConfiguration `json:"statusConfiguration,omitempty"`
 }
 
 // RegistrationFromImage contains information to retrieve the container image.
@@ -59,15 +63,8 @@ func (gpc *GlobalParameterConfiguration) GetDefaultPrefix() string {
 	return *gpc.DefaultPrefix
 }
 
-// // AddParameters contains instructions to add arbitrary parameters
-// // to the workload.
-// type AddParameterConfiguration struct {
-// 	// List of environment variables to add to the container.
-// 	Env []corev1.EnvVar `json:"env,omitempty"`
-// }
-
-// CustomizeParameters contains instructions to modify parameters generation from
-// the instance's spec.
+// CustomizeParameters contains instructions to modify parameters generation for
+// the controlled instance spec.
 type CustomizeParameterConfiguration struct {
 	// JSON simplified path for the parameter.
 	Path string `json:"path"`
@@ -125,7 +122,7 @@ type ObjectReference struct {
 	Key string `json:"key"`
 }
 
-// References a built-in function
+// References a built-in function.
 type BuiltInfunction struct {
 	// Function name
 	Name string `json:"name"`
@@ -134,6 +131,7 @@ type BuiltInfunction struct {
 	Args []string `json:"args,omitempty"`
 }
 
+// IsSkip returns if the parameter rendering should be skipped.
 func (prc *ParameterRenderConfiguration) IsSkip() bool {
 	if prc == nil || prc.Skip == nil {
 		return false
@@ -141,9 +139,46 @@ func (prc *ParameterRenderConfiguration) IsSkip() bool {
 	return *prc.Skip
 }
 
+// GetKey returns the key defined at the parameter rendering
+// configuration.
+// Returns an empty string if not defined.
 func (prc *ParameterRenderConfiguration) GetKey() string {
 	if prc == nil || prc.Key == nil {
 		return ""
 	}
 	return *prc.Key
+}
+
+// StatusConfiguration contains instructions to modify status generation for
+// the controlled instance.
+type StatusConfiguration struct {
+	// AddElements contains configurations for status elements to be added.
+	// +optional
+	AddElements []StatusAddElement `json:"addElements,omitempty"`
+}
+
+// StatusAddElement is a customization option that adds or fills an element
+// at an object instance status structure.
+type StatusAddElement struct {
+	// JSON simplified path for the status element.
+	Path string `json:"path"`
+
+	// Render options for the status.
+	// +optional
+	Render *StatusRenderConfiguration `json:"render,omitempty"`
+}
+
+// StatusRenderConfiguration is a customization status option for the
+// status generation.
+type StatusRenderConfiguration struct {
+	// Reference an object element and use its parameter to
+	// fill the status.
+	ValueFromParameter *StatusValueFromParameter `json:"valueFromParameter,omitempty"`
+}
+
+// StatusValueFromParameter contains a reference to an object element
+// that is used at the status.
+type StatusValueFromParameter struct {
+	// JSON simplified path for the referenced element.
+	Path string `json:"path"`
 }

@@ -231,7 +231,8 @@ spec:
                           generation from the instance's spec.
                         items:
                           description: CustomizeParameters contains instructions to
-                            modify parameters generation from the instance's spec.
+                            modify parameters generation for the controlled instance
+                            spec.
                           properties:
                             path:
                               description: JSON simplified path for the parameter.
@@ -310,6 +311,41 @@ spec:
                               affect parameter keys explicitly set by users.
                             type: string
                         type: object
+                    type: object
+                  statusConfiguration:
+                    description: StatusConfiguration contains rules to populate a
+                      controlled instance status.
+                    properties:
+                      addElements:
+                        description: AddElements contains configurations for status
+                          elements to be added.
+                        items:
+                          description: StatusAddElement is a customization option
+                            that adds or fills an element at an object instance status
+                            structure.
+                          properties:
+                            path:
+                              description: JSON simplified path for the status element.
+                              type: string
+                            render:
+                              description: Render options for the status.
+                              properties:
+                                valueFromParameter:
+                                  description: Reference an object element and use
+                                    its parameter to fill the status.
+                                  properties:
+                                    path:
+                                      description: JSON simplified path for the referenced
+                                        element.
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                              type: object
+                          required:
+                          - path
+                          type: object
+                        type: array
                     type: object
                 required:
                 - fromImage
