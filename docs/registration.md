@@ -57,7 +57,7 @@ Customization for generated parameters is possible through the `spec.workload.pa
 
 ### Global Customization
 
-- [ ] Define global prefix for all generated environment variables.
+- [x] Define global prefix for all generated environment variables.
 
 ```yaml
     parameterConfiguration:
