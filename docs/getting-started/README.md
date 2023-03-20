@@ -876,6 +876,85 @@ kubectl delete kuard my-kuard-extension
 kubectl delete crdregistration kuard
 ```
 
+### Global Parameter Prefix
+
+Generated environment variables names can be added a prefix by using the `spec.workload.parameterConfiguration.global.defaultPrefix` element. All generated names will use the prefix but for those that contain extra configuration that set a key name.
+
+```yaml
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: kuard
+spec:
+  crd: kuards.extensions.triggermesh.io
+  workload:
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+    fromImage:
+      repo: gcr.io/kuar-demo/kuard-amd64:blue
+    parameterConfiguration:
+      # Use a prefix for all generated variables.
+      global:
+        defaultPrefix: KUARD_
+```
+
+Create the registration:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/10.param.prefix/01.kuard-registration.yaml
+```
+
+Create a kuard instance:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/10.param.prefix/02.kuard-instance.yaml
+```
+
+Inspect generated environment variables:
+
+```console
+kubectl get po -l app.kubernetes.io/name=kuard -ojsonpath='{.items[0].spec.containers[0].env}' | jq .
+```
+
+Look at the result:
+
+```json
+[
+  {
+    "name": "KUARD_ARRAY",
+    "value": "alpha,beta,gamma"
+  },
+  {
+    "name": "KUARD_GROUP_VARIABLE3",
+    "value": "false"
+  },
+  {
+    "name": "KUARD_GROUP_VARIABLE4",
+    "value": "42"
+  },
+  {
+    "name": "KUARD_VARIABLE1",
+    "value": "value 1"
+  },
+  {
+    "name": "KUARD_VARIABLE2",
+    "value": "value 2"
+  }
+]
+```
+
+Note that each key has been prefixed with `KUARD_`.
+Clean up the example:
+
+```console
+kubectl delete kuard my-kuard-extension
+kubectl delete crdregistration kuard
+```
+
 ## Clean Up
 
 Remove the registered CRD. Note: the controller is still not able to remove informers, logs will complain about the CRD not being present. This can only be solved at the moment restarting the controller.
