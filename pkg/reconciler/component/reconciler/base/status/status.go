@@ -107,6 +107,7 @@ type StatusManager interface {
 	SetCondition(condition *apicommon.Condition)
 	GetAddressURL() string
 	SetAddressURL(string)
+	SetValue(value interface{}, path ...string) error
 }
 
 type statusManager struct {
@@ -514,4 +515,12 @@ func (sm *statusManager) SetAddressURL(url string) {
 	typedStatus["address"] = map[string]string{
 		"url": url,
 	}
+}
+
+func (sm *statusManager) SetValue(value interface{}, path ...string) error {
+	sm.m.Lock()
+	defer sm.m.Unlock()
+
+	sm.ensureStatusRoot()
+	return unstructured.SetNestedField(sm.object.Object, value, path...)
 }

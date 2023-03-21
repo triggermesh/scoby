@@ -23,4 +23,10 @@ spec:
           key: FOO_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
-
+    statusConfiguration:
+      addElements:
+      # Add the result to an status element
+      - path: status.sinkUri
+        render:
+          valueFromParameter:
+            path: spec.refToAddress

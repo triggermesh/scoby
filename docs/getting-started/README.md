@@ -698,7 +698,7 @@ A destination duck type informs either an URI, a Kubernetes service, or a Kubern
     uri: <uri>
 ```
 
-Use the built-in function `spec.workload.parameterConfiguration.customize[].valueFromBuiltInFunc.resolveAddress` on the element that contains the Destination type.
+Use the built-in function `spec.workload.parameterConfiguration.customize[].valueFromBuiltInFunc.resolveAddress` on the element that contains the Destination type. As an added feature this example also updates an status element with the resolved address.
 
 ```yaml
 apiVersion: scoby.triggermesh.io/v1alpha1
@@ -724,6 +724,13 @@ spec:
           key: FOO_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
+    statusConfiguration:
+      addElements:
+      # Add the result to an status element
+      - path: status.sinkUri
+        render:
+          valueFromParameter:
+            path: spec.refToAddress
 ```
 
 Create the registration:
@@ -777,6 +784,47 @@ Look at the result:
 ```
 
 Note the variable at `.spec.refToAddress` is rendered with name `FOO_SINK` containing the DNS address for the service.
+Also check the status:
+
+```console
+kubectl get kuard my-kuard-extension -ojsonpath='{.status}' | jq .
+```
+
+The `status.address.url` element has been filled with the value from the resolved address above.
+
+```yaml
+{
+  "address": {
+    "url": "http://my-kuard-extension.default.svc.cluster.local"
+  },
+  "conditions": [
+    {
+      "lastTransitionTime": "2023-03-21T09:40:38Z",
+      "message": "",
+      "reason": "MinimumReplicasAvailable",
+      "status": "True",
+      "type": "DeploymentReady"
+    },
+    {
+      "lastTransitionTime": "2023-03-21T09:40:38Z",
+      "message": "",
+      "reason": "CONDITIONSOK",
+      "status": "True",
+      "type": "Ready"
+    },
+    {
+      "lastTransitionTime": "2023-03-21T09:40:38Z",
+      "message": "",
+      "reason": "ServiceExist",
+      "status": "True",
+      "type": "ServiceReady"
+    }
+  ],
+  "observedGeneration": 1,
+  "sinkUri": "http://my-service.default.svc.cluster.local"
+}
+```
+
 Clean up the example:
 
 ```console

@@ -24,6 +24,7 @@ type Reconciling interface {
 	StatusSetCondition(condition *apicommon.Condition)
 	StatusSetAddressURL(string)
 	StatusIsEqual(client.Object) bool
+	StatusSetValue(value interface{}, path ...string) error
 }
 
 type ReconcilingObjectFactory interface {
@@ -98,4 +99,8 @@ func (ro *reconciledObject) StatusIsEqual(in client.Object) bool {
 	}
 
 	return true
+}
+
+func (ro *reconciledObject) StatusSetValue(value interface{}, path ...string) error {
+	return ro.sm.SetValue(value, path...)
 }

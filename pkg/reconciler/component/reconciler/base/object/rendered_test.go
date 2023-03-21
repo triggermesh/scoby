@@ -275,7 +275,13 @@ func TestObjectRender(t *testing.T) {
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			r := NewRenderer(tName, tImage, tc.configuration, nil)
+			wkl := &apicommon.Workload{
+				FromImage: apicommon.RegistrationFromImage{
+					Repo: tImage,
+				},
+				ParameterConfiguration: tc.configuration,
+			}
+			r := NewRenderer(tName, wkl, nil)
 
 			rendered, err := r.Render(context.Background(), newReconciledObjectFromYaml(tc.object))
 			require.NoError(t, err)

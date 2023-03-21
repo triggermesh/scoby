@@ -184,7 +184,7 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ## Workload Status
 
-- [ ] Use parameter value for status. NOT IMPLEMENTED YET
+- [x] Use parameter value for status.
 
 ```yaml
     parameterConfiguration:
@@ -195,6 +195,7 @@ The default behavior is to create parameters from each spec element (arrays will
           valueFromBuiltInFunc:
             name: resolveAddress
     statusConfiguration:
+      addElements:
       - path: status.sinkUri
         render:
           valueFromParameter:

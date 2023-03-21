@@ -5,6 +5,7 @@
 /_output/
 
 # Binaries for programs and plugins
+.vscode/
 *.exe
 *.exe~
 *.dll
