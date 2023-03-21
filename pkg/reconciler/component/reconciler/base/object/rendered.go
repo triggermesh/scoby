@@ -44,36 +44,47 @@ type renderer struct {
 	// Static set of environment variables to be added to as
 	// parameters to the workload.
 	addEnvs []corev1.EnvVar
+
+	// Set of rules that add or fill elements at the object status.
+	addStatus []apicommon.StatusAddElement
 }
 
-func NewRenderer(containerName, containerImage string, configuration *apicommon.ParameterConfiguration, resolver resolver.Resolver) Renderer {
+func NewRenderer(containerName string, wkl *apicommon.Workload, resolver resolver.Resolver) Renderer {
 	r := &renderer{
 		containerName:  containerName,
-		containerImage: containerImage,
+		containerImage: wkl.FromImage.Repo,
 		resolver:       resolver,
 	}
 
-	if configuration == nil {
-		return r
-	}
+	if wkl.ParameterConfiguration != nil {
+		pcfg := wkl.ParameterConfiguration
 
-	if configuration.Global != nil {
-		r.global = *configuration.Global
-	}
+		if pcfg.Global != nil {
+			r.global = *pcfg.Global
+		}
 
-	// Curate object fields customization, index them by their
-	// relaxed JSONPath.
-	if configuration.Customize != nil {
-		r.customization = make(map[string]apicommon.CustomizeParameterConfiguration, len(configuration.Customize))
-		for _, c := range configuration.Customize {
-			r.customization[strings.TrimLeft(c.Path, "$.")] = c
+		// Curate object fields customization, index them by their
+		// relaxed JSONPath.
+		if pcfg.Customize != nil && len(pcfg.Customize) != 0 {
+			r.customization = make(map[string]apicommon.CustomizeParameterConfiguration, len(pcfg.Customize))
+			for _, c := range pcfg.Customize {
+				r.customization[strings.TrimLeft(c.Path, "$.")] = c
+			}
+		}
+		// Keep the list of extra environment variables to be appended.
+		if pcfg.AddEnvs != nil && len(pcfg.AddEnvs) != 0 {
+			r.addEnvs = make([]corev1.EnvVar, len(pcfg.AddEnvs))
+			copy(r.addEnvs, pcfg.AddEnvs)
 		}
 	}
 
-	// Keep the list of extra environment variables to be appended.
-	if configuration.AddEnvs != nil && len(configuration.AddEnvs) != 0 {
-		r.addEnvs = make([]corev1.EnvVar, len(configuration.AddEnvs))
-		copy(r.addEnvs, configuration.AddEnvs)
+	if wkl.StatusConfiguration != nil {
+		scfg := wkl.StatusConfiguration
+
+		if scfg.AddElements != nil && len(scfg.AddElements) != 0 {
+			r.addStatus = make([]apicommon.StatusAddElement, len(scfg.AddElements))
+			copy(r.addStatus, scfg.AddElements)
+		}
 	}
 
 	return r
@@ -111,6 +122,11 @@ func (r *renderer) Render(ctx context.Context, obj Reconciling) (Rendered, error
 
 	// Add reference to the rendered object
 	ro.obj = obj
+
+	err = r.renderStatus(ro)
+	if err != nil {
+		return nil, err
+	}
 
 	return ro, nil
 }
@@ -533,6 +549,64 @@ func (r *renderer) restructureIntoParsedFields(root map[string]interface{}, bran
 	return parsedFields
 }
 
+func (r *renderer) resolveAddress(ctx context.Context, namespace, path string, pfv interface{}) (string, error) {
+	value, err := json.Marshal(pfv)
+	if err != nil {
+		return "", fmt.Errorf("could not parse reference structure as JSON at %q: %w", path, err)
+	}
+
+	// Convert json string to struct
+	ref := &Reference{}
+	if err := json.Unmarshal(value, &ref); err != nil {
+		return "", fmt.Errorf("not valid reference structure at %q: %w", path, err)
+	}
+
+	if ref.Namespace == "" {
+		ref.Namespace = namespace
+	}
+
+	uri, err := r.resolver.Resolve(ctx, &corev1.ObjectReference{
+		APIVersion: ref.APIVersion,
+		Kind:       ref.Kind,
+		Namespace:  ref.Namespace,
+		Name:       ref.Name,
+	})
+	if err != nil {
+		return "", fmt.Errorf("could not resolve reference at %q: %w", path, err)
+	}
+
+	return uri, nil
+}
+
+func (r *renderer) renderStatus(ro *renderedObject) error {
+	errs := []string{}
+	for i := range r.addStatus {
+		sae := r.addStatus[i]
+
+		path := strings.Split(sae.Path, ".")
+
+		switch {
+		case sae.Render.ValueFromParameter != nil:
+			ev, ok := ro.evsByPath[sae.Render.ValueFromParameter.Path]
+			if !ok {
+				continue
+			}
+
+			if err := ro.obj.StatusSetValue(ev.Value, path...); err != nil {
+				// We lose stacktrace but process all status options.
+				errs = append(errs, err.Error())
+			}
+		}
+	}
+
+	if len(errs) != 0 {
+		msg := strings.Join(errs, ". ")
+		return fmt.Errorf(msg[:len(msg)-2])
+	}
+
+	return nil
+}
+
 type Rendered interface {
 	GetPodSpecOptions() []resources.PodSpecOption
 	GetEnvVarByPath(path string) *corev1.EnvVar
@@ -578,33 +652,4 @@ type Reference struct {
 	Kind       string `json:"kind"`
 	Namespace  string `json:"namespace,omitempty"`
 	Name       string `json:"name"`
-}
-
-func (r *renderer) resolveAddress(ctx context.Context, namespace, path string, pfv interface{}) (string, error) {
-	value, err := json.Marshal(pfv)
-	if err != nil {
-		return "", fmt.Errorf("could not parse reference structure as JSON at %q: %w", path, err)
-	}
-
-	// Convert json string to struct
-	ref := &Reference{}
-	if err := json.Unmarshal(value, &ref); err != nil {
-		return "", fmt.Errorf("not valid reference structure at %q: %w", path, err)
-	}
-
-	if ref.Namespace == "" {
-		ref.Namespace = namespace
-	}
-
-	uri, err := r.resolver.Resolve(ctx, &corev1.ObjectReference{
-		APIVersion: ref.APIVersion,
-		Kind:       ref.Kind,
-		Namespace:  ref.Namespace,
-		Name:       ref.Name,
-	})
-	if err != nil {
-		return "", fmt.Errorf("could not resolve reference at %q: %w", path, err)
-	}
-
-	return uri, nil
 }

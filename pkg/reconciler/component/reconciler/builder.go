@@ -24,7 +24,7 @@ const (
 func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (chan error, error) {
 	wkl := reg.GetWorkload()
 	resolver := resolver.New(mgr.GetClient())
-	renderer := base.NewRenderer(defaultContainerName, wkl.FromImage.Repo, wkl.ParameterConfiguration, resolver)
+	renderer := base.NewRenderer(defaultContainerName, wkl, resolver)
 
 	b := base.NewReconciler(crd, reg, renderer, mgr.GetLogger())
 
