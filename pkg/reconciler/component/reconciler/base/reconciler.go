@@ -75,19 +75,20 @@ func (b *base) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, er
 		return ctrl.Result{}, err
 	}
 
+	res, err := b.formFactorReconciler.Reconcile(ctx, obj)
+
 	// If there are changes to status, update it.
 	// Update status if needed.
-	// TODO find a better expression for this
 	if !semantic.Semantic.DeepEqual(
 		obj.AsKubeObject().(*unstructured.Unstructured).Object["status"],
 		cp.(*unstructured.Unstructured).Object["status"]) {
 		if uperr := b.client.Status().Update(ctx, obj.AsKubeObject()); uperr != nil {
-			// if err == nil {
-			// 	return ctrl.Result{}, uperr
-			// }
+			if err == nil {
+				return ctrl.Result{}, uperr
+			}
 			b.log.Error(uperr, "could not update the object status")
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return res, err
 }

@@ -24,12 +24,9 @@ import (
 	knservice "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/knservice"
 )
 
-const (
-	defaultContainerName = "adapter"
-)
-
 func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (chan error, error) {
 	log := mgr.GetLogger()
+	client := mgr.GetClient()
 
 	crdv := basecrd.CRDPrioritizedVersion(crd)
 	if crdv == nil {
@@ -44,16 +41,16 @@ func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefin
 
 	wkl := reg.GetWorkload()
 
-	renderer := baserenderer.NewRenderer(defaultContainerName, wkl, baseresolver.New(mgr.GetClient()))
+	renderer := baserenderer.NewRenderer(wkl, baseresolver.New(client))
 
 	var ffr reconciler.FormFactorReconciler
 	switch {
 	case wkl.FormFactor.KnativeService != nil:
-		ffr = knservice.New(wkl.FormFactor.KnativeService, log)
+		ffr = knservice.New(reg.GetName(), wkl, client, log)
 
 	default:
 		// Defaults to deployment
-		ffr = deployment.New(wkl.FormFactor.Deployment, log)
+		ffr = deployment.New(reg.GetName(), wkl, client, log)
 	}
 
 	// The status factory is created using the form factor's conditions

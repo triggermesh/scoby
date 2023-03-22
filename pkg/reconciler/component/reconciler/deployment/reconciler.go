@@ -11,12 +11,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
-
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 )
 
@@ -27,9 +27,12 @@ const (
 	ConditionTypeServiceReady    = "ServiceReady"
 )
 
-func New(formFactor *apicommon.DeploymentFormFactor, log logr.Logger) reconciler.FormFactorReconciler {
+func New(name string, wkl *apicommon.Workload, client client.Client, log logr.Logger) reconciler.FormFactorReconciler {
 	dr := &deploymentReconciler{
-		formFactor: formFactor,
+		name:       name,
+		formFactor: wkl.FormFactor.Deployment,
+		fromImage:  &wkl.FromImage,
+		client:     client,
 		log:        log,
 	}
 
@@ -41,10 +44,13 @@ func New(formFactor *apicommon.DeploymentFormFactor, log logr.Logger) reconciler
 }
 
 type deploymentReconciler struct {
+	name           string
 	formFactor     *apicommon.DeploymentFormFactor
+	fromImage      *apicommon.RegistrationFromImage
 	serviceOptions *apicommon.DeploymentService
 
-	log logr.Logger
+	client client.Client
+	log    logr.Logger
 }
 
 var _ reconciler.FormFactorReconciler = (*deploymentReconciler)(nil)

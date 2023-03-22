@@ -21,11 +21,9 @@ const (
 	addEnvsPrefix = "$added."
 )
 
-func NewRenderer(containerName string, wkl *apicommon.Workload, resolver reconciler.Resolver) reconciler.ObjectRenderer {
+func NewRenderer(wkl *apicommon.Workload, resolver reconciler.Resolver) reconciler.ObjectRenderer {
 	r := &renderer{
-		containerName:  containerName,
-		containerImage: wkl.FromImage.Repo,
-		resolver:       resolver,
+		resolver: resolver,
 	}
 
 	if wkl.ParameterConfiguration != nil {

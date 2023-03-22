@@ -12,6 +12,12 @@ import (
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 )
 
+var (
+	defaultContainerOpts = []resources.ContainerOption{
+		resources.ContainerWithTerminationMessagePolicy(corev1.TerminationMessageFallbackToLogsOnError),
+	}
+)
+
 type object struct {
 	// Kubernetes object.
 	*unstructured.Unstructured
@@ -50,7 +56,10 @@ func (o object) AsContainerOptions() []resources.ContainerOption {
 	}
 	sort.Strings(envNames)
 
-	copts := make([]resources.ContainerOption, 0, len(o.evsByName))
+	// Initialize array of options and add default set.
+	copts := make([]resources.ContainerOption, 0, len(o.evsByName)+len(defaultContainerOpts))
+	copts = append(copts, defaultContainerOpts...)
+
 	for _, k := range envNames {
 		ev := o.evsByName[k]
 		copts = append(copts, resources.ContainerAddEnv(ev))
