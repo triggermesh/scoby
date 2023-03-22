@@ -61,9 +61,7 @@ func NewRenderer(wkl *apicommon.Workload, resolver reconciler.Resolver) reconcil
 }
 
 type renderer struct {
-	containerName  string
-	containerImage string
-	resolver       reconciler.Resolver
+	resolver reconciler.Resolver
 
 	// JSONPath indexed configuration parameters.
 	// configuration map[string]apicommon.CustomizeParameterConfiguration

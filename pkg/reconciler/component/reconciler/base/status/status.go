@@ -42,23 +42,24 @@ type statusManagerFactory struct {
 }
 
 func NewStatusManagerFactory(crdv *apiextensionsv1.CustomResourceDefinitionVersion, happyCond string, conditionSet []string, log logr.Logger) reconciler.StatusManagerFactory {
-	conds := make(map[string]struct{}, len(conditionSet))
-	for _, c := range conditionSet {
-		conds[c] = struct{}{}
+	smf := &statusManagerFactory{
+		flag: crd.CRDStatusFlag(crdv),
+		time: realTime{},
+		log:  log,
 	}
 
-	return &statusManagerFactory{
-		flag:      crd.CRDStatusFlag(crdv),
-		happyCond: happyCond,
-		conds:     conds,
-		time:      realTime{},
-		log:       log,
-	}
+	smf.updateConditionSet(happyCond, conditionSet...)
+
+	return smf
 }
 
 func (smf *statusManagerFactory) UpdateConditionSet(happyCond string, conditions ...string) {
 	smf.mutex.Lock()
 	defer smf.mutex.Unlock()
+	smf.updateConditionSet(happyCond, conditions...)
+}
+
+func (smf *statusManagerFactory) updateConditionSet(happyCond string, conditions ...string) {
 
 	smf.happyCond = happyCond
 
