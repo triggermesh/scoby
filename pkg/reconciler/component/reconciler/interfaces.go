@@ -32,16 +32,6 @@ type Object interface {
 	ObjectRender
 }
 
-// type ObjectStatus interface {
-// 	StatusGetObservedGeneration() int64
-// 	StatusSetObservedGeneration(generation int64)
-// 	StatusGetCondition(conditionType string) *apicommon.Condition
-// 	StatusSetCondition(condition *apicommon.Condition)
-// 	StatusSetAddressURL(string)
-// 	// StatusIsEqual(client.Object) bool
-// 	StatusSetValue(value interface{}, path ...string) error
-// }
-
 // ObjectRender contains rendering methods, either to be used by the renderer
 // to convert the registration information into workload assets, or by the
 // reconciler to retrieve those assets.
@@ -97,7 +87,8 @@ type ObjectManager interface {
 	GetRenderer() ObjectRenderer
 }
 
-type FormFactor interface {
+type FormFactorReconciler interface {
+	GetStatusConditions() (happy string, all []string)
 	SetupController(name string, c controller.Controller, owner runtime.Object) error
 	Reconcile(context.Context, Object) (ctrl.Result, error)
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
+
 	"k8s.io/apimachinery/pkg/runtime"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -11,20 +13,43 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 )
 
-func New() reconciler.FormFactor {
-	return &ffReconciler{}
+const (
+	ConditionTypeKnativeServiceReady = "KnativeServiceReady"
+
+	ConditionReasonKnativeServiceReady   = "KNSERVICEOK"
+	ConditionReasonKnativeServiceUnknown = "KNSERVICEUNKOWN"
+)
+
+func New(formFactor *apicommon.KnativeServiceFormFactor, log logr.Logger) reconciler.FormFactorReconciler {
+	sr := &knserviceReconciler{
+		formFactor: formFactor,
+		log:        log,
+	}
+
+	return sr
 }
 
-type ffReconciler struct {
+type knserviceReconciler struct {
+	formFactor *apicommon.KnativeServiceFormFactor
+
+	log logr.Logger
 }
 
-var _ reconciler.FormFactor = (*ffReconciler)(nil)
+var _ reconciler.FormFactorReconciler = (*knserviceReconciler)(nil)
 
-func (d *ffReconciler) SetupController(name string, c controller.Controller, owner runtime.Object) error {
+func (sr *knserviceReconciler) GetStatusConditions() (happy string, all []string) {
+	happy = reconciler.ConditionTypeReady
+	all = []string{ConditionTypeKnativeServiceReady}
+
+	return
+}
+
+func (sr *knserviceReconciler) SetupController(name string, c controller.Controller, owner runtime.Object) error {
 
 	if err := c.Watch(&source.Kind{Type: resources.NewKnativeService("", "")}, &handler.EnqueueRequestForOwner{
 		IsController: true,
@@ -34,6 +59,6 @@ func (d *ffReconciler) SetupController(name string, c controller.Controller, own
 
 	return nil
 }
-func (d *ffReconciler) Reconcile(context.Context, reconciler.Object) (ctrl.Result, error) {
+func (sr *knserviceReconciler) Reconcile(context.Context, reconciler.Object) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }

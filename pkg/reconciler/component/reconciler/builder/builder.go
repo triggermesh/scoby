@@ -46,25 +46,23 @@ func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefin
 
 	renderer := baserenderer.NewRenderer(defaultContainerName, wkl, baseresolver.New(mgr.GetClient()))
 
-	// The status factory is created using only the ConditionTypeReady condition, it is up
-	// to the base reconciler user to update with their set of conditions before using it.
-	smf := basestatus.NewStatusManagerFactory(crdv,
-		reconciler.ConditionTypeReady,
-		[]string{reconciler.ConditionTypeReady}, log)
-
-	om := baseobject.NewManager(gvk, renderer, smf)
-
-	var ff reconciler.FormFactor
+	var ffr reconciler.FormFactorReconciler
 	switch {
-	case reg.GetWorkload().FormFactor.KnativeService != nil:
-		ff = knservice.New()
+	case wkl.FormFactor.KnativeService != nil:
+		ffr = knservice.New(wkl.FormFactor.KnativeService, log)
 
 	default:
 		// Defaults to deployment
-		ff = deployment.New()
+		ffr = deployment.New(wkl.FormFactor.Deployment, log)
 	}
 
-	c, err := base.NewController(om, reg, ff, mgr, log)
+	// The status factory is created using the form factor's conditions
+	happy, all := ffr.GetStatusConditions()
+	smf := basestatus.NewStatusManagerFactory(crdv, happy, all, log)
+
+	om := baseobject.NewManager(gvk, renderer, smf)
+
+	c, err := base.NewController(om, reg, ffr, mgr, log)
 	if err != nil {
 		return nil, err
 	}

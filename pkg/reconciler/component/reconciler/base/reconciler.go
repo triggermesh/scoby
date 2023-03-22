@@ -18,13 +18,13 @@ import (
 func NewController(
 	om reconciler.ObjectManager,
 	reg apicommon.Registration,
-	ff reconciler.FormFactor,
+	ffr reconciler.FormFactorReconciler,
 	mgr ctrl.Manager,
 	log logr.Logger) (controller.Controller, error) {
 
 	r := &base{
 		objectManager:        om,
-		formFactorReconciler: ff,
+		formFactorReconciler: ffr,
 		client:               mgr.GetClient(),
 		log:                  log,
 	}
@@ -34,7 +34,7 @@ func NewController(
 		return nil, fmt.Errorf("could not build controller for %q: %w", reg.GetName(), err)
 	}
 
-	if err := ff.SetupController(reg.GetName(), c, om.NewObject()); err != nil {
+	if err := ffr.SetupController(reg.GetName(), c, om.NewObject()); err != nil {
 		return nil, fmt.Errorf("could not setup form factor controller for %q: %w", reg.GetName(), err)
 	}
 
@@ -45,7 +45,7 @@ var _ reconciler.Base = (*base)(nil)
 
 type base struct {
 	objectManager        reconciler.ObjectManager
-	formFactorReconciler reconciler.FormFactor
+	formFactorReconciler reconciler.FormFactorReconciler
 
 	client client.Client
 	log    logr.Logger
