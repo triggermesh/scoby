@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/crd"
 )
 
@@ -30,15 +31,6 @@ type realTime struct{}
 
 func (realTime) Now() metav1.Time { return metav1.NewTime(time.Now()) }
 
-type StatusManagerFactory interface {
-	// Configures the internal set of conditions for the
-	// generated status managers.
-	UpdateConditionSet(happyCond string, conditions ...string)
-
-	// Create a new status manager for the object.
-	ForObject(object *unstructured.Unstructured) StatusManager
-}
-
 type statusManagerFactory struct {
 	flag      crd.StatusFlag
 	happyCond string
@@ -49,7 +41,7 @@ type statusManagerFactory struct {
 	mutex sync.RWMutex
 }
 
-func NewStatusManagerFactory(crdv *apiextensionsv1.CustomResourceDefinitionVersion, happyCond string, conditionSet []string, log logr.Logger) StatusManagerFactory {
+func NewStatusManagerFactory(crdv *apiextensionsv1.CustomResourceDefinitionVersion, happyCond string, conditionSet []string, log logr.Logger) reconciler.StatusManagerFactory {
 	conds := make(map[string]struct{}, len(conditionSet))
 	for _, c := range conditionSet {
 		conds[c] = struct{}{}
@@ -83,7 +75,7 @@ func (smf *statusManagerFactory) UpdateConditionSet(happyCond string, conditions
 	smf.conds = conds
 }
 
-func (smf *statusManagerFactory) ForObject(object *unstructured.Unstructured) StatusManager {
+func (smf *statusManagerFactory) ForObject(object *unstructured.Unstructured) reconciler.StatusManager {
 	smf.mutex.RLock()
 	defer smf.mutex.RUnlock()
 
@@ -98,16 +90,6 @@ func (smf *statusManagerFactory) ForObject(object *unstructured.Unstructured) St
 	}
 
 	return sm
-}
-
-type StatusManager interface {
-	GetObservedGeneration() int64
-	SetObservedGeneration(int64)
-	GetCondition(conditionType string) *apicommon.Condition
-	SetCondition(condition *apicommon.Condition)
-	GetAddressURL() string
-	SetAddressURL(string)
-	SetValue(value interface{}, path ...string) error
 }
 
 type statusManager struct {

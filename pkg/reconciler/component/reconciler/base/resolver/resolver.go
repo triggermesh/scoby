@@ -27,6 +27,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,11 +53,7 @@ func init() {
 	}
 }
 
-type Resolver interface {
-	Resolve(ctx context.Context, ref *corev1.ObjectReference) (string, error)
-}
-
-func New(client client.Client) Resolver {
+func New(client client.Client) reconciler.Resolver {
 	return &resolver{
 		client: client,
 		domain: ClusterDomain,

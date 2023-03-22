@@ -1,4 +1,4 @@
-package base
+package reconciler
 
 // Common status conditions
 const (
