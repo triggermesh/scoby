@@ -8,6 +8,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
@@ -32,6 +34,11 @@ func NewController(
 	c, err := controller.NewUnmanaged(reg.GetName(), mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return nil, fmt.Errorf("could not build controller for %q: %w", reg.GetName(), err)
+	}
+
+	obj := om.NewObject()
+	if err := c.Watch(&source.Kind{Type: obj.AsKubeObject()}, &handler.EnqueueRequestForObject{}); err != nil {
+		return nil, fmt.Errorf("could not set watcher on registered object %q: %w", reg.GetName(), err)
 	}
 
 	if err := ffr.SetupController(reg.GetName(), c, om.NewObject()); err != nil {
