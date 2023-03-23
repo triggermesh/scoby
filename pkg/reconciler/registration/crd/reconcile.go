@@ -121,7 +121,7 @@ func (r *Reconciler) reconcileRegistration(ctx context.Context, cr *scobyv1alpha
 		sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionControllerReady,
 			"CONTROLLERFAILED", err.Error())
 	}
-	r.log.Info("setting condition controllerstated")
+
 	sm.MarkConditionTrue(scobyv1alpha1.CRDRegistrationConditionControllerReady, "CONTROLLERSTARTED")
 
 	return ctrl.Result{}, err

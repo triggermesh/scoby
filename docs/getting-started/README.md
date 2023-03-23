@@ -153,6 +153,44 @@ kubectl port-forward svc/my-kuard-extension  8888:80
 
 ![scoby summary](../assets/kuard-deployment-envs.png)
 
+If the registratered CRD constains a `status.address.url` element, and it renders a Kubernetes service or Knative service, the internal address is populated at the aforementioned element.
+
+```console
+kubectl get kuard my-kuard-extension -ojsonpath='{.status}' | jq .
+```
+
+```json
+{
+  "address": {
+    "url": "http://my-kuard-extension.default.svc.cluster.local"
+  },
+  "conditions": [
+    {
+      "lastTransitionTime": "2023-03-23T13:09:44Z",
+      "message": "",
+      "reason": "MinimumReplicasAvailable",
+      "status": "True",
+      "type": "DeploymentReady"
+    },
+    {
+      "lastTransitionTime": "2023-03-23T13:09:44Z",
+      "message": "",
+      "reason": "CONDITIONSOK",
+      "status": "True",
+      "type": "Ready"
+    },
+    {
+      "lastTransitionTime": "2023-03-23T13:09:44Z",
+      "message": "",
+      "reason": "ServiceExist",
+      "status": "True",
+      "type": "ServiceReady"
+    }
+  ],
+  "observedGeneration": 1
+}
+```
+
 Let's remove the kuard instance and registration before proceeding with the next one:
 
 ```console
@@ -790,7 +828,7 @@ Also check the status:
 kubectl get kuard my-kuard-extension -ojsonpath='{.status}' | jq .
 ```
 
-The `status.address.url` element has been filled with the value from the resolved address above.
+The `status.sinkUri` element has been filled with the value from the resolved address above.
 
 ```yaml
 {

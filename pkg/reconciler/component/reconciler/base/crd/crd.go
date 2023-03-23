@@ -9,14 +9,13 @@ import (
 )
 
 func CRDPrioritizedVersion(crd *apiextensionsv1.CustomResourceDefinition) *apiextensionsv1.CustomResourceDefinitionVersion {
-	var crdv *apiextensionsv1.CustomResourceDefinitionVersion
-	for _, v := range crd.Spec.Versions {
-		if crdv == nil {
-			crdv = &v
-			continue
-		}
+	if len(crd.Spec.Versions) == 0 {
+		return nil
+	}
 
-		if version.CompareKubeAwareVersionStrings(v.Name, crdv.Name) > 0 {
+	var crdv *apiextensionsv1.CustomResourceDefinitionVersion = &crd.Spec.Versions[0]
+	for _, v := range crd.Spec.Versions {
+		if v.Served && !v.Deprecated && version.CompareKubeAwareVersionStrings(v.Name, crdv.Name) > 0 {
 			crdv = &v
 		}
 	}

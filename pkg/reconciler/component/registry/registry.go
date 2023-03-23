@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
-	creconciler "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/builder"
 )
 
 const (
@@ -125,7 +125,7 @@ func (cr *componentRegistry) EnsureComponentController(reg common.Registration, 
 	cr.logger.Info("Creating component controller for CRD", "name", crd.Name)
 
 	ctx, cancel := context.WithCancel(cr.context)
-	rch, err := creconciler.NewReconciler(ctx, crd, reg, cr.mgr)
+	rch, err := builder.NewReconciler(ctx, crd, reg, cr.mgr)
 	if err != nil {
 		cancel()
 		return err

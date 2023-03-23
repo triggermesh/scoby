@@ -1,6 +1,3 @@
-// Copyright 2023 TriggerMesh Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 package deployment
 
 import (
@@ -13,17 +10,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
-	recbase "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/resolver"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
@@ -36,174 +33,127 @@ const (
 	ConditionTypeServiceReady    = "ServiceReady"
 )
 
-func NewComponentReconciler(ctx context.Context, base recbase.Reconciler, mgr manager.Manager) (chan error, error) {
-	log := mgr.GetLogger().WithName(base.RegisteredGetName())
-	log.Info("Creating deployment styled reconciler", "registration", base.RegisteredGetName())
+func New(name string, wkl *apicommon.Workload, client client.Client, log logr.Logger) reconciler.FormFactorReconciler {
+	dr := &deploymentReconciler{
+		name:       name,
+		formFactor: wkl.FormFactor.Deployment,
+		fromImage:  &wkl.FromImage,
 
-	r := &reconciler{
-		log:  log,
-		base: base,
+		client: client,
+		log:    log,
 	}
 
-	// If a service associated to the deployment needs to be rendered, add the
-	// status conditions and the parameters for the service.
-	statusConditions := []string{ConditionTypeDeploymentReady}
-	dff := base.RegisteredGetWorkload().FormFactor.Deployment
-	if dff != nil && dff.Service != nil {
-		statusConditions = append(statusConditions, ConditionTypeServiceReady)
-		r.serviceOptions = dff.Service
+	if dr.formFactor != nil && dr.formFactor.Service != nil {
+		dr.serviceOptions = dr.formFactor.Service
 	}
 
-	base.StatusConfigureManagerConditions(recbase.ConditionTypeReady, statusConditions...)
-
-	log.Info("Reconciler configured, adding to controller manager", "registration", base.RegisteredGetName())
-
-	ctrl, err := controller.NewUnmanaged(base.RegisteredGetName(), mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return nil, fmt.Errorf("could not build controller for %q: %w", base.RegisteredGetName(), err)
-	}
-
-	obj := base.NewReconcilingObject().AsKubeObject()
-	if err := ctrl.Watch(&source.Kind{Type: obj}, &handler.EnqueueRequestForObject{}); err != nil {
-		return nil, fmt.Errorf("could not set watcher on registered object %q: %w", base.RegisteredGetName(), err)
-	}
-
-	if err := ctrl.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    obj}); err != nil {
-		return nil, fmt.Errorf("could not set watcher on deployments owned by registered object %q: %w", base.RegisteredGetName(), err)
-	}
-
-	if err := ctrl.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    obj}); err != nil {
-		return nil, fmt.Errorf("could not set watcher on services owned by registered object %q: %w", base.RegisteredGetName(), err)
-	}
-
-	stCh := make(chan error)
-	go func() {
-		stCh <- ctrl.Start(ctx)
-	}()
-
-	return stCh, nil
+	return dr
 }
 
-type reconciler struct {
-	base           recbase.Reconciler
+type deploymentReconciler struct {
+	name           string
+	formFactor     *apicommon.DeploymentFormFactor
+	fromImage      *apicommon.RegistrationFromImage
 	serviceOptions *apicommon.DeploymentService
 
 	client client.Client
 	log    logr.Logger
 }
 
-var _ reconcile.Reconciler = (*reconciler)(nil)
+var _ reconciler.FormFactorReconciler = (*deploymentReconciler)(nil)
 
-func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	r.log.V(1).Info("reconciling request", "request", req)
+func (dr *deploymentReconciler) GetStatusConditions() (happy string, all []string) {
+	happy = reconciler.ConditionTypeReady
+	all = []string{ConditionTypeDeploymentReady}
 
-	obj := r.base.NewReconcilingObject()
-	if err := r.client.Get(ctx, req.NamespacedName, obj.AsKubeObject()); err != nil {
-		return reconcile.Result{}, client.IgnoreNotFound(err)
+	// If a service associated to the deployment add the
+	// status condition.
+	if dr.formFactor != nil && dr.formFactor.Service != nil {
+		all = append(all, ConditionTypeServiceReady)
 	}
 
-	r.log.V(5).Info("Object retrieved", "object", obj)
-
-	if !obj.GetDeletionTimestamp().IsZero() {
-		// Return and let the ownership clean resources.
-		return reconcile.Result{}, nil
-	}
-
-	// Perform the generic object rendering
-	ro, err := r.base.RenderReconciling(ctx, obj)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// create a copy, we will compare after reconciling
-	// and decide if we need to update or not.
-	cp := obj.AsKubeObject().DeepCopyObject()
-
-	res, err := r.reconcileObjectInstance(ctx, obj, ro)
-
-	// Update status if needed.
-	// TODO find a better expression for this
-	if !semantic.Semantic.DeepEqual(
-		obj.AsKubeObject().(*unstructured.Unstructured).Object["status"],
-		cp.(*unstructured.Unstructured).Object["status"]) {
-		if uperr := r.client.Status().Update(ctx, obj.AsKubeObject()); uperr != nil {
-			if err == nil {
-				return reconcile.Result{}, uperr
-			}
-			r.log.Error(uperr, "could not update the object status")
-		}
-	}
-
-	return res, err
+	return
 }
 
-func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.ReconcilingObject, ro recbase.RenderedObject) (reconcile.Result, error) {
-	r.log.V(1).Info("reconciling object instance", "object", obj)
-
-	// Update generation if needed
-	if g := obj.GetGeneration(); g != obj.StatusGetObservedGeneration() {
-		r.log.V(1).Info("updating observed generation", "generation", g)
-		obj.StatusSetObservedGeneration(g)
+func (dr *deploymentReconciler) SetupController(name string, c controller.Controller, owner runtime.Object) error {
+	dr.log.Info("Setting up deployment styled reconciler", "registration", name)
+	if err := c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    owner}); err != nil {
+		return fmt.Errorf("could not set watcher on deployments owned by registered object %q: %w", name, err)
 	}
 
-	d, err := r.reconcileDeployment(ctx, obj, ro)
+	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    owner}); err != nil {
+		return fmt.Errorf("could not set watcher on services owned by registered object %q: %w", name, err)
+	}
+
+	return nil
+}
+func (dr *deploymentReconciler) Reconcile(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
+	dr.log.V(1).Info("reconciling object instance", "object", obj)
+
+	// Update generation if needed
+	if g := obj.GetGeneration(); g != obj.GetStatusManager().GetObservedGeneration() {
+		dr.log.V(1).Info("updating observed generation", "generation", g)
+		obj.GetStatusManager().SetObservedGeneration(g)
+	}
+
+	d, err := dr.reconcileDeployment(ctx, obj)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	r.updateDeploymentStatus(obj, d)
+	dr.updateDeploymentStatus(obj, d)
 
-	if r.serviceOptions != nil {
-		r.log.V(1).Info("reconciling service", "object", obj)
-		s, err := r.reconcileService(ctx, obj, ro)
+	if dr.serviceOptions != nil {
+		dr.log.V(1).Info("reconciling service", "object", obj)
+		s, err := dr.reconcileService(ctx, obj)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		r.log.V(1).Info("updating deployment status", "object", obj)
-		r.updateServiceStatus(obj, s)
+		dr.log.V(1).Info("updating deployment status", "object", obj)
+		dr.updateServiceStatus(obj, s)
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func (r *reconciler) reconcileDeployment(ctx context.Context, obj recbase.ReconcilingObject, ro recbase.RenderedObject) (*appsv1.Deployment, error) {
-	r.log.V(1).Info("reconciling deployment", "object", obj)
+func (dr *deploymentReconciler) reconcileDeployment(ctx context.Context, obj reconciler.Object) (*appsv1.Deployment, error) {
+	dr.log.V(1).Info("reconciling deployment", "object", obj)
 
-	desired, err := r.createDeploymentFromRegistered(obj, ro)
+	desired, err := dr.createDeploymentFromRegistered(obj)
 	if err != nil {
 		return nil, fmt.Errorf("could not render deployment object: %w", err)
 	}
 
-	r.log.V(5).Info("desired deployment object", "object", *desired)
+	dr.log.V(5).Info("desired deployment object", "object", *desired)
 
 	existing := &appsv1.Deployment{}
-	err = r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
+	err = dr.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
 	switch {
 	case err == nil:
 		if semantic.Semantic.DeepEqual(desired, existing) {
 			return existing, nil
 		}
 
-		r.log.Info("existing deployment does not match the expected", "object", desired)
-		r.log.V(5).Info("mismatched deployment", "desired", *desired, "existing", *existing)
+		dr.log.Info("existing deployment does not match the expected", "object", desired)
+		dr.log.V(5).Info("mismatched deployment", "desired", *desired, "existing", *existing)
 
 		// resourceVersion must be returned to the API server unmodified for
 		// optimistic concurrency, as per Kubernetes API conventions
 		desired.SetResourceVersion(existing.GetResourceVersion())
 
-		if err = r.client.Update(ctx, desired); err != nil {
+		if err = dr.client.Update(ctx, desired); err != nil {
 			return nil, fmt.Errorf("could not update deployment object: %+w", err)
 		}
 
 	case apierrs.IsNotFound(err):
-		r.log.Info("creating deployment", "object", desired)
-		r.log.V(5).Info("desired deployment", "object", *desired)
-		if err = r.client.Create(ctx, desired); err != nil {
+		dr.log.Info("creating deployment", "object", desired)
+		dr.log.V(5).Info("desired deployment", "object", *desired)
+		if err = dr.client.Create(ctx, desired); err != nil {
 			return nil, fmt.Errorf("could not create deployment object: %w", err)
 		}
 
@@ -214,8 +164,8 @@ func (r *reconciler) reconcileDeployment(ctx context.Context, obj recbase.Reconc
 	return desired, nil
 }
 
-func (r *reconciler) updateDeploymentStatus(obj recbase.ReconcilingObject, d *appsv1.Deployment) {
-	r.log.V(1).Info("updating deployment status", "object", obj)
+func (dr *deploymentReconciler) updateDeploymentStatus(obj reconciler.Object, d *appsv1.Deployment) {
+	dr.log.V(1).Info("updating deployment status", "object", obj)
 
 	desired := &apicommon.Condition{
 		Type:               ConditionTypeDeploymentReady,
@@ -247,68 +197,72 @@ func (r *reconciler) updateDeploymentStatus(obj recbase.ReconcilingObject, d *ap
 		}
 	}
 
-	obj.StatusSetCondition(desired)
+	obj.GetStatusManager().SetCondition(desired)
 }
 
-func (r *reconciler) createDeploymentFromRegistered(obj recbase.ReconcilingObject, ro recbase.RenderedObject) (*appsv1.Deployment, error) {
-	wkl := r.base.RegisteredGetWorkload()
-
+func (dr *deploymentReconciler) createDeploymentFromRegistered(obj reconciler.Object) (*appsv1.Deployment, error) {
 	replicas := defaultReplicas
-	if ffd := wkl.FormFactor.Deployment; ffd != nil {
-		replicas = ffd.Replicas
+	if dr.formFactor != nil {
+		replicas = dr.formFactor.Replicas
 	}
 
 	return resources.NewDeployment(obj.GetNamespace(), obj.GetName(),
 		resources.DeploymentWithMetaOptions(
-			resources.MetaAddLabel(resources.AppNameLabel, r.base.RegisteredGetName()),
+			resources.MetaAddLabel(resources.AppNameLabel, dr.name),
 			resources.MetaAddLabel(resources.AppInstanceLabel, obj.GetName()),
-			resources.MetaAddLabel(resources.AppComponentLabel, recbase.ComponentWorkload),
-			resources.MetaAddLabel(resources.AppPartOfLabel, recbase.PartOf),
-			resources.MetaAddLabel(resources.AppManagedByLabel, recbase.ManagedBy),
+			resources.MetaAddLabel(resources.AppComponentLabel, reconciler.ComponentWorkload),
+			resources.MetaAddLabel(resources.AppPartOfLabel, reconciler.PartOf),
+			resources.MetaAddLabel(resources.AppManagedByLabel, reconciler.ManagedBy),
 
 			resources.MetaAddOwner(obj, obj.GetObjectKind().GroupVersionKind()),
 		),
 		resources.DeploymentSetReplicas(int32(replicas)),
-		resources.DeploymentAddSelectorForTemplate(resources.AppNameLabel, r.base.RegisteredGetName()),
+		resources.DeploymentAddSelectorForTemplate(resources.AppNameLabel, dr.name),
 		resources.DeploymentAddSelectorForTemplate(resources.AppInstanceLabel, obj.GetName()),
-		resources.DeploymentAddSelectorForTemplate(resources.AppComponentLabel, recbase.ComponentWorkload),
+		resources.DeploymentAddSelectorForTemplate(resources.AppComponentLabel, reconciler.ComponentWorkload),
 
 		resources.DeploymentWithTemplateSpecOptions(
-			resources.PodTemplateSpecWithPodSpecOptions(ro.GetPodSpecOptions()...),
-		)), nil
+			resources.PodTemplateSpecWithPodSpecOptions(
+				resources.PodSpecAddContainer(
+					resources.NewContainer(
+						reconciler.DefaultContainerName,
+						dr.fromImage.Repo,
+						obj.AsContainerOptions()...,
+					))))), nil
 }
 
-func (r *reconciler) reconcileService(ctx context.Context, obj recbase.ReconcilingObject, ro recbase.RenderedObject) (*corev1.Service, error) {
-	desired, err := r.createServiceFromRegistered(obj, ro)
+func (dr *deploymentReconciler) reconcileService(ctx context.Context, obj reconciler.Object) (*corev1.Service, error) {
+	dr.log.V(1).Info("reconciling service", "object", obj)
+	desired, err := dr.createServiceFromRegistered(obj)
 	if err != nil {
 		return nil, fmt.Errorf("could not render service object: %w", err)
 	}
 
-	r.log.V(5).Info("desired service object", "object", *desired)
+	dr.log.V(5).Info("desired service object", "object", *desired)
 
 	existing := &corev1.Service{}
-	err = r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
+	err = dr.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
 	switch {
 	case err == nil:
 		if semantic.Semantic.DeepEqual(desired, existing) {
 			return desired, nil
 		}
 
-		r.log.Info("existing service does not match the expected", "object", desired)
-		r.log.V(5).Info("mismatched service", "desired", *desired, "existing", *existing)
+		dr.log.Info("existing service does not match the expected", "object", desired)
+		dr.log.V(5).Info("mismatched service", "desired", *desired, "existing", *existing)
 
 		// resourceVersion must be returned to the API server unmodified for
 		// optimistic concurrency, as per Kubernetes API conventions
 		desired.SetResourceVersion(existing.GetResourceVersion())
 
-		if err = r.client.Update(ctx, desired); err != nil {
+		if err = dr.client.Update(ctx, desired); err != nil {
 			return nil, fmt.Errorf("could not update service object: %+w", err)
 		}
 
 	case apierrs.IsNotFound(err):
-		r.log.Info("creating service", "object", desired)
-		r.log.V(5).Info("desired service", "object", *desired)
-		if err = r.client.Create(ctx, desired); err != nil {
+		dr.log.Info("creating service", "object", desired)
+		dr.log.V(5).Info("desired service", "object", *desired)
+		if err = dr.client.Create(ctx, desired); err != nil {
 			return nil, fmt.Errorf("could not create service object: %w", err)
 		}
 	default:
@@ -318,7 +272,9 @@ func (r *reconciler) reconcileService(ctx context.Context, obj recbase.Reconcili
 	return desired, nil
 }
 
-func (r *reconciler) updateServiceStatus(obj recbase.ReconcilingObject, s *corev1.Service) {
+func (dr *deploymentReconciler) updateServiceStatus(obj reconciler.Object, s *corev1.Service) {
+	dr.log.V(1).Info("updating service status", "object", obj)
+
 	desired := &apicommon.Condition{
 		Type:               ConditionTypeServiceReady,
 		Reason:             "ServiceExist",
@@ -335,28 +291,24 @@ func (r *reconciler) updateServiceStatus(obj recbase.ReconcilingObject, s *corev
 		address = fmt.Sprintf("http://%s.%s.svc.%s", s.Name, s.Namespace, resolver.ClusterDomain)
 	}
 
-	obj.StatusSetAddressURL(address)
-	obj.StatusSetCondition(desired)
+	sm := obj.GetStatusManager()
+	sm.SetAddressURL(address)
+	sm.SetCondition(desired)
 }
 
-func (r *reconciler) createServiceFromRegistered(obj recbase.ReconcilingObject, ro recbase.RenderedObject) (*corev1.Service, error) {
+func (dr *deploymentReconciler) createServiceFromRegistered(obj reconciler.Object) (*corev1.Service, error) {
 	return resources.NewService(obj.GetNamespace(), obj.GetName(),
 		resources.ServiceWithMetaOptions(
-			resources.MetaAddLabel(resources.AppNameLabel, r.base.RegisteredGetName()),
+			resources.MetaAddLabel(resources.AppNameLabel, dr.name),
 			resources.MetaAddLabel(resources.AppInstanceLabel, obj.GetName()),
-			resources.MetaAddLabel(resources.AppComponentLabel, recbase.ComponentWorkload),
-			resources.MetaAddLabel(resources.AppPartOfLabel, recbase.PartOf),
-			resources.MetaAddLabel(resources.AppManagedByLabel, recbase.ManagedBy),
+			resources.MetaAddLabel(resources.AppComponentLabel, reconciler.ComponentWorkload),
+			resources.MetaAddLabel(resources.AppPartOfLabel, reconciler.PartOf),
+			resources.MetaAddLabel(resources.AppManagedByLabel, reconciler.ManagedBy),
 			resources.MetaAddOwner(obj, obj.GetObjectKind().GroupVersionKind()),
 		),
-		resources.ServiceAddSelectorLabel(resources.AppNameLabel, r.base.RegisteredGetName()),
+		resources.ServiceAddSelectorLabel(resources.AppNameLabel, dr.name),
 		resources.ServiceAddSelectorLabel(resources.AppInstanceLabel, obj.GetName()),
-		resources.ServiceAddSelectorLabel(resources.AppComponentLabel, recbase.ComponentWorkload),
-		resources.ServiceAddPort("", r.serviceOptions.Port, r.serviceOptions.TargetPort),
+		resources.ServiceAddSelectorLabel(resources.AppComponentLabel, reconciler.ComponentWorkload),
+		resources.ServiceAddPort("", dr.serviceOptions.Port, dr.serviceOptions.TargetPort),
 	), nil
-}
-
-func (r *reconciler) InjectClient(c client.Client) error {
-	r.client = c
-	return nil
 }

@@ -1,107 +1,101 @@
-// Copyright 2023 TriggerMesh Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 package base
 
 import (
 	"context"
+	"fmt"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
-	basecrd "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/crd"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/object"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/status"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
+	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )
 
-// The base reconciler is created using data from the registration
-// and exposes methods common to all reconciliations, no matter the
-// form factor.
-type Reconciler interface {
-	// Registered element information
-	RegisteredGetName() string
-	RegisteredGetWorkload() *apicommon.Workload
+func NewController(
+	om reconciler.ObjectManager,
+	reg apicommon.Registration,
+	ffr reconciler.FormFactorReconciler,
+	mgr ctrl.Manager,
+	log logr.Logger) (controller.Controller, error) {
 
-	// Create new object using the GVK
-	NewReconcilingObject() ReconcilingObject
-
-	// Render a Reconciling into data that can be
-	// used at reconciliation.
-	RenderReconciling(context.Context, ReconcilingObject) (RenderedObject, error)
-
-	// Status management
-	StatusConfigureManagerConditions(happy string, conditions ...string)
-}
-
-func NewReconciler(crd *apiextensionsv1.CustomResourceDefinition, reg apicommon.Registration, renderer object.Renderer, log logr.Logger) Reconciler {
-	// Choose CRD version
-	crdv := basecrd.CRDPrioritizedVersion(crd)
-
-	// The status factory is created using only the ConditionTypeReady condition, it is up
-	// to the base reconciler user to update with their set of conditions before using it.
-	smf := status.NewStatusManagerFactory(crdv, ConditionTypeReady, []string{ConditionTypeReady}, log)
-
-	gvk := schema.GroupVersionKind{
-		Group:   crd.Spec.Group,
-		Version: crdv.Name,
-		Kind:    crd.Spec.Names.Kind,
+	r := &base{
+		objectManager:        om,
+		formFactorReconciler: ffr,
+		client:               mgr.GetClient(),
+		log:                  log,
 	}
 
-	rof := object.NewReconcilingObjectFactory(gvk, smf, renderer)
-
-	return &reconciler{
-		gvk:      gvk,
-		log:      &log,
-		reg:      reg,
-		renderer: renderer,
-		smf:      smf,
-		rof:      rof,
+	c, err := controller.NewUnmanaged(reg.GetName(), mgr, controller.Options{Reconciler: r})
+	if err != nil {
+		return nil, fmt.Errorf("could not build controller for %q: %w", reg.GetName(), err)
 	}
+
+	obj := om.NewObject()
+	if err := c.Watch(&source.Kind{Type: obj.AsKubeObject()}, &handler.EnqueueRequestForObject{}); err != nil {
+		return nil, fmt.Errorf("could not set watcher on registered object %q: %w", reg.GetName(), err)
+	}
+
+	if err := ffr.SetupController(reg.GetName(), c, om.NewObject()); err != nil {
+		return nil, fmt.Errorf("could not setup form factor controller for %q: %w", reg.GetName(), err)
+	}
+
+	return c, nil
 }
 
-type reconciler struct {
-	// GVK for the registered CRD
-	gvk schema.GroupVersionKind
+var _ reconciler.Base = (*base)(nil)
 
-	reg apicommon.Registration
+type base struct {
+	objectManager        reconciler.ObjectManager
+	formFactorReconciler reconciler.FormFactorReconciler
 
-	renderer object.Renderer
-
-	// Status manager factory to create status managers per
-	// reconciling object.
-	smf status.StatusManagerFactory
-
-	rof object.ReconcilingObjectFactory
-
-	log *logr.Logger
+	client client.Client
+	log    logr.Logger
 }
 
-// NewReconcilingObject creates a new empty reference of a reconciling
-// object that can be used by a kubernetes client to be filled with an
-// existing instance of the object at the cluster.
-func (r *reconciler) NewReconcilingObject() ReconcilingObject {
-	return r.rof.NewReconcilingObject()
-}
+func (b *base) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	b.log.V(1).Info("Reconciling request", "request", req)
 
-// RenderReconciling uses the incoming reconciling object to process its data
-// and turn it into structures that can be used to render dependent objects.
-func (r *reconciler) RenderReconciling(ctx context.Context, obj ReconcilingObject) (RenderedObject, error) {
-	return r.renderer.Render(ctx, obj)
-}
+	obj := b.objectManager.NewObject()
+	if err := b.client.Get(ctx, req.NamespacedName, obj.AsKubeObject()); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-// Return the registration name.
-func (r *reconciler) RegisteredGetName() string {
-	return r.reg.GetName()
-}
+	b.log.V(5).Info("Object retrieved", "object", obj)
 
-// Return the registration workload structure
-func (r *reconciler) RegisteredGetWorkload() *apicommon.Workload {
-	return r.reg.GetWorkload()
-}
+	if !obj.GetDeletionTimestamp().IsZero() {
+		// Return and let the ownership clean resources.
+		return ctrl.Result{}, nil
+	}
 
-// ConfigureStatusManager with conditions
-func (r *reconciler) StatusConfigureManagerConditions(happy string, conditions ...string) {
-	r.smf.UpdateConditionSet(happy, conditions...)
+	// create a copy, we will compare after reconciling
+	// and decide if we need to update or not.
+	cp := obj.AsKubeObject().DeepCopyObject()
+
+	// Render using the object data and configuration
+	if err := b.objectManager.GetRenderer().Render(ctx, obj); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	res, err := b.formFactorReconciler.Reconcile(ctx, obj)
+
+	// If there are changes to status, update it.
+	// Update status if needed.
+	if !semantic.Semantic.DeepEqual(
+		obj.AsKubeObject().(*unstructured.Unstructured).Object["status"],
+		cp.(*unstructured.Unstructured).Object["status"]) {
+		if uperr := b.client.Status().Update(ctx, obj.AsKubeObject()); uperr != nil {
+			if err == nil {
+				return ctrl.Result{}, uperr
+			}
+			b.log.Error(uperr, "could not update the object status")
+		}
+	}
+
+	return res, err
 }

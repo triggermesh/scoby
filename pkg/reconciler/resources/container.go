@@ -142,3 +142,33 @@ func ContainerWithTerminationMessagePolicy(policy corev1.TerminationMessagePolic
 		c.TerminationMessagePolicy = policy
 	}
 }
+
+func ContainerWithSecurityContext(sc *corev1.SecurityContext) ContainerOption {
+	return func(c *corev1.Container) {
+		c.SecurityContext = sc
+	}
+}
+
+type SecurityContextOption func(*corev1.SecurityContext)
+
+func NewSecurityContext(opts ...SecurityContextOption) *corev1.SecurityContext {
+	sc := &corev1.SecurityContext{}
+
+	for _, opt := range opts {
+		opt(sc)
+	}
+
+	return sc
+}
+
+func SecurityContextWithPrivilegeEscalation(pe bool) SecurityContextOption {
+	return func(sc *corev1.SecurityContext) {
+		sc.AllowPrivilegeEscalation = &pe
+	}
+}
+
+func SecurityContextWithReadOnlyRootFilesystem(ro bool) SecurityContextOption {
+	return func(sc *corev1.SecurityContext) {
+		sc.ReadOnlyRootFilesystem = &ro
+	}
+}

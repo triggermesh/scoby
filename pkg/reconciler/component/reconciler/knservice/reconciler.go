@@ -1,7 +1,4 @@
-// Copyright 2023 TriggerMesh Inc.
-// SPDX-License-Identifier: Apache-2.0
-
-package knativeservice
+package knservice
 
 import (
 	"context"
@@ -13,12 +10,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -27,7 +24,7 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
-	recbase "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )
@@ -39,148 +36,100 @@ const (
 	ConditionReasonKnativeServiceUnknown = "KNSERVICEUNKOWN"
 )
 
-func NewComponentReconciler(ctx context.Context, base recbase.Reconciler, mgr manager.Manager) (chan error, error) {
-	log := mgr.GetLogger().WithName(base.RegisteredGetName())
-	log.Info("Creating knative serving styled reconciler", "registration", base.RegisteredGetName())
+func New(name string, wkl *apicommon.Workload, client client.Client, log logr.Logger) reconciler.FormFactorReconciler {
 
-	r := &reconciler{
-		log:  log,
-		base: base,
+	sr := &knserviceReconciler{
+		name:       name,
+		formFactor: wkl.FormFactor.KnativeService,
+		fromImage:  &wkl.FromImage,
+
+		client: client,
+		log:    log,
 	}
 
-	base.StatusConfigureManagerConditions(recbase.ConditionTypeReady, ConditionTypeKnativeServiceReady)
-
-	log.V(1).Info("Reconciler configured, adding to controller manager", "registration", base.RegisteredGetName())
-
-	ctrl, err := controller.NewUnmanaged("my", mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return nil, fmt.Errorf("could not build controller for %q: %w", base.RegisteredGetName(), err)
-	}
-
-	obj := base.NewReconcilingObject().AsKubeObject()
-	if err := ctrl.Watch(&source.Kind{Type: obj}, &handler.EnqueueRequestForObject{}); err != nil {
-		return nil, fmt.Errorf("could not set watcher on registered object %q: %w", base.RegisteredGetName(), err)
-	}
-
-	if err := ctrl.Watch(&source.Kind{Type: resources.NewKnativeService("", "")}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    obj}); err != nil {
-		return nil, fmt.Errorf("could not set watcher on knative services owned by registered object %q: %w", base.RegisteredGetName(), err)
-	}
-
-	stCh := make(chan error)
-	go func() {
-		stCh <- ctrl.Start(ctx)
-	}()
-
-	return stCh, nil
+	return sr
 }
 
-type reconciler struct {
-	base recbase.Reconciler
+type knserviceReconciler struct {
+	name       string
+	formFactor *apicommon.KnativeServiceFormFactor
+	fromImage  *apicommon.RegistrationFromImage
 
 	client client.Client
 	log    logr.Logger
 }
 
-var _ reconcile.Reconciler = (*reconciler)(nil)
+var _ reconciler.FormFactorReconciler = (*knserviceReconciler)(nil)
 
-func (r *reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	r.log.V(1).Info("reconciling request", "request", req)
+func (sr *knserviceReconciler) GetStatusConditions() (happy string, all []string) {
+	happy = reconciler.ConditionTypeReady
+	all = []string{ConditionTypeKnativeServiceReady}
 
-	obj := r.base.NewReconcilingObject()
-	if err := r.client.Get(ctx, req.NamespacedName, obj.AsKubeObject()); err != nil {
-		return reconcile.Result{}, client.IgnoreNotFound(err)
-	}
-
-	r.log.V(5).Info("Object retrieved", "object", obj)
-
-	if !obj.GetDeletionTimestamp().IsZero() {
-		// Return and let the ownership clean resources.
-		return reconcile.Result{}, nil
-	}
-
-	// Perform the generic object rendering
-	ro, err := r.base.RenderReconciling(ctx, obj)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// create a copy, we will compare after reconciling
-	// and decide if we need to update or not.
-	cp := obj.AsKubeObject().DeepCopyObject()
-
-	res, err := r.reconcileObjectInstance(ctx, obj, ro)
-
-	// Update status if needed.
-	// TODO find a better expression for this
-	if !semantic.Semantic.DeepEqual(
-		obj.AsKubeObject().(*unstructured.Unstructured).Object["status"],
-		cp.(*unstructured.Unstructured).Object["status"]) {
-		if uperr := r.client.Status().Update(ctx, obj.AsKubeObject()); uperr != nil {
-			if err == nil {
-				return reconcile.Result{}, uperr
-			}
-			r.log.Error(uperr, "could not update the object status")
-		}
-	}
-
-	return res, err
+	return
 }
 
-func (r *reconciler) reconcileObjectInstance(ctx context.Context, obj recbase.ReconcilingObject, ro recbase.RenderedObject) (reconcile.Result, error) {
-	r.log.V(1).Info("reconciling object instance", "object", obj)
-
-	// Update generation if needed
-	if g := obj.GetGeneration(); g != obj.StatusGetObservedGeneration() {
-		r.log.V(1).Info("updating observed generation", "generation", g)
-		obj.StatusSetObservedGeneration(g)
+func (sr *knserviceReconciler) SetupController(name string, c controller.Controller, owner runtime.Object) error {
+	if err := c.Watch(&source.Kind{Type: resources.NewKnativeService("", "")}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    owner}); err != nil {
+		return fmt.Errorf("could not set watcher on knative services owned by registered object %q: %w", name, err)
 	}
 
-	ksvc, err := r.reconcileKnativeService(ctx, obj, ro)
+	return nil
+}
+func (sr *knserviceReconciler) Reconcile(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
+	sr.log.V(1).Info("reconciling object instance", "object", obj)
+
+	// Update generation if needed
+	if g := obj.GetGeneration(); g != obj.GetStatusManager().GetObservedGeneration() {
+		sr.log.V(1).Info("updating observed generation", "generation", g)
+		obj.GetStatusManager().SetObservedGeneration(g)
+	}
+
+	ksvc, err := sr.reconcileKnativeService(ctx, obj)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	r.updateKnativeServiceStatus(obj, ksvc)
+	sr.updateKnativeServiceStatus(obj, ksvc)
 
 	return reconcile.Result{}, nil
 }
 
-func (r *reconciler) reconcileKnativeService(ctx context.Context, obj recbase.ReconcilingObject, ro recbase.RenderedObject) (*servingv1.Service, error) {
-	r.log.V(1).Info("reconciling knative service", "object", obj)
+func (sr *knserviceReconciler) reconcileKnativeService(ctx context.Context, obj reconciler.Object) (*servingv1.Service, error) {
+	sr.log.V(1).Info("reconciling knative service", "object", obj)
 
 	// render service
-	desired, err := r.createKnServiceFromRegistered(obj, ro)
+	desired, err := sr.createKnServiceFromRegistered(obj)
 	if err != nil {
 		return nil, fmt.Errorf("could not render knative service object: %w", err)
 	}
 
-	r.log.V(5).Info("desired knative service object", "object", *desired)
+	sr.log.V(5).Info("desired knative service object", "object", *desired)
 
 	existing := &servingv1.Service{}
-	err = r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
+	err = sr.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
 	switch {
 	case err == nil:
 		if semantic.Semantic.DeepEqual(desired, existing) {
 			return existing, nil
 		}
 
-		r.log.Info("rendered knative service does not match the expected object", "object", desired)
-		r.log.V(5).Info("mismatched knative service", "desired", *desired, "existing", *existing)
+		sr.log.Info("rendered knative service does not match the expected object", "object", desired)
+		sr.log.V(5).Info("mismatched knative service", "desired", *desired, "existing", *existing)
 
 		// resourceVersion must be returned to the API server unmodified for
 		// optimistic concurrency, as per Kubernetes API conventions
 		desired.SetResourceVersion(existing.GetResourceVersion())
 
-		if err = r.client.Update(ctx, desired); err != nil {
+		if err = sr.client.Update(ctx, desired); err != nil {
 			return nil, fmt.Errorf("could not update knative service object: %+w", err)
 		}
 
 	case apierrs.IsNotFound(err):
-		r.log.Info("creating knative service", "object", desired)
-		r.log.V(5).Info("desired knative service", "object", *desired)
-		if err = r.client.Create(ctx, desired); err != nil {
+		sr.log.Info("creating knative service", "object", desired)
+		sr.log.V(5).Info("desired knative service", "object", *desired)
+		if err = sr.client.Create(ctx, desired); err != nil {
 			return nil, fmt.Errorf("could not create knative service object: %w", err)
 		}
 
@@ -191,8 +140,8 @@ func (r *reconciler) reconcileKnativeService(ctx context.Context, obj recbase.Re
 	return desired, nil
 }
 
-func (r *reconciler) updateKnativeServiceStatus(obj recbase.ReconcilingObject, ksvc *servingv1.Service) {
-	r.log.V(1).Info("updating knativeService status", "object", obj)
+func (sr *knserviceReconciler) updateKnativeServiceStatus(obj reconciler.Object, ksvc *servingv1.Service) {
+	sr.log.V(1).Info("updating knativeService status", "object", obj)
 
 	desired := &apicommon.Condition{
 		Type:               ConditionTypeKnativeServiceReady,
@@ -229,48 +178,49 @@ func (r *reconciler) updateKnativeServiceStatus(obj recbase.ReconcilingObject, k
 		}
 	}
 
-	obj.StatusSetAddressURL(address)
-	obj.StatusSetCondition(desired)
+	sm := obj.GetStatusManager()
+	sm.SetAddressURL(address)
+	sm.SetCondition(desired)
 }
 
-func (r *reconciler) createKnServiceFromRegistered(obj recbase.ReconcilingObject, ro recbase.RenderedObject) (*servingv1.Service, error) {
+func (sr *knserviceReconciler) createKnServiceFromRegistered(obj reconciler.Object) (*servingv1.Service, error) {
 	metaopts := []resources.MetaOption{
-		resources.MetaAddLabel(resources.AppNameLabel, r.base.RegisteredGetName()),
+		resources.MetaAddLabel(resources.AppNameLabel, sr.name),
 		resources.MetaAddLabel(resources.AppInstanceLabel, obj.GetName()),
-		resources.MetaAddLabel(resources.AppComponentLabel, recbase.ComponentWorkload),
-		resources.MetaAddLabel(resources.AppPartOfLabel, recbase.PartOf),
-		resources.MetaAddLabel(resources.AppManagedByLabel, recbase.ManagedBy),
+		resources.MetaAddLabel(resources.AppComponentLabel, reconciler.ComponentWorkload),
+		resources.MetaAddLabel(resources.AppPartOfLabel, reconciler.PartOf),
+		resources.MetaAddLabel(resources.AppManagedByLabel, reconciler.ManagedBy),
 
 		resources.MetaAddOwner(obj, obj.GetObjectKind().GroupVersionKind()),
 	}
 
 	revspecopts := []resources.RevisionTemplateOption{
-		resources.RevisionSpecWithPodSpecOptions(ro.GetPodSpecOptions()...),
+		resources.RevisionSpecWithPodSpecOptions(
+			resources.PodSpecAddContainer(
+				resources.NewContainer(
+					reconciler.DefaultContainerName,
+					sr.fromImage.Repo,
+					obj.AsContainerOptions()...,
+				))),
 	}
 
-	wkl := r.base.RegisteredGetWorkload()
-	if ff := wkl.FormFactor.KnativeService; ff != nil {
-		if ff.Visibility != nil {
-			metaopts = append(metaopts, resources.MetaAddLabel(networking.VisibilityLabelKey, *ff.Visibility))
+	if sr.formFactor != nil {
+		if sr.formFactor.Visibility != nil {
+			metaopts = append(metaopts, resources.MetaAddLabel(networking.VisibilityLabelKey, *sr.formFactor.Visibility))
 		}
 
-		if ff.MinScale != nil {
+		if sr.formFactor.MinScale != nil {
 			revspecopts = append(revspecopts, resources.RevisionWithMetaOptions(
-				resources.MetaAddAnnotation(autoscaling.MinScaleAnnotationKey, strconv.Itoa(*ff.MinScale))))
+				resources.MetaAddAnnotation(autoscaling.MinScaleAnnotationKey, strconv.Itoa(*sr.formFactor.MinScale))))
 		}
 
-		if ff.MaxScale != nil {
+		if sr.formFactor.MaxScale != nil {
 			revspecopts = append(revspecopts, resources.RevisionWithMetaOptions(
-				resources.MetaAddAnnotation(autoscaling.MaxScaleAnnotationKey, strconv.Itoa(*ff.MaxScale))))
+				resources.MetaAddAnnotation(autoscaling.MaxScaleAnnotationKey, strconv.Itoa(*sr.formFactor.MaxScale))))
 		}
 	}
 
 	return resources.NewKnativeService(obj.GetNamespace(), obj.GetName(),
 		resources.KnativeServiceWithMetaOptions(metaopts...),
 		resources.KnativeServiceWithRevisionOptions(revspecopts...)), nil
-}
-
-func (r *reconciler) InjectClient(c client.Client) error {
-	r.client = c
-	return nil
 }
