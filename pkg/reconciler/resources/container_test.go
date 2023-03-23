@@ -153,6 +153,22 @@ func TestNewContainer(t *testing.T) {
 				Image:                    tImage,
 				TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 			}},
+		"with security context": {
+			options: []ContainerOption{
+				ContainerWithSecurityContext(
+					NewSecurityContext(
+						SecurityContextWithPrivilegeEscalation(false),
+						SecurityContextWithReadOnlyRootFilesystem(true),
+					)),
+			},
+			expected: corev1.Container{
+				Name:  tName,
+				Image: tImage,
+				SecurityContext: &corev1.SecurityContext{
+					AllowPrivilegeEscalation: &tFalse,
+					ReadOnlyRootFilesystem:   &tTrue,
+				},
+			}},
 	}
 
 	for name, tc := range testCases {

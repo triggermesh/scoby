@@ -23,7 +23,8 @@ const (
 )
 
 var (
-	tTrue = true
+	tTrue  = true
+	tFalse = false
 
 	tPod = corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
