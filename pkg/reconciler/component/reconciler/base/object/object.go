@@ -13,8 +13,14 @@ import (
 )
 
 var (
+	securityContext = resources.NewSecurityContext(
+		resources.SecurityContextWithPrivilegeEscalation(false),
+		resources.SecurityContextWithReadOnlyRootFilesystem(true),
+	)
+
 	defaultContainerOpts = []resources.ContainerOption{
 		resources.ContainerWithTerminationMessagePolicy(corev1.TerminationMessageFallbackToLogsOnError),
+		resources.ContainerWithSecurityContext(securityContext),
 	}
 )
 
