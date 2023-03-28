@@ -6,7 +6,7 @@ To setup a development environment:
 
 ```console
 # Apply registration
-kubectl apply -f config/scoby.triggermesh.io_crdregistrations.yaml
+kubectl apply -f config/300-crdregistration.yaml
 
 # Run controller
 go run cmd/controller/main.go
