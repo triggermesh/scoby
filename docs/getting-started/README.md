@@ -34,6 +34,12 @@ For this guide we will create the CRD once, and use it with different registrati
 kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/01.kuard-crd.yaml
 ```
 
+The Kuard CRD created above needs to be managed by the Scoby controller. An aggregated `ClusterRole` provides the mechanism to grant those permissions by tagging a `ClusterRole` with the `scoby.triggermesh.io/crdregistration: true` label.
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/02.kuard-clusterrole.yaml
+```
+
 The results of each registration at this guide can be check by port forwarding the generated workload and navigating kuard, or by inspecting the generated pod's environment variables.
 
 - Navigating kuard: forward the generated service for a deployment. In the case of a Knative Serving service, use the external address to access the UI.
@@ -1043,9 +1049,10 @@ kubectl delete crdregistration kuard
 
 ## Clean Up
 
-Remove the registered CRD. Note: the controller is still not able to remove informers, logs will complain about the CRD not being present. This can only be solved at the moment restarting the controller.
+Remove the registered CRD and ClusterRole.
 
 ```console
+kubectl delete clusterrole crd-registrations-scoby-kuard
 kubectl delete crd kuards.extensions.triggermesh.io
 ```
 

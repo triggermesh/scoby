@@ -18,6 +18,16 @@ rules:
   - patch
   - update
 
+## Read CRDs
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+
 # Manage CRD Registrations objects
 - apiGroups:
   - scoby.triggermesh.io
@@ -28,6 +38,7 @@ rules:
   - list
   - watch
   - patch
+  - update
 - apiGroups:
   - scoby.triggermesh.io
   resources:
@@ -72,6 +83,20 @@ rules:
   - delete
   - patch
 
+# Manage Knative services
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+
 # Manage resource-specific ServiceAccounts and RoleBindings
 - apiGroups:
   - ''
@@ -92,6 +117,27 @@ rules:
   - list
   - watch
   - create
+
+---
+
+# Use this aggregated ClusterRole to grant Scoby premissions on
+# objects at CRDRegistrations.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  # There might be an addressable-resolver ClusterRole if Knative Eventing is installed.
+  # This would be a duplicate for TriggerMesh's scoby that would add support for scenarios
+  # where Knative Eventing is not installed but Knative Serving is.
+  name: crd-registrations-scoby
+  labels:
+    eventing.knative.dev/release: devel
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/name: knative-eventing
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      scoby.triggermesh.io/crdregistration: "true"
+rules: [] # Rules are automatically filled in by the controller manager.
 
 ---
 
@@ -116,3 +162,4 @@ rules:
   - patch
   - update
   - watch
+

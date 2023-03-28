@@ -1,0 +1,26 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: crd-registrations-scoby-kuard
+  labels:
+    scoby.triggermesh.io/crdregistration: "true"
+    app.kubernetes.io/name: scoby
+# Do not use this role directly. These rules will be added to the "crd-registrations-scoby" role.
+rules:
+- apiGroups:
+  - "extensions.triggermesh.io"
+  resources:
+  - kuards
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "extensions.triggermesh.io"
+  resources:
+  - kuards/status
+  verbs:
+  - update
+
+
+
