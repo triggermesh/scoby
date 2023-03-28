@@ -1,0 +1,118 @@
+# Copyright 2023 TriggerMesh Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: scoby-controller
+rules:
+
+# Record Kubernetes events
+- apiGroups:
+  - ''
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+
+# Manage CRD Registrations objects
+- apiGroups:
+  - scoby.triggermesh.io
+  resources:
+  - crdregistrations
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+- apiGroups:
+  - scoby.triggermesh.io
+  resources:
+  - crdregistrations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - scoby.triggermesh.io
+  resources:
+  - crdregistrations/status
+  verbs:
+  - update
+
+# Manage generated deployments
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+
+# Manage services, endpoints configmaps and secrets
+- apiGroups:
+  - ''
+  resources:
+  - services
+  - endpoints
+  - configmap
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+
+# Manage resource-specific ServiceAccounts and RoleBindings
+- apiGroups:
+  - ''
+  resources:
+  - serviceaccounts
+  - serviceaccounts/finalizers
+  verbs:
+  - list
+  - watch
+  - create
+  - update
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - list
+  - watch
+  - create
+
+---
+
+# ClusterRole for admin users that are able to CRUD registrations.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: scoby-admin
+rules:
+- apiGroups:
+  - scoby.triggermesh.io
+  resources:
+  - crdregistrations
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch

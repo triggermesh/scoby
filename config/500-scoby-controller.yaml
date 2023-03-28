@@ -1,0 +1,67 @@
+# Copyright 2022 TriggerMesh Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scoby-controller
+  namespace: triggermesh
+  labels:
+    app.kubernetes.io/part-of: triggermesh
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/component: scoby-controller
+    app.kubernetes.io/name: triggermesh-eventing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scoby-controller
+  template:
+    metadata:
+      labels:
+        app: scoby-controller
+        app.kubernetes.io/part-of: triggermesh
+        app.kubernetes.io/version: devel
+        app.kubernetes.io/component: scoby-controller
+        app.kubernetes.io/name: triggermesh-eventing
+
+    spec:
+
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: eventing-controller
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+
+      serviceAccountName: scoby-controller
+      enableServiceLinks: false
+
+      containers:
+      - name: controller
+        terminationMessagePolicy: FallbackToLogsOnError
+        image: ko://github.com/triggermesh/scoby/cmd/controller
+
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 50m
+            memory: 200Mi
+
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [all]
+
+        ports:
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008

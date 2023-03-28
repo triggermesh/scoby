@@ -24,7 +24,7 @@ spec:
     address:
       # Either an URI
       uri: http://my-hook-service
-      # Or an URL
+      # Or an object reference
       ref:
         apiVersion: v1
         kind: Service
@@ -38,10 +38,10 @@ spec:
     # indicated.
     initialization:
       enabled: true
-      version: 1
+      apiVersion: 1
     finalization:
       enabled: true
-      version: 1
+      apiVersion: 1
 
   workload:
     formFactor:
