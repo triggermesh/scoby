@@ -19,15 +19,19 @@ Registered CRDs will get a controller that reacts to object instances in a stric
 
 ![scoby summary](docs/../docs/assets/scoby-summary.png)
 
-## Install
+## Install The Development Version
 
-We are still in a very early stage of the project, there is no formal installation.
+Development version can be installed using [ko](https://github.com/ko-build/ko)
 
-To setup a development environment:
+```console
+ko apply -f ./config
+```
+
+Scoby can also run locally pointing to a Kubernetes cluster, make sure the CRD registration exists.
 
 ```console
 # Apply registration
-kubectl apply -f config/scoby.triggermesh.io_crdregistrations.yaml
+kubectl apply -f config/300-crdregistration.yaml
 
 # Run controller
 go run cmd/controller/main.go

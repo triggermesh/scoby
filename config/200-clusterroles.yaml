@@ -1,0 +1,165 @@
+# Copyright 2023 TriggerMesh Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: scoby-controller
+rules:
+
+# Record Kubernetes events
+- apiGroups:
+  - ''
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+
+## Read CRDs
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+
+# Manage CRD Registrations objects
+- apiGroups:
+  - scoby.triggermesh.io
+  resources:
+  - crdregistrations
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+  - update
+- apiGroups:
+  - scoby.triggermesh.io
+  resources:
+  - crdregistrations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - scoby.triggermesh.io
+  resources:
+  - crdregistrations/status
+  verbs:
+  - update
+
+# Manage generated deployments
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+
+# Manage services, endpoints configmaps and secrets
+- apiGroups:
+  - ''
+  resources:
+  - services
+  - endpoints
+  - configmap
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+
+# Manage Knative services
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+
+# Manage resource-specific ServiceAccounts and RoleBindings
+- apiGroups:
+  - ''
+  resources:
+  - serviceaccounts
+  - serviceaccounts/finalizers
+  verbs:
+  - list
+  - watch
+  - create
+  - update
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - list
+  - watch
+  - create
+
+---
+
+# Use this aggregated ClusterRole to grant Scoby premissions on
+# objects at CRDRegistrations.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  # There might be an addressable-resolver ClusterRole if Knative Eventing is installed.
+  # This would be a duplicate for TriggerMesh's scoby that would add support for scenarios
+  # where Knative Eventing is not installed but Knative Serving is.
+  name: crd-registrations-scoby
+  labels:
+    eventing.knative.dev/release: devel
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/name: knative-eventing
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      scoby.triggermesh.io/crdregistration: "true"
+rules: [] # Rules are automatically filled in by the controller manager.
+
+---
+
+# ClusterRole for admin users that are able to CRUD registrations.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: scoby-admin
+rules:
+- apiGroups:
+  - scoby.triggermesh.io
+  resources:
+  - crdregistrations
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+

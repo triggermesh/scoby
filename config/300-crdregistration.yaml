@@ -346,6 +346,20 @@ spec:
                           - path
                           type: object
                         type: array
+                      conditionsFromHook:
+                        description: ConditionsFromHook contains conditions expected
+                          to be informed from the Hook.
+                        items:
+                          description: ConditionsFromHook are extended conditions
+                            that must be informed from the configured Hook.
+                          properties:
+                            type:
+                              description: Type of the condition to be informed.
+                              type: string
+                          required:
+                          - type
+                          type: object
+                        type: array
                     type: object
                 required:
                 - fromImage

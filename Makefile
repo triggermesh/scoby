@@ -36,8 +36,9 @@ generate-code: controller-gen ## Generate code containing DeepCopy, DeepCopyInto
 
 .PHONY: generate-manifests
 generate-manifests: controller-gen ## Generate manifests from code APIs.
-	$(CONTROLLER_GEN) crd rbac:roleName=controller-perms \
+	$(CONTROLLER_GEN) crd \
 		 output:crd:artifacts:config=./config paths="./pkg/..."
+	mv ./config/scoby.triggermesh.io_crdregistrations.yaml ./config/300-crdregistration.yaml
 
 .PHONY: generate
 generate: generate-code generate-manifests ## Generate assets from code.

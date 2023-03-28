@@ -155,6 +155,10 @@ type StatusConfiguration struct {
 	// AddElements contains configurations for status elements to be added.
 	// +optional
 	AddElements []StatusAddElement `json:"addElements,omitempty"`
+
+	// ConditionsFromHook contains conditions expected to be informed from the Hook.
+	// +optional
+	ConditionsFromHook []ConditionsFromHook `json:"conditionsFromHook,omitempty"`
 }
 
 // StatusAddElement is a customization option that adds or fills an element
@@ -181,4 +185,11 @@ type StatusRenderConfiguration struct {
 type StatusValueFromParameter struct {
 	// JSON simplified path for the referenced element.
 	Path string `json:"path"`
+}
+
+// ConditionsFromHook are extended conditions that must be informed from
+// the configured Hook.
+type ConditionsFromHook struct {
+	// Type of the condition to be informed.
+	Type string `json:"type"`
 }

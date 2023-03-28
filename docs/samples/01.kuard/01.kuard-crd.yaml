@@ -157,3 +157,11 @@ spec:
                   format: int64
                   type: integer
               type: object
+
+      additionalPrinterColumns:
+      - jsonPath: .status.address.url
+        name: URL
+        type: string
+      - jsonPath: .status.conditions[?(@.type=="Ready")].status
+        name: Ready
+        type: string

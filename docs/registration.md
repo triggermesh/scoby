@@ -13,6 +13,35 @@ Registration CRD needs information about:
 - CRD: this must be provided by users, and should contain the user data under the `.spec` element and a standard `.status` [Kubernetes structure](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status).
 - Workload: must inform the container image to be used for each instance of the registered object and form factor it should create, which by default is a regular `Deployment`.
 
+
+Scoby needs to be granted permissions to manage the CRD. This can be done creating a `ClusterRole` that contains the label `scoby.triggermesh.io/crdregistration: true`, and the permissions that it needs. You can use this template:
+
+```yaml
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: crd-registrations-scoby-kuard
+  labels:
+    scoby.triggermesh.io/crdregistration: "true"
+    app.kubernetes.io/name: scoby
+# Do not use this role directly. These rules will be added to the "crd-registrations-scoby" role.
+rules:
+- apiGroups:
+  - <REPLACE-WITH-APIGROUP>
+  resources:
+  - <REPLACE-WITH-RESOURCE>
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - <REPLACE-WITH-APIGROUP>
+  resources:
+  - <REPLACE-WITH-RESOURCE>/status
+  verbs:
+  - update
+```
+
 ## Workload FormFactor
 
 The workload form factor options let users generate `Deployment` or Knative `Service`, each of them with a set of parameters:
