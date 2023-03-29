@@ -6,7 +6,7 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	"github.com/triggermesh/scoby/pkg/apis/scoby/common"
 )
 
 // CRDRegistrationSpec defines the desired state of a CRD Registration

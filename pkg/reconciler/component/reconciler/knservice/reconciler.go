@@ -26,7 +26,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby/common"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"

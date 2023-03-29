@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby/common"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 )
 

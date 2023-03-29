@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby/common"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/resolver"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
