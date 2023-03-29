@@ -26,7 +26,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby/common"
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
@@ -39,7 +39,7 @@ const (
 	ConditionReasonKnativeServiceUnknown = "KNSERVICEUNKOWN"
 )
 
-func New(name string, wkl *apicommon.Workload, client client.Client, log logr.Logger) reconciler.FormFactorReconciler {
+func New(name string, wkl *commonv1alpha1.Workload, client client.Client, log logr.Logger) reconciler.FormFactorReconciler {
 
 	sr := &knserviceReconciler{
 		name:       name,
@@ -55,8 +55,8 @@ func New(name string, wkl *apicommon.Workload, client client.Client, log logr.Lo
 
 type knserviceReconciler struct {
 	name       string
-	formFactor *apicommon.KnativeServiceFormFactor
-	fromImage  *apicommon.RegistrationFromImage
+	formFactor *commonv1alpha1.KnativeServiceFormFactor
+	fromImage  *commonv1alpha1.RegistrationFromImage
 
 	client client.Client
 	log    logr.Logger
@@ -146,7 +146,7 @@ func (sr *knserviceReconciler) reconcileKnativeService(ctx context.Context, obj 
 func (sr *knserviceReconciler) updateKnativeServiceStatus(obj reconciler.Object, ksvc *servingv1.Service) {
 	sr.log.V(1).Info("updating knativeService status", "object", obj)
 
-	desired := &apicommon.Condition{
+	desired := &commonv1alpha1.Condition{
 		Type:               ConditionTypeKnativeServiceReady,
 		Reason:             ConditionReasonKnativeServiceUnknown,
 		Status:             metav1.ConditionUnknown,

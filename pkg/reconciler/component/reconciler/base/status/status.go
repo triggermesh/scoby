@@ -15,7 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby/common"
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/crd"
 )
@@ -217,7 +217,7 @@ func (sm *statusManager) sanitizeConditions() {
 					"type":               k,
 					"status":             string(metav1.ConditionUnknown),
 					"lastTransitionTime": tt.UTC().Format(time.RFC3339),
-					"reason":             apicommon.ConditionReasonUnknown,
+					"reason":             commonv1alpha1.ConditionReasonUnknown,
 					"message":            "",
 				})
 		}
@@ -232,7 +232,7 @@ func (sm *statusManager) sanitizeConditions() {
 	typedStatus["conditions"] = existingConditions
 }
 
-func (sm *statusManager) GetCondition(conditionType string) *apicommon.Condition {
+func (sm *statusManager) GetCondition(conditionType string) *commonv1alpha1.Condition {
 	if !sm.flag.AllowConditions() {
 		return nil
 	}
@@ -264,7 +264,7 @@ func (sm *statusManager) GetCondition(conditionType string) *apicommon.Condition
 				sm.log.Error(err, "could not parse condition lastTransitionTime", "lastTransitionTime", c["lastTransitionTime"])
 			}
 
-			return &apicommon.Condition{
+			return &commonv1alpha1.Condition{
 				Type:               conditionType,
 				Message:            c["message"].(string),
 				LastTransitionTime: metav1.NewTime(t),
@@ -278,7 +278,7 @@ func (sm *statusManager) GetCondition(conditionType string) *apicommon.Condition
 	return nil
 }
 
-func (sm *statusManager) SetCondition(condition *apicommon.Condition) {
+func (sm *statusManager) SetCondition(condition *commonv1alpha1.Condition) {
 	if !sm.flag.AllowConditions() {
 		return
 	}
@@ -352,7 +352,7 @@ func (sm *statusManager) updateConditionHappiness() {
 
 	happyConditionIndex := -1
 	happyStatus := string(metav1.ConditionTrue)
-	happyReason := apicommon.ConditionReasonAllTrue
+	happyReason := commonv1alpha1.ConditionReasonAllTrue
 
 	for i := range conditions {
 		c, ok := conditions[i].(map[string]interface{})
@@ -394,13 +394,13 @@ func (sm *statusManager) updateConditionHappiness() {
 
 		if sStatus == string(metav1.ConditionFalse) && happyStatus != string(metav1.ConditionFalse) {
 			happyStatus = string(metav1.ConditionFalse)
-			happyReason = apicommon.ConditionReasonNotAllTrue
+			happyReason = commonv1alpha1.ConditionReasonNotAllTrue
 			continue
 		}
 
 		if sStatus == string(metav1.ConditionUnknown) && happyStatus != string(metav1.ConditionUnknown) {
 			happyStatus = string(metav1.ConditionUnknown)
-			happyReason = apicommon.ConditionReasonUnknown
+			happyReason = commonv1alpha1.ConditionReasonUnknown
 		}
 	}
 

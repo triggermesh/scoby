@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby/common"
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/resolver"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
@@ -36,7 +36,7 @@ const (
 	ConditionTypeServiceReady    = "ServiceReady"
 )
 
-func New(name string, wkl *apicommon.Workload, client client.Client, log logr.Logger) reconciler.FormFactorReconciler {
+func New(name string, wkl *commonv1alpha1.Workload, client client.Client, log logr.Logger) reconciler.FormFactorReconciler {
 	dr := &deploymentReconciler{
 		name:       name,
 		formFactor: wkl.FormFactor.Deployment,
@@ -55,9 +55,9 @@ func New(name string, wkl *apicommon.Workload, client client.Client, log logr.Lo
 
 type deploymentReconciler struct {
 	name           string
-	formFactor     *apicommon.DeploymentFormFactor
-	fromImage      *apicommon.RegistrationFromImage
-	serviceOptions *apicommon.DeploymentService
+	formFactor     *commonv1alpha1.DeploymentFormFactor
+	fromImage      *commonv1alpha1.RegistrationFromImage
+	serviceOptions *commonv1alpha1.DeploymentService
 
 	client client.Client
 	log    logr.Logger
@@ -170,7 +170,7 @@ func (dr *deploymentReconciler) reconcileDeployment(ctx context.Context, obj rec
 func (dr *deploymentReconciler) updateDeploymentStatus(obj reconciler.Object, d *appsv1.Deployment) {
 	dr.log.V(1).Info("updating deployment status", "object", obj)
 
-	desired := &apicommon.Condition{
+	desired := &commonv1alpha1.Condition{
 		Type:               ConditionTypeDeploymentReady,
 		Reason:             "DeploymentUnknown",
 		Status:             metav1.ConditionUnknown,
@@ -278,7 +278,7 @@ func (dr *deploymentReconciler) reconcileService(ctx context.Context, obj reconc
 func (dr *deploymentReconciler) updateServiceStatus(obj reconciler.Object, s *corev1.Service) {
 	dr.log.V(1).Info("updating service status", "object", obj)
 
-	desired := &apicommon.Condition{
+	desired := &commonv1alpha1.Condition{
 		Type:               ConditionTypeServiceReady,
 		Reason:             "ServiceExist",
 		Status:             metav1.ConditionTrue,

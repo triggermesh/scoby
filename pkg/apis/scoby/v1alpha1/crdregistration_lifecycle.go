@@ -4,10 +4,10 @@
 package v1alpha1
 
 import (
-	"github.com/triggermesh/scoby/pkg/apis/scoby/common"
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 )
 
-func (r *CRDRegistration) GetWorkload() *common.Workload {
+func (r *CRDRegistration) GetWorkload() *commonv1alpha1.Workload {
 	return &r.Spec.Workload
 }
 
@@ -16,8 +16,8 @@ const (
 	CRDRegistrationConditionControllerReady = "ControllerReady"
 )
 
-func (s *CRDRegistration) GetStatusManager() *common.StatusManager {
-	sm := common.NewStatusManager(
+func (s *CRDRegistration) GetStatusManager() *commonv1alpha1.StatusManager {
+	sm := commonv1alpha1.NewStatusManager(
 		&s.Status.Status,
 		"Ready",
 		map[string]struct{}{

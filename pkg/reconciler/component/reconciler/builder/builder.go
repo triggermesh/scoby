@@ -12,7 +12,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/triggermesh/scoby/pkg/apis/scoby/common"
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
 	basecrd "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/crd"
@@ -24,7 +24,7 @@ import (
 	knservice "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/knservice"
 )
 
-func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg common.Registration, mgr manager.Manager) (chan error, error) {
+func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg commonv1alpha1.Registration, mgr manager.Manager) (chan error, error) {
 	log := mgr.GetLogger()
 	client := mgr.GetClient()
 

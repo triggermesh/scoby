@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby/common"
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 )
 
@@ -61,8 +61,8 @@ type ObjectRender interface {
 type StatusManager interface {
 	GetObservedGeneration() int64
 	SetObservedGeneration(int64)
-	GetCondition(conditionType string) *apicommon.Condition
-	SetCondition(condition *apicommon.Condition)
+	GetCondition(conditionType string) *commonv1alpha1.Condition
+	SetCondition(condition *commonv1alpha1.Condition)
 	GetAddressURL() string
 	SetAddressURL(string)
 	SetValue(value interface{}, path ...string) error

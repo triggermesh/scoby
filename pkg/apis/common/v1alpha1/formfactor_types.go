@@ -1,7 +1,7 @@
 // Copyright 2023 TriggerMesh Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package common
+package v1alpha1
 
 // FormFactor contains workload form factor settings.
 type FormFactor struct {
