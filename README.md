@@ -34,7 +34,7 @@ Scoby can also run locally pointing to a Kubernetes cluster, make sure the CRD r
 kubectl apply -f config/300-crdregistration.yaml
 
 # Run controller
-go run cmd/controller/main.go
+go run cmd/scoby-controller/main.go
 ```
 
 ## Usage

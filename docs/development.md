@@ -9,7 +9,7 @@ To setup a development environment:
 kubectl apply -f config/300-crdregistration.yaml
 
 # Run controller
-go run cmd/controller/main.go
+go run cmd/scoby-controller/main.go
 ```
 
 ## License Headers
