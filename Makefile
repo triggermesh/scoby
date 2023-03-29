@@ -16,6 +16,7 @@ IMAGE_TAG         ?= $(shell git rev-parse HEAD)
 COMMANDS          := $(notdir $(wildcard cmd/*))
 
 BIN_OUTPUT_DIR    ?= $(OUTPUT_DIR)
+DOCS_OUTPUT_DIR   ?= $(OUTPUT_DIR)
 TEST_OUTPUT_DIR   ?= $(OUTPUT_DIR)
 COVER_OUTPUT_DIR  ?= $(OUTPUT_DIR)
 DIST_DIR          ?= $(OUTPUT_DIR)
@@ -134,14 +135,17 @@ images: $(KO_IMAGES) ## Build container images
 $(KO_IMAGES): %.image:
 	$(KO) publish --push=false -B --tag-only -t $(IMAGE_TAG) ./cmd/$*
 
+.PHONY: deploy
 deploy: ## Deploy Scoby to default Kubernetes cluster
 	$(KO) resolve -f $(BASE_DIR)/config > $(BASE_DIR)/scoby-$(IMAGE_TAG).yaml
 	$(KO) apply -f $(BASE_DIR)/scoby-$(IMAGE_TAG).yaml
 	@rm $(BASE_DIR)/scoby-$(IMAGE_TAG).yaml
 
+.PHONY: undeploy
 undeploy: ## Remove Scoby from default Kubernetes cluster
 	$(KO) delete -f $(BASE_DIR)/config
 
+.PHONY: release
 release: ## Publish container images and generate release manifests
 	@mkdir -p $(DIST_DIR)
 	$(KO) resolve -f config/ -l 'triggermesh.io/crd-install' > $(DIST_DIR)/scoby-crds.yaml
@@ -151,7 +155,11 @@ ifeq ($(shell echo ${IMAGE_TAG} | egrep "${TAG_REGEX}"),${IMAGE_TAG})
 endif
 	$(KO) resolve $(KOFLAGS) -B -t $(IMAGE_TAG) --tag-only -f config/ -l '!triggermesh.io/crd-install' >> $(DIST_DIR)/scoby.yaml
 
+.PHONY: gen-apidocs
+gen-apidocs: ## Generate API docs
+	GOPATH="" OUTPUT_DIR=$(DOCS_OUTPUT_DIR) ./hack/gen-api-reference-docs.sh
 
+.PHONY: clean
 clean: ## Clean build artifacts
 	@for bin in $(COMMANDS) ; do \
 		$(RM) -v $(BIN_OUTPUT_DIR)/$$bin; \

@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
-	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby/common"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )

@@ -13,7 +13,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	scobycommon "github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	scobycommon "github.com/triggermesh/scoby/pkg/apis/scoby/common"
 )
 
 // Semantic can do semantic deep equality checks for Kubernetes API objects.

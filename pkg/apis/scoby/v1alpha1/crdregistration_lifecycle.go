@@ -4,7 +4,7 @@
 package v1alpha1
 
 import (
-	"github.com/triggermesh/scoby/pkg/apis/scoby.triggermesh.io/common"
+	"github.com/triggermesh/scoby/pkg/apis/scoby/common"
 )
 
 func (r *CRDRegistration) GetWorkload() *common.Workload {
