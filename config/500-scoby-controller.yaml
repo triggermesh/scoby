@@ -43,7 +43,7 @@ spec:
       containers:
       - name: controller
         terminationMessagePolicy: FallbackToLogsOnError
-        image: ko://github.com/triggermesh/scoby/cmd/controller
+        image: ko://github.com/triggermesh/scoby/cmd/scoby-controller
 
         resources:
           requests:
