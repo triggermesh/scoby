@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Part of this package is inspired by Knative implementation at knative/dev/pkg.
-package common
+package v1alpha1
 
 import (
 	"sort"

@@ -6,7 +6,7 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/triggermesh/scoby/pkg/apis/scoby/common"
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 )
 
 // CRDRegistrationSpec defines the desired state of a CRD Registration
@@ -15,12 +15,12 @@ type CRDRegistrationSpec struct {
 	CRD string `json:"crd"`
 
 	// Workload is information on how to create the user workload.
-	Workload common.Workload `json:"workload"`
+	Workload commonv1alpha1.Workload `json:"workload"`
 }
 
 // CRDRegistrationStatus defines the observed state of CRDRegistration
 type CRDRegistrationStatus struct {
-	common.Status `json:",inline"`
+	commonv1alpha1.Status `json:",inline"`
 }
 
 //+kubebuilder:object:root=true
@@ -40,7 +40,7 @@ type CRDRegistration struct {
 	Status CRDRegistrationStatus `json:"status,omitempty"`
 }
 
-var _ common.Registration = (*CRDRegistration)(nil)
+var _ commonv1alpha1.Registration = (*CRDRegistration)(nil)
 
 //+kubebuilder:object:root=true
 

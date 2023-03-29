@@ -15,14 +15,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
-	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby/common"
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )
 
 func NewController(
 	om reconciler.ObjectManager,
-	reg apicommon.Registration,
+	reg commonv1alpha1.Registration,
 	ffr reconciler.FormFactorReconciler,
 	mgr ctrl.Manager,
 	log logr.Logger) (controller.Controller, error) {

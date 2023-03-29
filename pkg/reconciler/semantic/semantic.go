@@ -13,7 +13,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	scobycommon "github.com/triggermesh/scoby/pkg/apis/scoby/common"
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 )
 
 // Semantic can do semantic deep equality checks for Kubernetes API objects.
@@ -189,7 +189,7 @@ func serviceAccountEqual(a, b *corev1.ServiceAccount) bool {
 	return true
 }
 
-func statusEqual(a, b *scobycommon.Status) bool {
+func statusEqual(a, b *commonv1alpha1.Status) bool {
 	if a == b {
 		return true
 	}

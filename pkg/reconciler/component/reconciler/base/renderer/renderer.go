@@ -13,7 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	apicommon "github.com/triggermesh/scoby/pkg/apis/scoby/common"
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 )
@@ -24,7 +24,7 @@ const (
 	addEnvsPrefix = "$added."
 )
 
-func NewRenderer(wkl *apicommon.Workload, resolver reconciler.Resolver) reconciler.ObjectRenderer {
+func NewRenderer(wkl *commonv1alpha1.Workload, resolver reconciler.Resolver) reconciler.ObjectRenderer {
 	r := &renderer{
 		resolver: resolver,
 	}
@@ -39,7 +39,7 @@ func NewRenderer(wkl *apicommon.Workload, resolver reconciler.Resolver) reconcil
 		// Curate object fields customization, index them by their
 		// relaxed JSONPath.
 		if pcfg.Customize != nil && len(pcfg.Customize) != 0 {
-			r.customization = make(map[string]apicommon.CustomizeParameterConfiguration, len(pcfg.Customize))
+			r.customization = make(map[string]commonv1alpha1.CustomizeParameterConfiguration, len(pcfg.Customize))
 			for _, c := range pcfg.Customize {
 				r.customization[strings.TrimLeft(c.Path, "$.")] = c
 			}
@@ -55,7 +55,7 @@ func NewRenderer(wkl *apicommon.Workload, resolver reconciler.Resolver) reconcil
 		scfg := wkl.StatusConfiguration
 
 		if scfg.AddElements != nil && len(scfg.AddElements) != 0 {
-			r.addStatus = make([]apicommon.StatusAddElement, len(scfg.AddElements))
+			r.addStatus = make([]commonv1alpha1.StatusAddElement, len(scfg.AddElements))
 			copy(r.addStatus, scfg.AddElements)
 		}
 	}
@@ -67,19 +67,18 @@ type renderer struct {
 	resolver reconciler.Resolver
 
 	// JSONPath indexed configuration parameters.
-	// configuration map[string]apicommon.CustomizeParameterConfiguration
-	customization map[string]apicommon.CustomizeParameterConfiguration
+	customization map[string]commonv1alpha1.CustomizeParameterConfiguration
 
 	// Global options to be applied while transforming object fields
 	// into workload parameters.
-	global apicommon.GlobalParameterConfiguration
+	global commonv1alpha1.GlobalParameterConfiguration
 
 	// Static set of environment variables to be added to as
 	// parameters to the workload.
 	addEnvs []corev1.EnvVar
 
 	// Set of rules that add or fill elements at the object status.
-	addStatus []apicommon.StatusAddElement
+	addStatus []commonv1alpha1.StatusAddElement
 }
 
 func (r *renderer) Render(ctx context.Context, obj reconciler.Object) error {
@@ -180,7 +179,7 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 
 		pf := pfs[k]
 		// Retrieve custom render configuration for the field.
-		var renderConfig *apicommon.ParameterRenderConfiguration
+		var renderConfig *commonv1alpha1.ParameterRenderConfiguration
 		if customize, ok := r.customization[pf.toJSONPath()]; ok && customize.Render != nil {
 			renderConfig = customize.Render
 		}

@@ -4,4 +4,4 @@
 // Package common common API Schema definitions for the scoby
 // +kubebuilder:object:generate=true
 // +groupName=scoby.triggermesh.io
-package common
+package v1alpha1

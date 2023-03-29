@@ -17,7 +17,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/triggermesh/scoby/pkg/apis/scoby/common"
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/builder"
 )
 
@@ -28,8 +28,8 @@ const (
 // ComponentRegistry keeps track of the controllers created
 // for each registered component.
 type ComponentRegistry interface {
-	EnsureComponentController(reg common.Registration, crd *apiextensionsv1.CustomResourceDefinition) error
-	RemoveComponentController(reg common.Registration)
+	EnsureComponentController(reg commonv1alpha1.Registration, crd *apiextensionsv1.CustomResourceDefinition) error
+	RemoveComponentController(reg commonv1alpha1.Registration)
 	WaitStopChannel() <-chan error
 }
 
@@ -107,7 +107,7 @@ func New(ctx context.Context, mgr manager.Manager, logger *logr.Logger) Componen
 	return cr
 }
 
-func (cr *componentRegistry) EnsureComponentController(reg common.Registration, crd *apiextensionsv1.CustomResourceDefinition) error {
+func (cr *componentRegistry) EnsureComponentController(reg commonv1alpha1.Registration, crd *apiextensionsv1.CustomResourceDefinition) error {
 	cr.logger.V(1).Info("EnsureComponentController", "crd", crd.Name)
 
 	cr.lock.Lock()
@@ -138,7 +138,7 @@ func (cr *componentRegistry) EnsureComponentController(reg common.Registration, 
 	return nil
 }
 
-func (cr *componentRegistry) RemoveComponentController(reg common.Registration) {
+func (cr *componentRegistry) RemoveComponentController(reg commonv1alpha1.Registration) {
 	cr.lock.Lock()
 	defer cr.lock.Unlock()
 
