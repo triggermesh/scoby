@@ -74,7 +74,6 @@ ifndef HAS_GOLANGCI_LINT
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.45.2
 endif
 
-
 .PHONY: generate-code
 generate-code: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object object:headerFile="hack/boilerplate.go.txt" paths="./pkg/apis/..."
