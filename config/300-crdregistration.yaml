@@ -1,10 +1,11 @@
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
+  labels:
+    triggermesh.io/crd-install: "true"
   name: crdregistrations.scoby.triggermesh.io
 spec:
   group: scoby.triggermesh.io
