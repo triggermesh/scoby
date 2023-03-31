@@ -49,6 +49,64 @@ spec:
               crd:
                 description: Name of the CRD to be used.
                 type: string
+              hook:
+                properties:
+                  address:
+                    properties:
+                      ref:
+                        description: Ref points to an addressable object.
+                        properties:
+                          apiVersion:
+                            description: API version of the hook address.
+                            type: string
+                          kind:
+                            description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                            type: string
+                          name:
+                            description: 'Name of the hook address. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                            type: string
+                          namespace:
+                            description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                              This is optional field, it gets defaulted to the object
+                              holding it if left out.'
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                      uri:
+                        description: URI can be an absolute URL(non-empty scheme and
+                          non-empty host) pointing to the target or a relative URI.
+                          Relative URIs will be resolved using the base URI retrieved
+                          from Ref.
+                        type: string
+                    type: object
+                  finalization:
+                    description: Finalization configuration for the hook
+                    properties:
+                      apiVersion:
+                        description: API version implemented by the hook service.
+                        type: string
+                      enabled:
+                        description: Whether the hook service is supported.
+                        type: boolean
+                    type: object
+                  initialization:
+                    description: Initialization configuration for the hook
+                    properties:
+                      apiVersion:
+                        description: API version implemented by the hook service.
+                        type: string
+                      enabled:
+                        description: Whether the hook service is supported.
+                        type: boolean
+                    type: object
+                  timeout:
+                    description: Timeout for hook calls.
+                    type: string
+                required:
+                - address
+                type: object
               workload:
                 description: Workload is information on how to create the user workload.
                 properties:

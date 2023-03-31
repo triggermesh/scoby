@@ -16,6 +16,8 @@ type CRDRegistrationSpec struct {
 
 	// Workload is information on how to create the user workload.
 	Workload commonv1alpha1.Workload `json:"workload"`
+
+	Hook *commonv1alpha1.Hook `json:"hook,omitempty"`
 }
 
 // CRDRegistrationStatus defines the observed state of CRDRegistration

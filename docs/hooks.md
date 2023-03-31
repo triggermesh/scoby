@@ -22,7 +22,7 @@ spec:
   crd: kuards.extensions.triggermesh.io
   hook:
     address:
-      # Either an URI
+      # Either a URI
       uri: http://my-hook-service
       # Or an object reference
       ref:
