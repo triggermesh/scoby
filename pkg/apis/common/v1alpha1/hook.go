@@ -6,6 +6,19 @@ package v1alpha1
 import "knative.dev/pkg/apis"
 
 type Hook struct {
+	Address Address `json:"address"`
+
+	// Timeout for hook calls.
+	// +optional
+	Timeout *string `json:"timeout"`
+
+	// Initialization configuration for the hook
+	// +optional
+	Initialization *HookServiceConfiguration `json:"initialization,omitempty"`
+
+	// Finalization configuration for the hook
+	// +optional
+	Finalization *HookServiceConfiguration `json:"finalization,omitempty"`
 }
 
 type Address struct {
@@ -16,10 +29,6 @@ type Address struct {
 	// URI can be an absolute URL(non-empty scheme and non-empty host) pointing to the target or a relative URI. Relative URIs will be resolved using the base URI retrieved from Ref.
 	// +optional
 	URI *apis.URL `json:"uri,omitempty"`
-
-	// Timeout for hook calls.
-	// +optional
-	Timeout *string
 }
 
 // Reference contains enough information to refer to another object.
@@ -42,23 +51,15 @@ type Reference struct {
 	// API version of the hook address.
 	// +optional
 	APIVersion string `json:"apiVersion,omitempty"`
-
-	// Initialization configuration for the hook
-	// +optional
-	Initialization *HookServiceConfiguration
-
-	// Finalization configuration for the hook
-	// +optional
-	Finalization *HookServiceConfiguration
 }
 
 // Initialization configuration for the hook
 type HookServiceConfiguration struct {
 	// Whether the hook service is supported.
 	// +optional
-	Enabled *bool
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// API version implemented by the hook service.
 	// +optional
-	APIVersion *string
+	APIVersion *string `json:"apiVersion,omitempty"`
 }

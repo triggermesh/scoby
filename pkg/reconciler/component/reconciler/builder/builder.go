@@ -55,6 +55,14 @@ func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefin
 
 	// The status factory is created using the form factor's conditions
 	happy, all := ffr.GetStatusConditions()
+
+	// Add conditions informed from a hook
+	if wkl.StatusConfiguration != nil {
+		for _, c := range wkl.StatusConfiguration.ConditionsFromHook {
+			all = append(all, c.Type)
+		}
+	}
+
 	smf := basestatus.NewStatusManagerFactory(crdv, happy, all, log)
 
 	om := baseobject.NewManager(gvk, renderer, smf)
