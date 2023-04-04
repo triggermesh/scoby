@@ -69,7 +69,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	cl := log.WithName("component")
-	reg := registry.New(ctx, k8sManager, &cl)
+	reg := registry.New(ctx, k8sManager, nil, &cl)
 
 	r := &Reconciler{
 		Registry: reg,

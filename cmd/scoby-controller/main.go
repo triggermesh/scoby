@@ -23,6 +23,7 @@ import (
 	scobyv1alpha1 "github.com/triggermesh/scoby/pkg/apis/scoby/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
 	"github.com/triggermesh/scoby/pkg/reconciler/registration/crd"
+	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
 )
 
 const (
@@ -74,14 +75,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	// The resolver object performs Kubernetes Object resolution
+	// into URL.
+	reslv := resolver.New(mgr.GetClient())
+
 	// Parent context.
 	ctx := ctrl.SetupSignalHandler()
 
 	cl := log.WithName("component")
-	reg := registry.New(ctx, mgr, &cl)
+	reg := registry.New(ctx, mgr, reslv, &cl)
 
 	r := &crd.Reconciler{
 		Registry: reg,
+		Resolver: reslv,
 	}
 
 	if err := builder.ControllerManagedBy(mgr).

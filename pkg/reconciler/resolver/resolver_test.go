@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,7 +27,7 @@ const (
 func TestObjectRender(t *testing.T) {
 	testCases := map[string]struct {
 		objects []client.Object
-		ref     *corev1.ObjectReference
+		ref     *v1alpha1.Reference
 
 		expectedErr string
 		expectedURL string
@@ -35,7 +36,7 @@ func TestObjectRender(t *testing.T) {
 			objects: []client.Object{
 				newObject(),
 			},
-			ref: &corev1.ObjectReference{
+			ref: &v1alpha1.Reference{
 				APIVersion: tAPIVersion,
 				Kind:       tKind,
 				Name:       tName,
@@ -48,7 +49,7 @@ func TestObjectRender(t *testing.T) {
 			objects: []client.Object{
 				newObject(withStatusAddress(tAddress)),
 			},
-			ref: &corev1.ObjectReference{
+			ref: &v1alpha1.Reference{
 				APIVersion: tAPIVersion,
 				Kind:       tKind,
 				Name:       tName,
@@ -61,7 +62,7 @@ func TestObjectRender(t *testing.T) {
 			objects: []client.Object{
 				newService(),
 			},
-			ref: &corev1.ObjectReference{
+			ref: &v1alpha1.Reference{
 				APIVersion: "v1",
 				Kind:       "Service",
 				Name:       tName,
@@ -75,7 +76,7 @@ func TestObjectRender(t *testing.T) {
 			objects: []client.Object{
 				newObject(withStatusAddress(true)),
 			},
-			ref: &corev1.ObjectReference{
+			ref: &v1alpha1.Reference{
 				APIVersion: tAPIVersion,
 				Kind:       tKind,
 				Name:       tName,
@@ -87,7 +88,7 @@ func TestObjectRender(t *testing.T) {
 		},
 		"object not found": {
 			objects: []client.Object{},
-			ref: &corev1.ObjectReference{
+			ref: &v1alpha1.Reference{
 				APIVersion: tAPIVersion,
 				Kind:       tKind,
 				Name:       tName,

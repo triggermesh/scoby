@@ -77,10 +77,6 @@ type StatusManagerFactory interface {
 	ForObject(object *unstructured.Unstructured) StatusManager
 }
 
-type Resolver interface {
-	Resolve(ctx context.Context, ref *corev1.ObjectReference) (string, error)
-}
-
 type ObjectRenderer interface {
 	Render(context.Context, Object) error
 }

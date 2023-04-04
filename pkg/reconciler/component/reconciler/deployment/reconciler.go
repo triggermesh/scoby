@@ -24,7 +24,7 @@ import (
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/resolver"
+	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )
