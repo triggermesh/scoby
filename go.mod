@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/go-logr/logr v1.2.4
 	github.com/onsi/ginkgo/v2 v2.9.2
-	github.com/onsi/gomega v1.27.4
+	github.com/onsi/gomega v1.27.6
 	github.com/stretchr/testify v1.8.2
 	k8s.io/api v0.26.1
 	k8s.io/apiextensions-apiserver v0.26.1
