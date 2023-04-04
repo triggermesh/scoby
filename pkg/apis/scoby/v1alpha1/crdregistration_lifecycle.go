@@ -14,6 +14,8 @@ func (r *CRDRegistration) GetWorkload() *commonv1alpha1.Workload {
 const (
 	CRDRegistrationConditionCRDExists       = "CRDExists"
 	CRDRegistrationConditionControllerReady = "ControllerReady"
+
+	CRDRegistrationAnnotationHookURL = "hookURL"
 )
 
 func (s *CRDRegistration) GetStatusManager() *commonv1alpha1.StatusManager {

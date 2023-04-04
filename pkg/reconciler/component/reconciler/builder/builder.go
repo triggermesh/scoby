@@ -18,13 +18,13 @@ import (
 	basecrd "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/crd"
 	baseobject "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/object"
 	baserenderer "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/renderer"
-	baseresolver "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/resolver"
 	basestatus "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/status"
 	deployment "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/deployment"
 	knservice "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/knservice"
+	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
 )
 
-func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg commonv1alpha1.Registration, mgr manager.Manager) (chan error, error) {
+func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg commonv1alpha1.Registration, mgr manager.Manager, reslv resolver.Resolver) (chan error, error) {
 	log := mgr.GetLogger()
 	client := mgr.GetClient()
 
@@ -41,7 +41,7 @@ func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefin
 
 	wkl := reg.GetWorkload()
 
-	renderer := baserenderer.NewRenderer(wkl, baseresolver.New(client))
+	renderer := baserenderer.NewRenderer(wkl, reslv)
 
 	var ffr reconciler.FormFactorReconciler
 	switch {

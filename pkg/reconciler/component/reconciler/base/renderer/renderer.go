@@ -13,8 +13,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
+	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
 	"github.com/triggermesh/scoby/pkg/reconciler/resources"
 )
 
@@ -24,7 +26,7 @@ const (
 	addEnvsPrefix = "$added."
 )
 
-func NewRenderer(wkl *commonv1alpha1.Workload, resolver reconciler.Resolver) reconciler.ObjectRenderer {
+func NewRenderer(wkl *commonv1alpha1.Workload, resolver resolver.Resolver) reconciler.ObjectRenderer {
 	r := &renderer{
 		resolver: resolver,
 	}
@@ -64,7 +66,7 @@ func NewRenderer(wkl *commonv1alpha1.Workload, resolver reconciler.Resolver) rec
 }
 
 type renderer struct {
-	resolver reconciler.Resolver
+	resolver resolver.Resolver
 
 	// JSONPath indexed configuration parameters.
 	customization map[string]commonv1alpha1.CustomizeParameterConfiguration
@@ -550,7 +552,7 @@ func (r *renderer) resolveAddress(ctx context.Context, namespace, path string, p
 		ref.Namespace = namespace
 	}
 
-	uri, err := r.resolver.Resolve(ctx, &corev1.ObjectReference{
+	uri, err := r.resolver.Resolve(ctx, &v1alpha1.Reference{
 		APIVersion: ref.APIVersion,
 		Kind:       ref.Kind,
 		Namespace:  ref.Namespace,

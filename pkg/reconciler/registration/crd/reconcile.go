@@ -5,6 +5,7 @@ package crd
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -19,6 +20,7 @@ import (
 
 	scobyv1alpha1 "github.com/triggermesh/scoby/pkg/apis/scoby/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
+	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
 )
 
@@ -36,6 +38,7 @@ type Reconciler struct {
 	client.Client
 
 	Registry registry.ComponentRegistry
+	Resolver resolver.Resolver
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
@@ -114,6 +117,34 @@ func (r *Reconciler) reconcileRegistration(ctx context.Context, cr *scobyv1alpha
 		return ctrl.Result{RequeueAfter: time.Second * 15}, err
 	}
 	sm.MarkConditionTrue(scobyv1alpha1.CRDRegistrationConditionCRDExists, "CRDEXIST")
+
+	// If hook configured, parse reference
+	if cr.Spec.Hook != nil {
+		url := ""
+		switch {
+		case cr.Spec.Hook.Address.Ref != nil:
+			var err error
+			url, err = r.Resolver.Resolve(ctx, cr.Spec.Hook.Address.Ref)
+			if err != nil {
+				sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionControllerReady,
+					"HOOKFAILED", err.Error())
+				return ctrl.Result{}, err
+			}
+
+		case cr.Spec.Hook.Address.URI != nil:
+			url = cr.Spec.Hook.Address.URI.String()
+
+		default:
+			// TODO validation should deal with this.
+			msg := "registration hook does not inform object reference or URI"
+			sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionControllerReady,
+				"HOOKFAILED", msg)
+			return ctrl.Result{}, errors.New(msg)
+		}
+
+		// use url for annotation
+		sm.SetAnnotation(scobyv1alpha1.CRDRegistrationAnnotationHookURL, url)
+	}
 
 	// Make sure the CRD controller is running
 	err := r.Registry.EnsureComponentController(cr, crd)
