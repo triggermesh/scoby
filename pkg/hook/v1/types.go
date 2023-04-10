@@ -20,7 +20,7 @@ type HookRequest struct {
 
 // HookResponse is the expected reply from configured hooks.
 type HookResponse struct {
-	Status HookStatus `json:"status"`
+	Status *HookStatus `json:"status"`
 
 	// EnvVars contains parameters to be added to the workload.
 	EnvVars []corev1.EnvVar `json:"addEnvs,omitempty"`

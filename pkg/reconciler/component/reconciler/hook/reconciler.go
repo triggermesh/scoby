@@ -15,8 +15,13 @@ import (
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 )
 
+const (
+	addEnvsPrefix = "$hook."
+)
+
 type hookReconciler struct {
-	url string
+	url         string
+	isFinalizer bool
 
 	log logr.Logger
 }
@@ -26,6 +31,12 @@ func New(h *commonv1alpha1.Hook, url string, log logr.Logger) reconciler.HookRec
 	hr := &hookReconciler{
 		url: url,
 		log: log,
+		// by default finalization is considered implemented.
+		isFinalizer: true,
+	}
+
+	if h.Finalization != nil && !*h.Finalization.Enabled {
+		hr.isFinalizer = false
 	}
 
 	return hr
@@ -33,6 +44,42 @@ func New(h *commonv1alpha1.Hook, url string, log logr.Logger) reconciler.HookRec
 
 func (hr *hookReconciler) Reconcile(ctx context.Context, obj reconciler.Object) error {
 	hr.log.V(1).Info("Reconciling at hook", "obj", obj)
+
+	res, err := hr.requestHook(ctx, hookv1.OperationReconcile, obj)
+	if err != nil {
+		return err
+	}
+
+	// TODO use status and env vars
+	hr.log.V(5).Info("Response received from hook", "response", *res)
+
+	for _, ev := range res.EnvVars {
+		obj.AddEnvVar(addEnvsPrefix+ev.Name, &ev)
+	}
+
+	if res.Status == nil {
+		return nil
+	}
+
+	for _, st := range res.Status.Conditions {
+		sm := obj.GetStatusManager()
+		sm.SetCondition(&st)
+	}
+
+	return nil
+}
+
+func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) error {
+	hr.log.V(1).Info("Finalizing at hook", "obj", obj)
+
+	if _, err := hr.requestHook(ctx, hookv1.OperationFinalize, obj); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (hr *hookReconciler) requestHook(ctx context.Context, operation hookv1.Operation, obj reconciler.Object) (*hookv1.HookResponse, error) {
 	r := &hookv1.HookRequest{
 		Object: commonv1alpha1.Reference{
 			APIVersion: obj.GetObjectKind().GroupVersionKind().GroupVersion().String(),
@@ -40,23 +87,23 @@ func (hr *hookReconciler) Reconcile(ctx context.Context, obj reconciler.Object) 
 			Namespace:  obj.GetNamespace(),
 			Name:       obj.GetName(),
 		},
-		Operation: hookv1.OperationReconcile,
+		Operation: operation,
 	}
 	b, err := json.Marshal(r)
 	if err != nil {
-		return fmt.Errorf("could not marshal hook request: %w", err)
+		return nil, fmt.Errorf("could not marshal hook request: %w", err)
 	}
 
 	req, err := http.NewRequest("POST", hr.url, bytes.NewBuffer(b))
 	if err != nil {
-		return fmt.Errorf("could create hook request: %w", err)
+		return nil, fmt.Errorf("could create hook request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 
 	client := &http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("could not execute hook request to %s: %w", hr.url, err)
+		return nil, fmt.Errorf("could not execute hook request to %s: %w", hr.url, err)
 	}
 
 	defer res.Body.Close()
@@ -70,26 +117,28 @@ func (hr *hookReconciler) Reconcile(ctx context.Context, obj reconciler.Object) 
 		} else {
 			reserr = string(b)
 		}
-		return fmt.Errorf("hook request at %s returned %d: %s", hr.url, res.StatusCode, reserr)
+		return nil, fmt.Errorf("hook request at %s returned %d: %s", hr.url, res.StatusCode, reserr)
+	}
+
+	// Finalize do not expect data returned
+	if operation == hookv1.OperationFinalize {
+		return nil, nil
 	}
 
 	hres := &hookv1.HookResponse{}
 	err = json.NewDecoder(res.Body).Decode(hres)
 	if err != nil {
-		return fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err)
+		return nil, fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err)
 	}
 
-	hr.log.V(5).Info("Response received from hook", "response", *hres)
-
-	// request
-	// if response contains status info, add it.
-	// if response contains env var, add it.
-
-	return nil
+	return hres, nil
 }
 
-func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) error {
-	hr.log.V(1).Info("Finalizing at hook", "obj", obj)
+func (hr *hookReconciler) IsReconciler() bool {
+	// For now all hooks are reconcilers
+	return true
+}
 
-	return nil
+func (hr *hookReconciler) IsFinalizer() bool {
+	return hr.isFinalizer
 }

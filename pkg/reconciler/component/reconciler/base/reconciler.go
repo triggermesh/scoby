@@ -11,6 +11,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -18,6 +19,10 @@ import (
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
+)
+
+const (
+	componentFinalizer = "scoby.triggermesh.io/finalizer"
 )
 
 func NewController(
@@ -74,8 +79,21 @@ func (b *base) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, er
 	b.log.V(5).Info("Object retrieved", "object", obj)
 
 	if !obj.GetDeletionTimestamp().IsZero() {
-		if b.hookReconciler != nil {
-			_ = b.hookReconciler.Finalize(ctx, obj)
+		if b.hookReconciler != nil && b.hookReconciler.IsFinalizer() {
+
+			err := b.hookReconciler.Finalize(ctx, obj)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			if !controllerutil.ContainsFinalizer(obj, componentFinalizer) {
+				return ctrl.Result{}, nil
+			}
+
+			// Removing the finalizer must succeed so that
+			// the registration is deleted.
+			controllerutil.RemoveFinalizer(obj, componentFinalizer)
+			return ctrl.Result{}, b.client.Update(ctx, obj.AsKubeObject())
 		}
 
 		// Return and let the ownership clean resources.
@@ -87,9 +105,21 @@ func (b *base) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, er
 	cp := obj.AsKubeObject().DeepCopyObject()
 
 	if b.hookReconciler != nil {
-		err := b.hookReconciler.Reconcile(ctx, obj)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("reconciling hook: %w", err)
+		if b.hookReconciler.IsReconciler() {
+			if err := b.hookReconciler.Reconcile(ctx, obj); err != nil {
+				return ctrl.Result{}, fmt.Errorf("reconciling hook: %w", err)
+			}
+		}
+		if b.hookReconciler.IsFinalizer() {
+			// Set the finalizer if it is not present
+			objk := obj.AsKubeObject()
+			if !controllerutil.ContainsFinalizer(objk, componentFinalizer) {
+				controllerutil.AddFinalizer(objk, componentFinalizer)
+				if err := b.client.Update(ctx, objk); err != nil {
+					return ctrl.Result{}, err
+				}
+
+			}
 		}
 	}
 
