@@ -251,6 +251,16 @@ func (sm *StatusManager) SetAnnotation(key, value string) {
 	sm.status.Annotations[key] = value
 }
 
+func (sm *StatusManager) GetAnnotation(key string) (bool, *string) {
+	if sm.status.Annotations != nil {
+		if v, ok := sm.status.Annotations[key]; ok {
+			return true, &v
+		}
+	}
+
+	return false, nil
+}
+
 func (sm *StatusManager) DeleteAnnotation(key string) {
 	if sm.status.Annotations == nil {
 		return

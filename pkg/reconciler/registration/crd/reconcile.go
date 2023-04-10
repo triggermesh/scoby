@@ -6,6 +6,7 @@ package crd
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -18,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	scobyv1alpha1 "github.com/triggermesh/scoby/pkg/apis/scoby/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
 	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
@@ -120,19 +122,32 @@ func (r *Reconciler) reconcileRegistration(ctx context.Context, cr *scobyv1alpha
 
 	// If hook configured, parse reference
 	if cr.Spec.Hook != nil {
-		url := ""
+		hu := ""
 		switch {
 		case cr.Spec.Hook.Address.Ref != nil:
 			var err error
-			url, err = r.Resolver.Resolve(ctx, cr.Spec.Hook.Address.Ref)
+			hu, err = r.Resolver.Resolve(ctx, cr.Spec.Hook.Address.Ref)
 			if err != nil {
 				sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionControllerReady,
 					"HOOKFAILED", err.Error())
 				return ctrl.Result{}, err
 			}
 
+			// scheme, path and port might be informed at the URL field
+			if uri := cr.Spec.Hook.Address.URI; uri != nil {
+				if uri.Scheme != hu[:len(uri.Scheme)] {
+					hu = strings.Replace(hu, "http", uri.Scheme, 1)
+				}
+				if h := strings.Split(uri.Host, ":"); len(h) == 2 {
+					hu += ":" + h[1]
+				}
+				if p := uri.Path; p != "" {
+					hu += p
+				}
+			}
+
 		case cr.Spec.Hook.Address.URI != nil:
-			url = cr.Spec.Hook.Address.URI.String()
+			hu = cr.Spec.Hook.Address.URI.String()
 
 		default:
 			// TODO validation should deal with this.
@@ -143,7 +158,7 @@ func (r *Reconciler) reconcileRegistration(ctx context.Context, cr *scobyv1alpha
 		}
 
 		// use url for annotation
-		sm.SetAnnotation(scobyv1alpha1.CRDRegistrationAnnotationHookURL, url)
+		sm.SetAnnotation(commonv1alpha1.CRDRegistrationAnnotationHookURL, hu)
 	}
 
 	// Make sure the CRD controller is running

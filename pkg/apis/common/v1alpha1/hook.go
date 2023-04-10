@@ -5,6 +5,10 @@ package v1alpha1
 
 import "knative.dev/pkg/apis"
 
+const (
+	CRDRegistrationAnnotationHookURL = "hookURL"
+)
+
 type Hook struct {
 	Address Address `json:"address"`
 

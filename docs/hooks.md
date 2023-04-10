@@ -22,9 +22,13 @@ spec:
   crd: kuards.extensions.triggermesh.io
   hook:
     address:
-      # Either a URI
+      # URI
       uri: http://my-hook-service
-      # Or an object reference
+      # Object reference
+      #
+      # When informing the object and URI at the same time, URI will provide
+      # scheme, path and port information while object will be used to identify
+      # the host.
       ref:
         apiVersion: v1
         kind: Service

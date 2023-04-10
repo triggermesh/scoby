@@ -11,12 +11,23 @@ func (r *CRDRegistration) GetWorkload() *commonv1alpha1.Workload {
 	return &r.Spec.Workload
 }
 
+func (r *CRDRegistration) GetHook() *commonv1alpha1.Hook {
+	return r.Spec.Hook
+}
+
 const (
 	CRDRegistrationConditionCRDExists       = "CRDExists"
 	CRDRegistrationConditionControllerReady = "ControllerReady"
-
-	CRDRegistrationAnnotationHookURL = "hookURL"
 )
+
+func (s *CRDRegistration) GetStatusAnnotation(key string) *string {
+	v, ok := s.Status.Annotations[key]
+	if !ok {
+		return nil
+	}
+
+	return &v
+}
 
 func (s *CRDRegistration) GetStatusManager() *commonv1alpha1.StatusManager {
 	sm := commonv1alpha1.NewStatusManager(

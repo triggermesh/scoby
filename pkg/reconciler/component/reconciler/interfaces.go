@@ -91,3 +91,8 @@ type FormFactorReconciler interface {
 	SetupController(name string, c controller.Controller, owner runtime.Object) error
 	Reconcile(context.Context, Object) (ctrl.Result, error)
 }
+
+type HookReconciler interface {
+	Reconcile(context.Context, Object) error
+	Finalize(context.Context, Object) error
+}

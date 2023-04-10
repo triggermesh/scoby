@@ -20,6 +20,7 @@ import (
 	baserenderer "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/renderer"
 	basestatus "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/status"
 	deployment "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/deployment"
+	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/hook"
 	knservice "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/knservice"
 	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
 )
@@ -53,6 +54,17 @@ func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefin
 		ffr = deployment.New(reg.GetName(), wkl, client, log)
 	}
 
+	var hr reconciler.HookReconciler
+	if h := reg.GetHook(); h != nil {
+		url := reg.GetStatusAnnotation(commonv1alpha1.CRDRegistrationAnnotationHookURL)
+		if url == nil {
+			return nil, fmt.Errorf("%s registration does not contain the %q status annotation",
+				reg.GetName(), commonv1alpha1.CRDRegistrationAnnotationHookURL)
+		}
+		log.Info("Configuring hook", "url", *url)
+		hr = hook.New(h, *url, log)
+	}
+
 	// The status factory is created using the form factor's conditions
 	happy, all := ffr.GetStatusConditions()
 
@@ -67,7 +79,7 @@ func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefin
 
 	om := baseobject.NewManager(gvk, renderer, smf)
 
-	c, err := base.NewController(om, reg, ffr, mgr, log)
+	c, err := base.NewController(om, reg, ffr, hr, mgr, log)
 	if err != nil {
 		return nil, err
 	}
