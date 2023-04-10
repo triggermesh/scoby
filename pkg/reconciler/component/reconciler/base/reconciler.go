@@ -112,9 +112,10 @@ func (b *base) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, er
 		}
 		if b.hookReconciler.IsFinalizer() {
 			// Set the finalizer if it is not present
-			if !controllerutil.ContainsFinalizer(obj, componentFinalizer) {
-				controllerutil.AddFinalizer(obj.AsKubeObject(), componentFinalizer)
-				if err := b.client.Update(ctx, obj.AsKubeObject()); err != nil {
+			objk := obj.AsKubeObject()
+			if !controllerutil.ContainsFinalizer(objk, componentFinalizer) {
+				controllerutil.AddFinalizer(objk, componentFinalizer)
+				if err := b.client.Update(ctx, objk); err != nil {
 					return ctrl.Result{}, err
 				}
 

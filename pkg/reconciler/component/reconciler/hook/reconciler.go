@@ -15,6 +15,10 @@ import (
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
 )
 
+const (
+	addEnvsPrefix = "$hook."
+)
+
 type hookReconciler struct {
 	url         string
 	isFinalizer bool
@@ -49,18 +53,28 @@ func (hr *hookReconciler) Reconcile(ctx context.Context, obj reconciler.Object) 
 	// TODO use status and env vars
 	hr.log.V(5).Info("Response received from hook", "response", *res)
 
+	for _, ev := range res.EnvVars {
+		obj.AddEnvVar(addEnvsPrefix+ev.Name, &ev)
+	}
+
+	if res.Status == nil {
+		return nil
+	}
+
+	for _, st := range res.Status.Conditions {
+		sm := obj.GetStatusManager()
+		sm.SetCondition(&st)
+	}
+
 	return nil
 }
 
 func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) error {
 	hr.log.V(1).Info("Finalizing at hook", "obj", obj)
 
-	hr.log.Info("DEBUG DELETEME calling hook at finalize hook", "obj", obj)
 	if _, err := hr.requestHook(ctx, hookv1.OperationFinalize, obj); err != nil {
-		hr.log.Info("DEBUG DELETEME there was an error at finalize hook", "obj", obj)
 		return err
 	}
-	hr.log.Info("DEBUG DELETEME done at finalize hook", "obj", obj)
 
 	return nil
 }
