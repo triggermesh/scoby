@@ -14,4 +14,9 @@ type Registration interface {
 	metav1.Object
 
 	GetWorkload() *Workload
+	GetHook() *Hook
+
+	// Reconciler might add annotations to the status
+	// that can be used at the component's registration.
+	GetStatusAnnotation(string) *string
 }

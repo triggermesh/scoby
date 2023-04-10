@@ -24,12 +24,14 @@ func NewController(
 	om reconciler.ObjectManager,
 	reg commonv1alpha1.Registration,
 	ffr reconciler.FormFactorReconciler,
+	hr reconciler.HookReconciler,
 	mgr ctrl.Manager,
 	log logr.Logger) (controller.Controller, error) {
 
 	r := &base{
 		objectManager:        om,
 		formFactorReconciler: ffr,
+		hookReconciler:       hr,
 		client:               mgr.GetClient(),
 		log:                  log,
 	}
@@ -56,9 +58,9 @@ var _ reconciler.Base = (*base)(nil)
 type base struct {
 	objectManager        reconciler.ObjectManager
 	formFactorReconciler reconciler.FormFactorReconciler
-
-	client client.Client
-	log    logr.Logger
+	hookReconciler       reconciler.HookReconciler
+	client               client.Client
+	log                  logr.Logger
 }
 
 func (b *base) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -72,6 +74,10 @@ func (b *base) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, er
 	b.log.V(5).Info("Object retrieved", "object", obj)
 
 	if !obj.GetDeletionTimestamp().IsZero() {
+		if b.hookReconciler != nil {
+			_ = b.hookReconciler.Finalize(ctx, obj)
+		}
+
 		// Return and let the ownership clean resources.
 		return ctrl.Result{}, nil
 	}
@@ -79,6 +85,13 @@ func (b *base) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, er
 	// create a copy, we will compare after reconciling
 	// and decide if we need to update or not.
 	cp := obj.AsKubeObject().DeepCopyObject()
+
+	if b.hookReconciler != nil {
+		err := b.hookReconciler.Reconcile(ctx, obj)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("reconciling hook: %w", err)
+		}
+	}
 
 	// Render using the object data and configuration
 	if err := b.objectManager.GetRenderer().Render(ctx, obj); err != nil {
