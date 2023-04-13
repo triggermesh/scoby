@@ -507,3 +507,27 @@ func (sm *statusManager) SetValue(value interface{}, path ...string) error {
 	sm.ensureStatusRoot()
 	return unstructured.SetNestedField(sm.object.Object, value, path...)
 }
+
+func (sm *statusManager) SetAnnotation(key, value string) error {
+	sm.m.Lock()
+	defer sm.m.Unlock()
+
+	sm.ensureStatusRoot()
+	typedStatus := sm.object.Object["status"].(map[string]interface{})
+
+	annotations, ok := typedStatus["annotations"]
+	if !ok {
+		typedStatus["annotations"] = map[string]string{
+			key: value,
+		}
+		return nil
+	}
+
+	typedAnnotations, ok := annotations.(map[string]interface{})
+	if !ok {
+		return errors.New("unexpected type for status.annotations")
+	}
+
+	typedAnnotations[key] = value
+	return nil
+}

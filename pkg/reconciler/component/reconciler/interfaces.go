@@ -66,6 +66,7 @@ type StatusManager interface {
 	GetAddressURL() string
 	SetAddressURL(string)
 	SetValue(value interface{}, path ...string) error
+	SetAnnotation(key, value string) error
 }
 
 type StatusManagerFactory interface {
