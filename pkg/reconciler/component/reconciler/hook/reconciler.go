@@ -66,7 +66,9 @@ func (hr *hookReconciler) Reconcile(ctx context.Context, obj reconciler.Object) 
 		sm.SetCondition(&res.Status.Conditions[i])
 	}
 	for k, v := range res.Status.Annotations {
-		sm.SetAnnotation(k, v)
+		if err := sm.SetAnnotation(k, v); err != nil {
+			return err
+		}
 	}
 
 	return nil
