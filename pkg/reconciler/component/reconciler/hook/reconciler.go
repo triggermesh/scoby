@@ -53,17 +53,22 @@ func (hr *hookReconciler) Reconcile(ctx context.Context, obj reconciler.Object) 
 	// TODO use status and env vars
 	hr.log.V(5).Info("Response received from hook", "response", *res)
 
-	for _, ev := range res.EnvVars {
-		obj.AddEnvVar(addEnvsPrefix+ev.Name, &ev)
+	for i := range res.EnvVars {
+		obj.AddEnvVar(addEnvsPrefix+res.EnvVars[i].Name, &res.EnvVars[i])
 	}
 
 	if res.Status == nil {
 		return nil
 	}
 
-	for _, st := range res.Status.Conditions {
-		sm := obj.GetStatusManager()
-		sm.SetCondition(&st)
+	sm := obj.GetStatusManager()
+	for i := range res.Status.Conditions {
+		sm.SetCondition(&res.Status.Conditions[i])
+	}
+	for k, v := range res.Status.Annotations {
+		if err := sm.SetAnnotation(k, v); err != nil {
+			return err
+		}
 	}
 
 	return nil
