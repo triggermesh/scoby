@@ -23,7 +23,7 @@ metadata:
   labels:
     eventing.knative.dev/release: devel
     app.kubernetes.io/version: devel
-    app.kubernetes.io/name: knative-eventing
+    app.kubernetes.io/name: scoby
 aggregationRule:
   clusterRoleSelectors:
   - matchLabels:
@@ -40,7 +40,7 @@ metadata:
     eventing.knative.dev/release: devel
     duck.knative.dev/addressable: "true"
     app.kubernetes.io/version: devel
-    app.kubernetes.io/name: knative-eventing
+    app.kubernetes.io/name: scoby
 # Do not use this role directly. These rules will be added to the "addressable-resolver" role.
 rules:
 - apiGroups:
@@ -62,7 +62,7 @@ metadata:
     eventing.knative.dev/release: devel
     duck.knative.dev/addressable: "true"
     app.kubernetes.io/version: devel
-    app.kubernetes.io/name: knative-eventing
+    app.kubernetes.io/name: scoby
 # Do not use this role directly. These rules will be added to the "addressable-resolver" role.
 rules:
 - apiGroups:
@@ -87,7 +87,7 @@ metadata:
     eventing.knative.dev/release: devel
     duck.knative.dev/addressable: "true"
     app.kubernetes.io/version: devel
-    app.kubernetes.io/name: knative-eventing
+    app.kubernetes.io/name: scoby
 # Do not use this role directly. These rules will be added to the "addressable-resolver" role.
 rules:
 - apiGroups:
@@ -116,7 +116,7 @@ metadata:
     eventing.knative.dev/release: devel
     duck.knative.dev/addressable: "true"
     app.kubernetes.io/version: devel
-    app.kubernetes.io/name: knative-eventing
+    app.kubernetes.io/name: scoby
 # Do not use this role directly. These rules will be added to the "addressable-resolver" role.
 rules:
 - apiGroups:
@@ -139,7 +139,7 @@ metadata:
     eventing.knative.dev/release: devel
     duck.knative.dev/addressable: "true"
     app.kubernetes.io/version: devel
-    app.kubernetes.io/name: knative-eventing
+    app.kubernetes.io/name: scoby
 # Do not use this role directly. These rules will be added to the "addressable-resolver" role.
 rules:
 - apiGroups:
