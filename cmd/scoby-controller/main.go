@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"go.uber.org/automaxprocs/maxprocs"
+
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -39,6 +41,13 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	log := ctrl.Log
+
+	undo, err := maxprocs.Set()
+	if err != nil {
+		log.Error(err, "could not match available CPUs to processes")
+		os.Exit(1)
+	}
+	defer undo()
 
 	cfg, err := config.GetConfig()
 	if err != nil {
