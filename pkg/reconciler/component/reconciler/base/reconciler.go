@@ -71,6 +71,7 @@ type base struct {
 func (b *base) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	b.log.V(1).Info("Reconciling request", "request", req)
 
+	// If the object does not exist, skip reconciliation.
 	obj := b.objectManager.NewObject()
 	if err := b.client.Get(ctx, req.NamespacedName, obj.AsKubeObject()); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -78,32 +79,61 @@ func (b *base) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, er
 
 	b.log.V(5).Info("Object retrieved", "object", obj)
 
-	if !obj.GetDeletionTimestamp().IsZero() {
-		if b.hookReconciler != nil && b.hookReconciler.IsFinalizer() {
-
-			err := b.hookReconciler.Finalize(ctx, obj)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-
-			if !controllerutil.ContainsFinalizer(obj, componentFinalizer) {
-				return ctrl.Result{}, nil
-			}
-
-			// Removing the finalizer must succeed so that
-			// the registration is deleted.
-			controllerutil.RemoveFinalizer(obj, componentFinalizer)
-			return ctrl.Result{}, b.client.Update(ctx, obj.AsKubeObject())
-		}
-
-		// Return and let the ownership clean resources.
-		return ctrl.Result{}, nil
-	}
-
 	// create a copy, we will compare after reconciling
 	// and decide if we need to update or not.
 	cp := obj.AsKubeObject().DeepCopyObject()
 
+	// Initialize status according to the form factor if needed.
+	b.formFactorReconciler.InitializeStatus(obj)
+
+	var res ctrl.Result
+	var err error
+
+	if obj.GetDeletionTimestamp().IsZero() {
+		res, err = b.manageReconciliation(ctx, obj)
+
+	} else {
+		res, err = b.manageDeletion(ctx, obj)
+	}
+
+	// If there are changes to status, update it.
+	// Update status if needed.
+	if !semantic.Semantic.DeepEqual(
+		obj.AsKubeObject().(*unstructured.Unstructured).Object["status"],
+		cp.(*unstructured.Unstructured).Object["status"]) {
+		if uperr := b.client.Status().Update(ctx, obj.AsKubeObject()); uperr != nil {
+			if err == nil {
+				return ctrl.Result{}, uperr
+			}
+			b.log.Error(uperr, "could not update the object status")
+		}
+	}
+
+	return res, err
+}
+
+func (b *base) manageDeletion(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
+	if b.hookReconciler == nil ||
+		!b.hookReconciler.IsFinalizer() {
+		return ctrl.Result{}, nil
+	}
+
+	// When hooks are configured we need to call Finalize on the hook and
+	// then remove the finalizer attribute at the object.
+	if err := b.hookReconciler.Finalize(ctx, obj); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if !controllerutil.ContainsFinalizer(obj, componentFinalizer) {
+		return ctrl.Result{}, nil
+	}
+
+	controllerutil.RemoveFinalizer(obj, componentFinalizer)
+
+	return ctrl.Result{}, b.client.Update(ctx, obj.AsKubeObject())
+}
+
+func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
 	if b.hookReconciler != nil {
 		if b.hookReconciler.IsReconciler() {
 			if err := b.hookReconciler.Reconcile(ctx, obj); err != nil {
@@ -128,20 +158,5 @@ func (b *base) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, er
 		return ctrl.Result{}, err
 	}
 
-	res, err := b.formFactorReconciler.Reconcile(ctx, obj)
-
-	// If there are changes to status, update it.
-	// Update status if needed.
-	if !semantic.Semantic.DeepEqual(
-		obj.AsKubeObject().(*unstructured.Unstructured).Object["status"],
-		cp.(*unstructured.Unstructured).Object["status"]) {
-		if uperr := b.client.Status().Update(ctx, obj.AsKubeObject()); uperr != nil {
-			if err == nil {
-				return ctrl.Result{}, uperr
-			}
-			b.log.Error(uperr, "could not update the object status")
-		}
-	}
-
-	return res, err
+	return b.formFactorReconciler.Reconcile(ctx, obj)
 }

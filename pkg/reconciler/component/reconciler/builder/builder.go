@@ -54,6 +54,9 @@ func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefin
 		ffr = deployment.New(reg.GetName(), wkl, client, log)
 	}
 
+	// The status factory is created using the form factor's conditions
+	happy, all := ffr.GetStatusConditions()
+
 	var hr reconciler.HookReconciler
 	if h := reg.GetHook(); h != nil {
 		url := reg.GetStatusAnnotation(commonv1alpha1.CRDRegistrationAnnotationHookURL)
@@ -61,18 +64,18 @@ func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefin
 			return nil, fmt.Errorf("%s registration does not contain the %q status annotation",
 				reg.GetName(), commonv1alpha1.CRDRegistrationAnnotationHookURL)
 		}
-		log.Info("Configuring hook", "url", *url)
-		hr = hook.New(h, *url, log)
-	}
 
-	// The status factory is created using the form factor's conditions
-	happy, all := ffr.GetStatusConditions()
-
-	// Add conditions informed from a hook
-	if wkl.StatusConfiguration != nil {
-		for _, c := range wkl.StatusConfiguration.ConditionsFromHook {
-			all = append(all, c.Type)
+		// Add conditions informed from a hook
+		var cfh []commonv1alpha1.ConditionsFromHook
+		if wkl.StatusConfiguration != nil {
+			for _, c := range wkl.StatusConfiguration.ConditionsFromHook {
+				all = append(all, c.Type)
+			}
+			cfh = wkl.StatusConfiguration.ConditionsFromHook
 		}
+
+		log.Info("Configuring hook", "url", *url)
+		hr = hook.New(h, *url, cfh, log)
 	}
 
 	smf := basestatus.NewStatusManagerFactory(crdv, happy, all, log)

@@ -94,6 +94,32 @@ func (dr *deploymentReconciler) SetupController(name string, c controller.Contro
 
 	return nil
 }
+
+func (dr *deploymentReconciler) InitializeStatus(obj reconciler.Object) {
+	// Make sure Deployment and Status conditions exist set
+	sm := obj.GetStatusManager()
+
+	if sm.GetCondition(ConditionTypeDeploymentReady) == nil {
+		sm.SetCondition(&commonv1alpha1.Condition{
+			Type:               ConditionTypeDeploymentReady,
+			Status:             metav1.ConditionUnknown,
+			LastTransitionTime: metav1.Now(),
+			Reason:             "DeploymentUnknown",
+		})
+	}
+
+	if dr.formFactor != nil && dr.formFactor.Service != nil {
+		if sm.GetCondition(ConditionTypeServiceReady) == nil {
+			sm.SetCondition(&commonv1alpha1.Condition{
+				Type:               ConditionTypeServiceReady,
+				Status:             metav1.ConditionUnknown,
+				LastTransitionTime: metav1.Now(),
+				Reason:             "ServiceUnknown",
+			})
+		}
+	}
+}
+
 func (dr *deploymentReconciler) Reconcile(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
 	dr.log.V(1).Info("reconciling object instance", "object", obj)
 
