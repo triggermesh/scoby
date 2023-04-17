@@ -58,7 +58,7 @@ func (hr *hookReconciler) Reconcile(ctx context.Context, obj reconciler.Object) 
 		}
 	}
 
-	if upErr := hr.updateStatus(obj, res); upErr != nil {
+	if upErr := hr.updateStatus(obj, res, err); upErr != nil {
 		hr.log.Error(upErr, "could not update the object's status from the hook", "object", obj)
 	}
 
@@ -73,7 +73,7 @@ func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) e
 		return nil
 	}
 
-	if upErr := hr.updateStatus(obj, res); upErr != nil {
+	if upErr := hr.updateStatus(obj, res, err); upErr != nil {
 		hr.log.Error(upErr, "could not update the object's status from the hook", "object", obj)
 	}
 
@@ -144,12 +144,17 @@ func (hr *hookReconciler) IsFinalizer() bool {
 	return hr.isFinalizer
 }
 
-func (hr *hookReconciler) updateStatus(obj reconciler.Object, res *hookv1.HookResponse) error {
+func (hr *hookReconciler) updateStatus(obj reconciler.Object, res *hookv1.HookResponse, hookErr error) error {
 	sm := obj.GetStatusManager()
+
+	// Informed types keep track of conditions informed from the hook, those
+	// not informed will be defaulted next.
+	informedTypes := []string{}
 
 	if res != nil {
 		for i := range res.Status.Conditions {
 			sm.SetCondition(&res.Status.Conditions[i])
+			informedTypes = append(informedTypes, res.Status.Conditions[i].Type)
 		}
 		for k, v := range res.Status.Annotations {
 			if err := sm.SetAnnotation(k, v); err != nil {
@@ -158,19 +163,35 @@ func (hr *hookReconciler) updateStatus(obj reconciler.Object, res *hookv1.HookRe
 		}
 	}
 
+	condReason := "UNKNOWN"
+	condMessage := ""
+	if hookErr != nil {
+		condReason = "HOOKERROR"
+		condMessage = hookErr.Error()
+	}
+
 	// Fill missing statuses with unknown conditions.
 	for _, c := range hr.conditions {
-		if sm.GetCondition(c.Type) == nil {
-			sm.SetCondition(&commonv1alpha1.Condition{
-				Type:               c.Type,
-				Status:             metav1.ConditionUnknown,
-				LastTransitionTime: metav1.Now(),
-				Reason:             "UNKNOWN",
-			},
-			)
+		informed := false
+		for _, it := range informedTypes {
+			if c.Type == it {
+				informed = true
+				break
+			}
 		}
+
+		if informed {
+			continue
+		}
+
+		sm.SetCondition(&commonv1alpha1.Condition{
+			Type:               c.Type,
+			Status:             metav1.ConditionUnknown,
+			LastTransitionTime: metav1.Now(),
+			Reason:             condReason,
+			Message:            condMessage,
+		})
 	}
 
 	return nil
-
 }

@@ -237,6 +237,9 @@ func (sm *statusManager) GetCondition(conditionType string) *commonv1alpha1.Cond
 		return nil
 	}
 
+	// make sure conditions are available.
+	sm.sanitizeConditions()
+
 	existingConditions, _, _ := unstructured.NestedSlice(sm.object.Object, "status", "conditions")
 
 	for i := range existingConditions {
