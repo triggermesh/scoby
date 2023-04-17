@@ -91,6 +91,7 @@ type FormFactorReconciler interface {
 	GetStatusConditions() (happy string, all []string)
 	SetupController(name string, c controller.Controller, owner runtime.Object) error
 	Reconcile(context.Context, Object) (ctrl.Result, error)
+	InitializeStatus(obj Object)
 }
 
 type HookReconciler interface {

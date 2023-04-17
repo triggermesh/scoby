@@ -10,6 +10,8 @@ import (
 
 	"github.com/go-logr/logr"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	hookv1 "github.com/triggermesh/scoby/pkg/hook/v1"
 	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
@@ -22,17 +24,19 @@ const (
 type hookReconciler struct {
 	url         string
 	isFinalizer bool
+	conditions  []commonv1alpha1.ConditionsFromHook
 
 	log logr.Logger
 }
 
-func New(h *commonv1alpha1.Hook, url string, log logr.Logger) reconciler.HookReconciler {
-
+func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.ConditionsFromHook, log logr.Logger) reconciler.HookReconciler {
 	hr := &hookReconciler{
 		url: url,
-		log: log,
 		// by default finalization is considered implemented.
 		isFinalizer: true,
+		conditions:  conditions,
+
+		log: log,
 	}
 
 	if h.Finalization != nil && !*h.Finalization.Enabled {
@@ -46,42 +50,34 @@ func (hr *hookReconciler) Reconcile(ctx context.Context, obj reconciler.Object) 
 	hr.log.V(1).Info("Reconciling at hook", "obj", obj)
 
 	res, err := hr.requestHook(ctx, hookv1.OperationReconcile, obj)
-	if err != nil {
-		return err
-	}
+	if err == nil {
+		hr.log.V(5).Info("Response received from hook", "response", *res)
 
-	// TODO use status and env vars
-	hr.log.V(5).Info("Response received from hook", "response", *res)
-
-	for i := range res.EnvVars {
-		obj.AddEnvVar(addEnvsPrefix+res.EnvVars[i].Name, &res.EnvVars[i])
-	}
-
-	if res.Status == nil {
-		return nil
-	}
-
-	sm := obj.GetStatusManager()
-	for i := range res.Status.Conditions {
-		sm.SetCondition(&res.Status.Conditions[i])
-	}
-	for k, v := range res.Status.Annotations {
-		if err := sm.SetAnnotation(k, v); err != nil {
-			return err
+		for i := range res.EnvVars {
+			obj.AddEnvVar(addEnvsPrefix+res.EnvVars[i].Name, &res.EnvVars[i])
 		}
 	}
 
-	return nil
+	if upErr := hr.updateStatus(obj, res); upErr != nil {
+		hr.log.Error(upErr, "could not update the object's status from the hook", "object", obj)
+	}
+
+	return err
 }
 
 func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) error {
 	hr.log.V(1).Info("Finalizing at hook", "obj", obj)
 
-	if _, err := hr.requestHook(ctx, hookv1.OperationFinalize, obj); err != nil {
-		return err
+	res, err := hr.requestHook(ctx, hookv1.OperationFinalize, obj)
+	if err == nil {
+		return nil
 	}
 
-	return nil
+	if upErr := hr.updateStatus(obj, res); upErr != nil {
+		hr.log.Error(upErr, "could not update the object's status from the hook", "object", obj)
+	}
+
+	return err
 }
 
 func (hr *hookReconciler) requestHook(ctx context.Context, operation hookv1.Operation, obj reconciler.Object) (*hookv1.HookResponse, error) {
@@ -146,4 +142,35 @@ func (hr *hookReconciler) IsReconciler() bool {
 
 func (hr *hookReconciler) IsFinalizer() bool {
 	return hr.isFinalizer
+}
+
+func (hr *hookReconciler) updateStatus(obj reconciler.Object, res *hookv1.HookResponse) error {
+	sm := obj.GetStatusManager()
+
+	if res != nil {
+		for i := range res.Status.Conditions {
+			sm.SetCondition(&res.Status.Conditions[i])
+		}
+		for k, v := range res.Status.Annotations {
+			if err := sm.SetAnnotation(k, v); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Fill missing statuses with unknown conditions.
+	for _, c := range hr.conditions {
+		if sm.GetCondition(c.Type) == nil {
+			sm.SetCondition(&commonv1alpha1.Condition{
+				Type:               c.Type,
+				Status:             metav1.ConditionUnknown,
+				LastTransitionTime: metav1.Now(),
+				Reason:             "UNKNOWN",
+			},
+			)
+		}
+	}
+
+	return nil
+
 }

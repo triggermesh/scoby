@@ -274,7 +274,7 @@ func (sm *statusManager) GetCondition(conditionType string) *commonv1alpha1.Cond
 		}
 	}
 
-	sm.log.Info("Status condition not found", "type", conditionType)
+	sm.log.V(2).Info("Status condition not found", "type", conditionType)
 	return nil
 }
 
