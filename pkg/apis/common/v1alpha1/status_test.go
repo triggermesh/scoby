@@ -480,3 +480,36 @@ func TestStatusManagerSetCondition(t *testing.T) {
 		})
 	}
 }
+
+func TestConditionByType(t *testing.T) {
+	cs := Conditions{
+		{Type: "condition1"},
+		{Type: "condition2"},
+		{Type: "condition3"},
+	}
+
+	testCases := map[string]struct {
+		conditions    Conditions
+		searchType    string
+		expectedFound bool
+	}{
+		"found": {
+			conditions:    cs,
+			searchType:    "condition1",
+			expectedFound: true,
+		},
+		"not found": {
+			conditions:    cs,
+			searchType:    "condition4",
+			expectedFound: false,
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			res := tc.conditions.GetByType(tc.searchType)
+			assert.True(t, tc.expectedFound == (res != nil), "Condition set and search type do not properly match")
+		})
+	}
+
+}
