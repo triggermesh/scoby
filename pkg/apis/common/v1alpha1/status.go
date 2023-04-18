@@ -62,6 +62,18 @@ type Condition struct {
 // Conditions is the schema for the conditions portion of the payload
 type Conditions []Condition
 
+// Given a type returns a pointer to the condition that holds it,
+// nil if it does not exist.
+func (cs Conditions) GetByType(t string) *Condition {
+	for i := range cs {
+		if cs[i].Type == t {
+			return &cs[i]
+		}
+	}
+
+	return nil
+}
+
 type Status struct {
 	// ObservedGeneration is the 'Generation' of the Object that
 	// was last processed by the controller.
