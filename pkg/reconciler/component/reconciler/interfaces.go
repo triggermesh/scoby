@@ -97,6 +97,7 @@ type FormFactorReconciler interface {
 type HookReconciler interface {
 	Reconcile(context.Context, Object) error
 	Finalize(context.Context, Object) error
-	IsReconciler() bool
+	IsPreReconciler() bool
+	IsPostReconciler() bool
 	IsFinalizer() bool
 }

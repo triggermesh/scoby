@@ -22,9 +22,12 @@ const (
 )
 
 type hookReconciler struct {
-	url         string
-	isFinalizer bool
-	conditions  []commonv1alpha1.ConditionsFromHook
+	url        string
+	conditions []commonv1alpha1.ConditionsFromHook
+
+	isPreReconciler  bool
+	isPostReconciler bool
+	isFinalizer      bool
 
 	log logr.Logger
 }
@@ -32,15 +35,14 @@ type hookReconciler struct {
 func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.ConditionsFromHook, log logr.Logger) reconciler.HookReconciler {
 	hr := &hookReconciler{
 		url: url,
-		// by default finalization is considered implemented.
-		isFinalizer: true,
-		conditions:  conditions,
+
+		isPreReconciler:  h.Capabilities.IsPreReconciler(),
+		isPostReconciler: h.Capabilities.IsPostReconciler(),
+		isFinalizer:      h.Capabilities.IsFinalizer(),
+
+		conditions: conditions,
 
 		log: log,
-	}
-
-	if h.Finalization != nil && !*h.Finalization.Enabled {
-		hr.isFinalizer = false
 	}
 
 	return hr
@@ -135,9 +137,12 @@ func (hr *hookReconciler) requestHook(ctx context.Context, operation hookv1.Oper
 	return hres, nil
 }
 
-func (hr *hookReconciler) IsReconciler() bool {
-	// For now all hooks are reconcilers
-	return true
+func (hr *hookReconciler) IsPreReconciler() bool {
+	return hr.isPreReconciler
+}
+
+func (hr *hookReconciler) IsPostReconciler() bool {
+	return hr.isPostReconciler
 }
 
 func (hr *hookReconciler) IsFinalizer() bool {

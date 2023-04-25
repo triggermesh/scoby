@@ -135,7 +135,7 @@ func (b *base) manageDeletion(ctx context.Context, obj reconciler.Object) (ctrl.
 
 func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
 	if b.hookReconciler != nil {
-		if b.hookReconciler.IsReconciler() {
+		if b.hookReconciler.IsPreReconciler() {
 			if err := b.hookReconciler.Reconcile(ctx, obj); err != nil {
 				return ctrl.Result{}, fmt.Errorf("reconciling hook: %w", err)
 			}

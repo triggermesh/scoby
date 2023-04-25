@@ -5,24 +5,31 @@ package v1alpha1
 
 import "knative.dev/pkg/apis"
 
+type HookCapability string
+type HookCapabilities []HookCapability
+
+type HookAPIVersion string
+
 const (
 	CRDRegistrationAnnotationHookURL = "hookURL"
+
+	HookCapabilityPreReconcile HookCapability = "pre-reconcile"
+	HookCapabilityFinalize     HookCapability = "finalize"
+
+	HookAPIVersionV1 HookAPIVersion = "v1"
 )
 
 type Hook struct {
+	Version HookAPIVersion `json:"version"`
+
 	Address Address `json:"address"`
 
 	// Timeout for hook calls.
 	// +optional
 	Timeout *string `json:"timeout"`
 
-	// Initialization configuration for the hook
-	// +optional
-	Initialization *HookServiceConfiguration `json:"initialization,omitempty"`
-
-	// Finalization configuration for the hook
-	// +optional
-	Finalization *HookServiceConfiguration `json:"finalization,omitempty"`
+	// Capabilities that a hook implements.
+	Capabilities HookCapabilities `json:"capabilities,omitempty"`
 }
 
 type Address struct {
@@ -57,13 +64,27 @@ type Reference struct {
 	APIVersion string `json:"apiVersion,omitempty"`
 }
 
-// Initialization configuration for the hook
-type HookServiceConfiguration struct {
-	// Whether the hook service is supported.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
+func (hc HookCapabilities) IsFinalizer() bool {
+	for i := range hc {
+		if hc[i] == HookCapabilityFinalize {
+			return true
+		}
+	}
 
-	// API version implemented by the hook service.
-	// +optional
-	APIVersion *string `json:"apiVersion,omitempty"`
+	return false
+}
+
+func (hc HookCapabilities) IsPreReconciler() bool {
+	for i := range hc {
+		if hc[i] == HookCapabilityPreReconcile {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (hc HookCapabilities) IsPostReconciler() bool {
+	// not implemented.
+	return false
 }

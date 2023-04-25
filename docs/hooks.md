@@ -40,8 +40,7 @@ spec:
     # ISO 8601 duration
     timeout: PT10S
 
-    # Capabilities that the hook implement. When not informed "pre-reconcile" and
-    # "finalize" are assumed.
+    # Capabilities that the hook implement.
     #
     # "pre-reconcile" is called before Scoby executes the generated object rendering from the reconiler.
     # "post-reconcile" (Not implemented) is called at reconciliation after Scoby has rendered.
