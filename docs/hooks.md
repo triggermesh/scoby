@@ -1,4 +1,4 @@
-# (NOT IMPLEMENTED) Controller Hooks
+# Controller Hooks
 
 Scoby reconciliation process is limited to the form factor and environment variable generation capabilities due to its declarative nature.
 
@@ -9,7 +9,7 @@ For cases where further control is needed hooks can be used at reconciliation cy
 A Hook is defined within a registration, and points to either an URI or a reference to an addressable object or a service. When a reconciliation cycle occurs Scoby identifies if the objject is being deleted or not, and sends a reconciliation request to the Hook address that includes:
 
 - a reference to the object (namespace, name, apiVersion, kind)
-- the operation being executed (reconcile or finalize)
+- hook's capabilities, that is, what operations it supports
 
 To register a hook, use the `spec.hook` element in the registration.
 
@@ -21,6 +21,9 @@ metadata:
 spec:
   crd: kuards.extensions.triggermesh.io
   hook:
+    # Hook API implemented version.
+    version: 1
+
     address:
       # URI
       uri: http://my-hook-service
@@ -37,15 +40,16 @@ spec:
     # ISO 8601 duration
     timeout: PT10S
 
-    # Initialization and finalization are the 2 operations available, which
-    # are enabled by default and will use the latest version if not explicitly
-    # indicated.
-    initialization:
-      enabled: true
-      apiVersion: 1
-    finalization:
-      enabled: true
-      apiVersion: 1
+    # Capabilities that the hook implement. When not informed "pre-reconcile" and
+    # "finalize" are assumed.
+    #
+    # "pre-reconcile" is called before Scoby executes the generated object rendering from the reconiler.
+    # "post-reconcile" (Not implemented) is called at reconciliation after Scoby has rendered.
+    # "finalization" is called when an object has been deleted.
+    capabilities:
+    - pre-reconcile
+    - post-reconcile
+    - finalize
 
   workload:
     formFactor:
@@ -75,7 +79,11 @@ The Hook is called at each reconciliation.
 
 Hooks use JSON payloads at both request and response.
 
-Request contains the object reference and operation, which can be `reconcile` or `finalize`.
+Request contains the object reference and phase, which can be `pre-reconcile`, `post-reconcile` or `finalize`.
+
+### Phase: pre-reconcile
+
+`pre-reconcile` phase request includes a reference to the object that is being reconciled.
 
 ```json
 {
@@ -85,30 +93,75 @@ Request contains the object reference and operation, which can be `reconcile` or
         "namespace": "my-namespace",
         "name": "my-kuard"
     },
-    "operation": "reconcile"
+    "phase": "pre-reconcile"
 }
 ```
 
-Response contains the status conditions and environment variables.
-If the status conditions are not `True` Scoby will update the object's status and stop the reconciliation.
+The response from the hook might include information about:
+
+- `error`: to be filled if a processing error occurs. `permanent` subfield might be added to specify if the error should trigger a new reconciliation. `halt` is used to indicate if the reconciliation logic should stop after this error.
 
 ```json
 {
-    "status": {
-        "conditions":
-        [
-            {
-                "type": "KuardReady",
-                "status": "True"
-            }
-        ]
-    },
-    "envVars":
-    [
-        {
-            "key": "MY_ENV",
-            "value": "value1"
-        }
-    ]
+  "error": {
+    "message": "some error",
+    "permantent": "true|false",
+    "halt": "true|false"
+  },
+  "patches": [
+    {"main":"object"},
+    {"service":"account"}
+  ]
 }
 ```
+
+### Phase: post-reconcile
+
+`post-reconcile` phase request includes a reference to the object that is being reconciled plus a list of the rendered objects that Scoby produces.
+
+Note: `post-reconcile`  IS NOT IMPLEMENTED YET.
+
+```json
+{
+    "object": {
+        "apiVersion": "v1alpha1",
+        "kind": "Kuard",
+        "namespace": "my-namespace",
+        "name": "my-kuard"
+    },
+    "rendered": [...],
+    "phase": "post-reconcile"
+}
+```
+
+### Phase: finalize
+
+`finalize` phase request includes a reference to the object that is being reconciled.
+
+```json
+{
+    "object": {
+        "apiVersion": "v1alpha1",
+        "kind": "Kuard",
+        "namespace": "my-namespace",
+        "name": "my-kuard"
+    },
+    "phase": "finalize"
+}
+```
+
+The response from the hook might include information about:
+
+- `error`: to be filled if a processing error occurs. `permanent` subfield might be added to specify if the error should trigger a new reconciliation. `halt` is used to indicate if the reconciliation logic should stop after this error.
+
+```json
+{
+  "error": {
+    "message": "some error",
+    "permantent": "true|false",
+    "halt": "true|false"
+  },
+}
+```
+
+When returning an error the `halt` element is used to determine if the finalizer should be removed from the object or not; `true` means that the finalizer would not be removed from the object.
