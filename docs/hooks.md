@@ -133,6 +133,36 @@ Note: `post-reconcile`  IS NOT IMPLEMENTED YET.
 }
 ```
 
+### Reconcile response
+
+The response from the reconcile hook might include information about:
+
+- `error`: to be filled if a processing error occurs. `permanent` subfield might be added to specify if the error should trigger a new reconciliation. `continue` is used to indicate if the reconciliation logic should continue after this error.
+- `workload`: contains a `podSpec` and `serviceAccount` object that will be merged with those generated at Scoby.
+- `status`: constains `conditions` and `annotations` that can be added from the hook to the reconciled object.
+
+```json
+{
+  "error": {
+    "message": "some error",
+    "permantent": "true|false",
+    "continue": "true|false"
+  },
+  "workload ": {
+    "podSpec": {...},
+    "serviceAccount": {...}
+  },
+  "status": {
+
+  }
+}
+```
+
+- A hook reconciliation that succeeds won't return an error.
+- If the hook is responsible for a status condition, it must be present in every response.
+- Any extra status reported from the hook should be informed in the `status.annotation` map.
+- An empty response is valid in the case that no error occurs, the generated workload does not need to be added any element, and the hook does not take care of any status condition.
+
 ### Phase: finalize
 
 `finalize` phase request includes a reference to the object that is being reconciled.
@@ -149,18 +179,16 @@ Note: `post-reconcile`  IS NOT IMPLEMENTED YET.
 }
 ```
 
-The response from the hook might include information about:
+### Finalize response
 
-- `error`: to be filled if a processing error occurs. `permanent` subfield might be added to specify if the error should trigger a new reconciliation. `halt` is used to indicate if the reconciliation logic should stop after this error.
+The response from the finalize hook call might include the same information as the reconcile response but the workload.
 
 ```json
 {
   "error": {
     "message": "some error",
     "permantent": "true|false",
-    "halt": "true|false"
+    "continue": "true|false"
   },
 }
 ```
-
-When returning an error the `halt` element is used to determine if the finalizer should be removed from the object or not; `true` means that the finalizer would not be removed from the object.

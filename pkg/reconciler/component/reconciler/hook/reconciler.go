@@ -51,12 +51,16 @@ func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.Conditi
 func (hr *hookReconciler) Reconcile(ctx context.Context, obj reconciler.Object) error {
 	hr.log.V(1).Info("Reconciling at hook", "obj", obj)
 
-	res, err := hr.requestHook(ctx, hookv1.OperationReconcile, obj)
+	res, err := hr.requestHook(ctx, commonv1alpha1.HookCapabilityPreReconcile, obj)
 	if err == nil {
 		hr.log.V(5).Info("Response received from hook", "response", *res)
 
-		for i := range res.EnvVars {
-			obj.AddEnvVar(addEnvsPrefix+res.EnvVars[i].Name, &res.EnvVars[i])
+		if res.Workload != nil && res.Workload.PodSpec != nil &&
+			len(res.Workload.PodSpec.Containers) > 0 {
+			ev := res.Workload.PodSpec.Containers[0].Env
+			for i := range ev {
+				obj.AddEnvVar(addEnvsPrefix+ev[i].Name, &ev[i])
+			}
 		}
 	}
 
@@ -70,7 +74,7 @@ func (hr *hookReconciler) Reconcile(ctx context.Context, obj reconciler.Object) 
 func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) error {
 	hr.log.V(1).Info("Finalizing at hook", "obj", obj)
 
-	res, err := hr.requestHook(ctx, hookv1.OperationFinalize, obj)
+	res, err := hr.requestHook(ctx, commonv1alpha1.HookCapabilityFinalize, obj)
 	if err == nil {
 		return nil
 	}
@@ -82,7 +86,7 @@ func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) e
 	return err
 }
 
-func (hr *hookReconciler) requestHook(ctx context.Context, operation hookv1.Operation, obj reconciler.Object) (*hookv1.HookResponse, error) {
+func (hr *hookReconciler) requestHook(ctx context.Context, phase commonv1alpha1.HookCapability, obj reconciler.Object) (*hookv1.HookResponse, error) {
 	r := &hookv1.HookRequest{
 		Object: commonv1alpha1.Reference{
 			APIVersion: obj.GetObjectKind().GroupVersionKind().GroupVersion().String(),
@@ -90,7 +94,7 @@ func (hr *hookReconciler) requestHook(ctx context.Context, operation hookv1.Oper
 			Namespace:  obj.GetNamespace(),
 			Name:       obj.GetName(),
 		},
-		Operation: operation,
+		Phase: phase,
 	}
 	b, err := json.Marshal(r)
 	if err != nil {
@@ -124,7 +128,7 @@ func (hr *hookReconciler) requestHook(ctx context.Context, operation hookv1.Oper
 	}
 
 	// Finalize do not expect data returned
-	if operation == hookv1.OperationFinalize {
+	if phase == commonv1alpha1.HookCapabilityFinalize {
 		return nil, nil
 	}
 
