@@ -50,6 +50,9 @@ type HookResponse struct {
 // HookResponseFinalize is the expected finalize reply from configured hooks.
 type HookResponseFinalize struct {
 	Error *HookResponseError `json:"error,omitempty"`
+
+	// Status whose elements should be merged with those that Scoby creates.
+	Status *commonv1alpha1.Status `json:"status,omitempty"`
 }
 
 // HookResponseError contains the information that Scoby needs to

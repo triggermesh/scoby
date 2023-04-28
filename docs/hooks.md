@@ -190,5 +190,8 @@ The response from the finalize hook call might include the same information as t
     "permantent": "true|false",
     "continue": "true|false"
   },
+  "status": {
+
+  }
 }
 ```
