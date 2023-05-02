@@ -15,33 +15,11 @@ Generic Kubernetes controller for simple workloads.
 
 Scoby is a controller that creates controllers dynamically :infinity:, and makes it easy to manage your application instances as Kubernetes objects.
 
-In shoft, Scoby is the shortest path between your application's container image and Kubernetes end users.
+In a nutshell, Scoby is the shortest path between your application's container image and Kubernetes end users.
 
 ![scoby user overview](docs/assets/images/scoby-user-overview.png)
 
 Given a container image containinng an application, a Kubernetes CRD that defines the application spec, and an Scoby registration that configures rendering, end users will be able to manage instances of your application at Kubernetes.
-
-## Primer
-
-There are 3 steps needed to create your Kubernetes native application:
-
-- Build the image: create a container image that Scoby can use. Parameters need to be passed via environment variables.
-- Create the CRD: Scoby will use the CRD elements to create the environment variables that your application needs. Make sure your add all your validations via CRD.
-- Create the CRDRegistration: the registration informs Scoby about how the CRD elements are transformed into environment variables, what image to use, and what type of workload should be created.
-
-A registration could look as simple as this:
-
-```yaml
-apiVersion: scoby.triggermesh.io/v1alpha1
-kind: CRDRegistration
-metadata:
-  name: myapp
-spec:
-  crd: myapp.myorganization.io
-  workload:
-    fromImage:
-      repo: myorganization/myapp:v1
-```
 
 ## Install
 
@@ -64,6 +42,91 @@ Development version can be installed using [ko](https://github.com/ko-build/ko)
 ```console
 ko apply -f ./config
 ```
+
+## Primer
+
+In this primer we are setting up the minimal registration to start using Scoby and allow Kubernetes users to create instances of your example application.
+
+There are 4 requirements to configure an application at Scoby:
+
+- Container image.
+- Custom Resource Definition file (CRD).
+- ClusterRoles on the CRD to allow Scoby to manage it.
+- CRD Registration for Scoby.
+
+### Kuard Image
+
+We need a container image that Scoby can use, and that will receive parameters via environment variables.
+
+In this primer (and at some other samples) we are using the [Kuard application]((https://github.com/kubernetes-up-and-running/kuard)) image which was created by the authors of Kubernetes Up and Ready book, and runs a web server that enables us to inspect the environment variables configured.
+
+The image is available at `gcr.io/kuar-demo/kuard-amd64:blue`
+
+### Kuard CRD
+
+Kubernetes can serve third party objects using [CRDs](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/).
+
+Scoby users need to create a CRD schema containing the fields that Kubernetes end users will provide to create new instances of the chosen container image.
+
+By default each CRD schema field will generate an environment variable at the container, but rendering can be highly customized.
+
+```yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: kuards.extensions.triggermesh.io
+spec:
+  group: extensions.triggermesh.io
+  scope: Namespaced
+  names:
+    plural: kuards
+    singular: kuard
+    kind: Kuard
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                # Primer Scoby sample variable
+                primer:
+                  type: string
+```
+
+The CRD above defines a `kuard` resource with an schema that lets users define a value for `spec.primer` as a string. It lacks validations, complex structures and status but is still good to get to know Scoby.
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/00.primer/01.kuard-crd.yaml
+```
+
+### Kuard ClusterRoles
+
+### CRD Registration
+
+- Create the CRDRegistration: the registration informs Scoby about how the CRD elements are transformed into environment variables, what image to use, and what type of workload should be created.
+
+A registration could look as simple as this:
+
+```yaml
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: myapp
+spec:
+  crd: myapp.myorganization.io
+  workload:
+    fromImage:
+      repo: myorganization/myapp:v1
+```
+
+Once the registration is created Scoby will spin up a controller that reconciles `myapp` resource instances created by end users and creates a workload for them. Scoby takes care of rendering the workload according to the registration data, and maintain the status according to the registered CRD.
+
+![scoby end user overview](docs/assets/images/scoby-end-user-overview.png)
 
 ## Usage
 
