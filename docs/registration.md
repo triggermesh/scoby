@@ -1,19 +1,28 @@
 # Registration
 
-Registrations are the objects that drive Scoby controllers to manage users CRDs.
+Registrations are objects that informs the Scoby controller to manage custom objects.
 
 Right now only the `CRDRegistration` object is available, but new registration could be created pursuing a better user experience.
 
-(New registrations should expose to users a custom YAML and internally convert their data into `CRDRegistration`.)
+Registration CRD has 3 elements under its spec:
 
-## Registration CRD
+- `spec.crd` be provided and should point to an existing CRD whose instances will be watched by the controller.
+- `spec.workload` must be provided and inform of the container image to be used for each instance of the registered object and the form factor it should create.
+- `spec.hook` is an optional element that allows the reconciliation process to call an external service to provide extended functionality to Scoby.
 
-Registration CRD needs information about:
+## CRD
 
-- CRD: this must be provided by users, and should contain the user data under the `.spec` element and a standard `.status` [Kubernetes structure](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status).
-- Workload: must inform the container image to be used for each instance of the registered object and form factor it should create, which by default is a regular `Deployment`.
+Any CRD is subject to be controlled by Scoby, although it is a recommended practice to get familiar with Scoby registration and to keep it simple, provide parameter transformation from Kubernetes objects to environment variables, and obtain meaningful statuses.
 
+Scoby does not perform validation on user objects, registered CRDs should rely on  Kubernetes OpenAPI validation features.
 
+When designing your CRD make sure that user provided data lives under the `.spec` element, all subelements will be considered for being transformed into environment variables.
+
+It is highly recommended to follow `.status` [Kubernetes status structure](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status) conventions to make sure Scoby fills provides accurate status. Scoby can also fill information for exposed URL, observed generation and annotations as [described here](./status.md).
+
+## Workload
+
+, which by default is a regular `Deployment`.
 Scoby needs to be granted permissions to manage the CRD. This can be done creating a `ClusterRole` that contains the label `scoby.triggermesh.io/crdregistration: true`, and the permissions that it needs. You can use this template:
 
 ```yaml
