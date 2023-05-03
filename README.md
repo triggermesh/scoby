@@ -215,7 +215,7 @@ NAME                            TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)
 service/kuard-primer-instance   ClusterIP   10.98.247.15   <none>        80/TCP    1m00s
 ```
 
-The service can be forwarded to be able to reach `kuard` using `http://localhost:8888.
+The service can be forwarded to be able to reach `kuard` using `http://localhost:8888`.
 
 ```console
 kubectl port-forward svc/kuard-primer-instance  8888:80
