@@ -120,14 +120,11 @@ rules:
 
 ---
 
-# Use this aggregated ClusterRole to grant Scoby premissions on
+# Use this aggregated ClusterRole to grant Scoby permissions on
 # objects at CRDRegistrations.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  # There might be an addressable-resolver ClusterRole if Knative Eventing is installed.
-  # This would be a duplicate for TriggerMesh's scoby that would add support for scenarios
-  # where Knative Eventing is not installed but Knative Serving is.
   name: crd-registrations-scoby
   labels:
     eventing.knative.dev/release: devel
