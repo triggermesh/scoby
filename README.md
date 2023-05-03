@@ -240,53 +240,44 @@ kubectl delete clusterroles crd-registrations-scoby-kuard
 kubectl delete crd kuards.extensions.triggermesh.io
 ```
 
-## Usage
+## Recommendations
 
-Any valid CRD that is valid for Kubernetes will work with Scoby. If the CRD contains the status subresource and it adheres to the [recommended structure](docs/status.md), Scoby will fill it upon reconciliation.
+After following the [primer example](#primer) we can start generalizing usage, starting with a set of facts:
 
-A `CRDRegistration` object contains:
+- Any image can be registered at Scoby
+- Any CRD can be registered at Scoby.
+- If the CRD status subresource exists and adheres to a recommended structure it will report accurate status information when reconciled.
+- The registration objects are Scoby configuration assets.
+- Registration object reconciliations can be extended by hooks.
 
-- `formFactor` determines the objects that will be created for each instance of the Custom Resource created.
-- `parameterConfiguration` hints how to parse elements in the Custom Resource to convert them to environment variables that will be consumed by the container.
+Our recommended approach to use Scoby is:
 
-This example registration creates a controller for the user provided CRD `my-example.existing.crd` and image `my-repo/my-example:v1.0.0`:
+- When developing your application and creating the container images, make sure you follow the 12 factor application methodology, specifically the [configuration](https://12factor.net/config) section that recommends using envrionment variables as application parameters.
 
-```yaml
-apiVersion: scoby.triggermesh.io/v1alpha1
-kind: CRDRegistration
-metadata:
-  name: my-example-registration
-spec:
-  crd: my-example.existing.crd
-  workload:
-    formFactor:
-      deployment:
-        replicas: 1
-        service:
-          port: 80
-          targetPort: 8080
-    fromImage:
-      repo: my-repo/my-example:v1.0.0
-    parameterConfiguration:
-      customize:
-      - path: spec.account.name
-        render:
-          key: MY_EXAMPLE_AUTH_USER
-      - path: spec.account.passwordSecret
-        render:
-          key: MY_EXAMPLE_AUTH_PASSWORD
-          valueFromSecret:
-            name: spec.account.passwordSecret.name
-            key: spec.account.passwordSecret.key
-```
+- If will be useful to read :bookmark_tabs: [Scoby Registrations documentation](docs/registration.md) and make sure that environment variables names will be aligned with the CRD spec, hence the Scoby Registration looking simpler.
 
-- At the `spec.workload.formFactor` section it is instructed to create a deployment and connect it with a service that will expose port 80 externally and redirect requests to 8080 at the container.
-- The image for the deployment is referenced at `.spec.workload.fromImage.repo`
-- Parameters for the deployment's container will be customized following `.spec.workload.parameterConfiguration` rules.
-  - If Custom Resources created by users contain a `.spec.account.name` element, an environment variable named `MY_EXAMPLE_AUTH_USER` will be created using the element's value.
-  - If Custom Resources created by users contain a `.spec.account.passwordSecret` element, an environment variable named `MY_EXAMPLE_AUTH_PASSWORD` will be created using a Kubernetes secret reference as value.
+- Refer to [Kubernetes documentation](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/) for creating CRDs. We encourage you to follow :bookmark_tabs: [these status patterns](docs/status.md) when designing your custom objects. Upon registration Scoby will inspect the CRD status subresource searching for those patterns and when found, will be used to write object instances status.
 
-For further information
+- Scoby :bookmark_tabs: [CRD Registration](docs/registration.md) contains the core settings at `spec.workload`, which contains most of the configuration that you can do at an Scoby Registration. We recommend starting with the minimal information, that would be the container image to use and the form factor to render, check the results and transform environments variables iteratively.
 
-- :computer_mouse: Start using Scoby with the [getting started guide](docs/getting-started/README.md).
-- :bookmark_tabs: Learn more about registration at the [registration documentation](docs/registration.md).
+- When users require functionality not built-in at Scoby, [Hooks](docs/hooks.md) can be used. They provide mechanisms to do custom reconciling, add environment variables to the workload and inform statuses. For security reasons they are not allowed to manage objects that are not part of Scoby's workload. :warning: Hooks are experimental :warning:
+
+- Other than the documentation linked at the bullets above, we have put togheter a :computer_mouse: [getting started guide](docs/getting-started/README.md) that will get you through most of the rendering cases that Scoby supports.
+
+## Contributing
+
+We would be extremely happy to see you contributing to Scoby. Please refer to our [guidelines for contributors](docs/contributing.md).
+
+## Commercial Support
+
+TriggerMesh Inc. offers commercial support for the TriggerMesh platform. Email us at <info@triggermesh.com> to get more
+details.
+
+## License
+
+This software is licensed under the [Apache License, Version 2.0][asl2].
+
+Additionally, the End User License Agreement included in the [`EULA.pdf`](EULA.pdf) file applies to compiled
+executables and container images released by TriggerMesh Inc.
+
+[asl2]: https://www.apache.org/licenses/LICENSE-2.0
