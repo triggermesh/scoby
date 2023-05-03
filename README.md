@@ -223,7 +223,7 @@ kubectl port-forward svc/kuard-primer-instance  8888:80
 
 Open the URL and navigate to `Server Env` option at the vertical menu. You should find that the `.spec.primer` element at the spec has been reflected as `PRIMER` environment variable at the running pod.
 
-![kuard primer env vars](docs/assets/images/primer/kuard-primer-env-vars.png)
+![kuard primer env vars](docs/assets/primer/kuard-primer-env-vars.png)
 
 Without requiring any coding, Kubernetes users can now create `kuard` instances at their namespaces and Scoby will reconcile them through their lifecycle.
 
