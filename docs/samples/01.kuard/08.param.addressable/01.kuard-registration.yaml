@@ -20,7 +20,7 @@ spec:
       # Resolve an address
       - path: spec.refToAddress
         render:
-          key: FOO_SINK
+          name: FOO_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
     statusConfiguration:

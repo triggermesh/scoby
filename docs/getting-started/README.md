@@ -400,7 +400,7 @@ spec:
       # Rename variable2
       - path: spec.variable2
         render:
-          key: KUARD_VARIABLE_TWO
+          name: KUARD_VARIABLE_TWO
 ```
 
 Create the registration:
@@ -562,7 +562,7 @@ spec:
       # Reference a secret
       - path: spec.refToSecret
         render:
-          key: FOO_CREDENTIALS
+          name: FOO_CREDENTIALS
           valueFromSecret:
             name: spec.refToSecret.secretName
             key: spec.refToSecret.secretKey
@@ -765,7 +765,7 @@ spec:
       # Resolve an address
       - path: spec.refToAddress
         render:
-          key: FOO_SINK
+          name: FOO_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
     statusConfiguration:
