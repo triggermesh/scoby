@@ -77,9 +77,9 @@ type CustomizeParameterConfiguration struct {
 // ParameterRenderConfiguration are the customization options for an specific
 // parameter generation.
 type ParameterRenderConfiguration struct {
-	// Key is the name of the parameter to be created.
+	// Name is the name of the parameter to be created.
 	// +optional
-	Key *string `json:"key,omitempty"`
+	Name *string `json:"name,omitempty"`
 
 	// Value is a literal value to be assigned to the parameter.
 	// +optional
@@ -139,14 +139,14 @@ func (prc *ParameterRenderConfiguration) IsSkip() bool {
 	return *prc.Skip
 }
 
-// GetKey returns the key defined at the parameter rendering
+// GetName returns the key defined at the parameter rendering
 // configuration.
 // Returns an empty string if not defined.
-func (prc *ParameterRenderConfiguration) GetKey() string {
-	if prc == nil || prc.Key == nil {
+func (prc *ParameterRenderConfiguration) GetName() string {
+	if prc == nil || prc.Name == nil {
 		return ""
 	}
-	return *prc.Key
+	return *prc.Name
 }
 
 // StatusConfiguration contains instructions to modify status generation for
