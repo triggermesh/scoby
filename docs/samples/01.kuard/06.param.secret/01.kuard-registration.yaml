@@ -20,7 +20,7 @@ spec:
       # Reference a secret
       - path: spec.refToSecret
         render:
-          key: FOO_CREDENTIALS
+          name: FOO_CREDENTIALS
           valueFromSecret:
             name: spec.refToSecret.secretName
             key: spec.refToSecret.secretKey

@@ -208,9 +208,9 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 			continue
 		}
 
-		// If key is overriden by customization set it, if not
+		// If name is overriden by customization set it, if not
 		// apply global prefix.
-		if key := renderConfig.GetKey(); key != "" {
+		if key := renderConfig.GetName(); key != "" {
 			ev.Name = key
 		} else if prefix := r.global.GetDefaultPrefix(); prefix != "" {
 			ev.Name = prefix + ev.Name

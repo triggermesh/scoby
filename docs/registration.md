@@ -20,9 +20,6 @@ When designing your CRD make sure that user provided data lives under the `.spec
 
 It is highly recommended to follow `.status` [Kubernetes status structure](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status) conventions to make sure Scoby fills provides accurate status. Scoby can also fill information for exposed URL, observed generation and annotations as [described here](./status.md).
 
-## Workload
-
-, which by default is a regular `Deployment`.
 Scoby needs to be granted permissions to manage the CRD. This can be done creating a `ClusterRole` that contains the label `scoby.triggermesh.io/crdregistration: true`, and the permissions that it needs. You can use this template:
 
 ```yaml
@@ -50,6 +47,10 @@ rules:
   verbs:
   - update
 ```
+
+## Workload
+
+Workload is informed using `.spec.workload` and contains rendering customization for reconciling end user Kubernetes instances, and executing tasks to obtain generated Kubernetes objects acording to the instance's spec.
 
 ## Workload FormFactor
 
@@ -110,7 +111,7 @@ Customization for generated parameters is possible through the `spec.workload.pa
 ```yaml
     parameterConfiguration:
       addEnvs:
-      - key: FOO_NEW_VAR
+      - name: FOO_NEW_VAR
         value: 42
 ```
 
@@ -119,7 +120,7 @@ Customization for generated parameters is possible through the `spec.workload.pa
 ```yaml
     parameterConfiguration:
       addEnvs:
-      - key: FOO_NEW_VAR
+      - name: FOO_NEW_VAR
         valueFrom:
           fieldRef:
             fieldPath: metadata.name
@@ -130,7 +131,7 @@ Customization for generated parameters is possible through the `spec.workload.pa
 ```yaml
     parameterConfiguration:
       add:
-      - key: FOO_MY_CREDS
+      - name: FOO_MY_CREDS
         valueFrom:
           secretKeyRef:
             name: mycreds
@@ -142,7 +143,7 @@ Customization for generated parameters is possible through the `spec.workload.pa
 ```yaml
     parameterConfiguration:
       add:
-      - key: FOO_MY_BACKGROUND
+      - name: FOO_MY_BACKGROUND
         valueFrom:
           configMapKeyRef:
             name: mypreferences
@@ -170,7 +171,7 @@ The default behavior is to create parameters from each spec element (arrays will
       customize:
       - path: spec.bar
         render:
-          key: FOO_BAR
+          name: FOO_BAR
 ```
 
 - [x] Change value to literal.
@@ -190,7 +191,7 @@ The default behavior is to create parameters from each spec element (arrays will
       customize:
       - path: spec.credentials
         render:
-          key: FOO_CREDENTIALS
+          name: FOO_CREDENTIALS
           valueFromSecret:
             name: spec.credentials.name
             key: spec.preferences.key
@@ -215,7 +216,7 @@ The default behavior is to create parameters from each spec element (arrays will
       customize:
       - path: spec.destination
         render:
-          key: K_SINK
+          name: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
 ```
@@ -229,7 +230,7 @@ The default behavior is to create parameters from each spec element (arrays will
       customize:
       - path: spec.destination
         render:
-          key: K_SINK
+          name: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
     statusConfiguration:

@@ -19,5 +19,5 @@ spec:
       # Use a specific env var key for variable2
       - path: spec.variable2
         render:
-          key: KUARD_VARIABLE_TWO
+          name: KUARD_VARIABLE_TWO
 

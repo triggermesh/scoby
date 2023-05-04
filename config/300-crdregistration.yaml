@@ -287,8 +287,8 @@ spec:
                             render:
                               description: Render options for the parameter generation.
                               properties:
-                                key:
-                                  description: Key is the name of the parameter to
+                                name:
+                                  description: Name is the name of the parameter to
                                     be created.
                                   type: string
                                 skip:
