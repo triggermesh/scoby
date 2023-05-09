@@ -21,7 +21,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	scobyv1alpha1 "github.com/triggermesh/scoby/pkg/apis/scoby/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
+	crbuilder "github.com/triggermesh/scoby/pkg/component/builder"
+	"github.com/triggermesh/scoby/pkg/registration/registry"
 )
 
 var (
@@ -69,7 +70,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	cl := log.WithName("component")
-	reg := registry.New(ctx, k8sManager, nil, &cl)
+
+	// Builder for component reconcilers
+	crb := crbuilder.NewBuilder(k8sManager, nil)
+
+	reg := registry.New(ctx, crb, &cl)
 
 	r := &Reconciler{
 		Registry: reg,

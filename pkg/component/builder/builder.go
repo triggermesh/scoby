@@ -13,21 +13,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base"
-	basecrd "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/crd"
-	baseobject "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/object"
-	baserenderer "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/renderer"
-	basestatus "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/base/status"
-	deployment "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/deployment"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/hook"
-	knservice "github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/knservice"
-	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
+	"github.com/triggermesh/scoby/pkg/component/reconciler"
+	"github.com/triggermesh/scoby/pkg/component/reconciler/base"
+	basecrd "github.com/triggermesh/scoby/pkg/component/reconciler/base/crd"
+	baseobject "github.com/triggermesh/scoby/pkg/component/reconciler/base/object"
+	baserenderer "github.com/triggermesh/scoby/pkg/component/reconciler/base/renderer"
+	basestatus "github.com/triggermesh/scoby/pkg/component/reconciler/base/status"
+	"github.com/triggermesh/scoby/pkg/component/reconciler/formfactor/deployment"
+	"github.com/triggermesh/scoby/pkg/component/reconciler/formfactor/knservice"
+	"github.com/triggermesh/scoby/pkg/component/reconciler/hook"
+	"github.com/triggermesh/scoby/pkg/utils/resolver"
 )
 
-func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg commonv1alpha1.Registration, mgr manager.Manager, reslv resolver.Resolver) (chan error, error) {
-	log := mgr.GetLogger()
-	client := mgr.GetClient()
+type Builder interface {
+	StartNewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg commonv1alpha1.Registration) (chan error, error)
+}
+
+type builder struct {
+	mgr   manager.Manager
+	reslv resolver.Resolver
+}
+
+func (b *builder) StartNewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg commonv1alpha1.Registration) (chan error, error) {
+	log := b.mgr.GetLogger()
+	client := b.mgr.GetClient()
 
 	crdv := basecrd.CRDPrioritizedVersion(crd)
 	if crdv == nil {
@@ -41,8 +50,6 @@ func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefin
 	}
 
 	wkl := reg.GetWorkload()
-
-	renderer := baserenderer.NewRenderer(wkl, reslv)
 
 	var ffr reconciler.FormFactorReconciler
 	switch {
@@ -78,11 +85,12 @@ func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefin
 		hr = hook.New(h, *url, cfh, log)
 	}
 
+	renderer := baserenderer.NewRenderer(wkl, b.reslv)
 	smf := basestatus.NewStatusManagerFactory(crdv, happy, all, log)
 
 	om := baseobject.NewManager(gvk, renderer, smf)
 
-	c, err := base.NewController(om, reg, ffr, hr, mgr, log)
+	c, err := base.NewController(om, reg, ffr, hr, b.mgr, log)
 	if err != nil {
 		return nil, err
 	}
@@ -93,4 +101,11 @@ func NewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefin
 	}()
 
 	return stCh, nil
+}
+
+func NewBuilder(mgr manager.Manager, reslv resolver.Resolver) Builder {
+	return &builder{
+		mgr:   mgr,
+		reslv: reslv,
+	}
 }

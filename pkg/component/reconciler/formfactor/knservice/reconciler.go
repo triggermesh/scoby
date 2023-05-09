@@ -27,9 +27,9 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
-	"github.com/triggermesh/scoby/pkg/reconciler/resources"
-	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
+	"github.com/triggermesh/scoby/pkg/component/reconciler"
+	"github.com/triggermesh/scoby/pkg/utils/resources"
+	"github.com/triggermesh/scoby/pkg/utils/semantic"
 )
 
 const (
@@ -81,29 +81,8 @@ func (sr *knserviceReconciler) SetupController(name string, c controller.Control
 	return nil
 }
 
-func (dr *knserviceReconciler) InitializeStatus(obj reconciler.Object) {
-	// Make sure Deployment and Status conditions exist set
-	sm := obj.GetStatusManager()
-
-	if sm.GetCondition(ConditionTypeKnativeServiceReady) == nil {
-		sm.SetCondition(&commonv1alpha1.Condition{
-			Type:               ConditionTypeKnativeServiceReady,
-			Status:             metav1.ConditionUnknown,
-			LastTransitionTime: metav1.Now(),
-			Reason:             ConditionReasonKnativeServiceUnknown,
-		})
-	}
-
-}
-
 func (sr *knserviceReconciler) Reconcile(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
 	sr.log.V(1).Info("reconciling object instance", "object", obj)
-
-	// Update generation if needed
-	if g := obj.GetGeneration(); g != obj.GetStatusManager().GetObservedGeneration() {
-		sr.log.V(1).Info("updating observed generation", "generation", g)
-		obj.GetStatusManager().SetObservedGeneration(g)
-	}
 
 	ksvc, err := sr.reconcileKnativeService(ctx, obj)
 	if err != nil {

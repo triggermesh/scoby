@@ -21,9 +21,9 @@ import (
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	scobyv1alpha1 "github.com/triggermesh/scoby/pkg/apis/scoby/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
-	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
-	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
+	"github.com/triggermesh/scoby/pkg/registration/registry"
+	"github.com/triggermesh/scoby/pkg/utils/resolver"
+	"github.com/triggermesh/scoby/pkg/utils/semantic"
 )
 
 const (
@@ -41,6 +41,42 @@ type Reconciler struct {
 
 	Registry registry.ComponentRegistry
 	Resolver resolver.Resolver
+}
+
+func (r *Reconciler) On(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
+	r.log.V(1).Info("reconciling CRD registration", "request", req)
+
+	existing := &scobyv1alpha1.CRDRegistration{}
+	if err := r.Get(ctx, req.NamespacedName, existing); err != nil {
+		// Return error (unless resource was deleted).
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	r.log.V(5).Info("CRD registration retrieved", "object", *existing)
+
+	if !existing.DeletionTimestamp.IsZero() {
+		return r.reconcileDeletion(ctx, existing)
+	}
+
+	// create a copy, we will compare after reconciling and decide if we need to
+	// update or not.
+	cr := existing.DeepCopy()
+
+	res, err := r.reconcileRegistration(ctx, cr)
+
+	// Update status if needed.
+	//
+	// We need to compare the internal status, which is covered by the semantic
+	// comparer library
+	if !semantic.Semantic.DeepEqual(&cr.Status.Status, &existing.Status.Status) {
+		// The err variable is newly defined, if the update is unsuccessful
+		// the error returned will be the update operation error.
+		if err := r.Status().Update(ctx, cr); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	return res, err
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {

@@ -23,9 +23,10 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	scobyv1alpha1 "github.com/triggermesh/scoby/pkg/apis/scoby/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/registry"
-	"github.com/triggermesh/scoby/pkg/reconciler/registration/crd"
-	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
+	crbuilder "github.com/triggermesh/scoby/pkg/component/builder"
+	"github.com/triggermesh/scoby/pkg/registration/reconciler/crd"
+	"github.com/triggermesh/scoby/pkg/registration/registry"
+	"github.com/triggermesh/scoby/pkg/utils/resolver"
 )
 
 const (
@@ -88,11 +89,14 @@ func main() {
 	// into URL.
 	reslv := resolver.New(mgr.GetClient())
 
+	// Builder for component reconcilers
+	crb := crbuilder.NewBuilder(mgr, reslv)
+
 	// Parent context.
 	ctx := ctrl.SetupSignalHandler()
 
 	cl := log.WithName("component")
-	reg := registry.New(ctx, mgr, reslv, &cl)
+	reg := registry.New(ctx, crb, &cl)
 
 	r := &crd.Reconciler{
 		Registry: reg,

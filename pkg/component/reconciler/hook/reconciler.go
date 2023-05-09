@@ -13,8 +13,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
-	hookv1 "github.com/triggermesh/scoby/pkg/hook/v1"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
+	hookv1 "github.com/triggermesh/scoby/pkg/apis/hook/v1"
+	"github.com/triggermesh/scoby/pkg/component/reconciler"
 )
 
 const (

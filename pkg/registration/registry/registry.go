@@ -15,11 +15,8 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler/builder"
-	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
+	"github.com/triggermesh/scoby/pkg/component/builder"
 )
 
 const (
@@ -45,8 +42,7 @@ type componentRegistry struct {
 	controllers map[string]*entry
 
 	lock    sync.RWMutex
-	mgr     manager.Manager
-	reslv   resolver.Resolver
+	crb     builder.Builder
 	context context.Context
 	logger  *logr.Logger
 
@@ -55,13 +51,12 @@ type componentRegistry struct {
 }
 
 // New creates a controller registry for registered components.
-func New(ctx context.Context, mgr manager.Manager, reslv resolver.Resolver, logger *logr.Logger) ComponentRegistry {
+func New(ctx context.Context, crb builder.Builder, logger *logr.Logger) ComponentRegistry {
 	logger.Info("Creating new controller registry")
 
 	cr := &componentRegistry{
 		controllers: make(map[string]*entry),
-		mgr:         mgr,
-		reslv:       reslv,
+		crb:         crb,
 		context:     ctx,
 		logger:      logger,
 
@@ -128,7 +123,7 @@ func (cr *componentRegistry) EnsureComponentController(reg commonv1alpha1.Regist
 	cr.logger.Info("Creating component controller for CRD", "name", crd.Name)
 
 	ctx, cancel := context.WithCancel(cr.context)
-	rch, err := builder.NewReconciler(ctx, crd, reg, cr.mgr, cr.reslv)
+	rch, err := cr.crb.StartNewReconciler(ctx, crd, reg)
 	if err != nil {
 		cancel()
 		return err

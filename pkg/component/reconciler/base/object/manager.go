@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
+	"github.com/triggermesh/scoby/pkg/component/reconciler"
 )
 
 func NewManager(gvk *schema.GroupVersionKind, renderer reconciler.ObjectRenderer, smf reconciler.StatusManagerFactory) reconciler.ObjectManager {
