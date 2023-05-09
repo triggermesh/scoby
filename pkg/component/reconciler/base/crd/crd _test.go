@@ -9,9 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes/scheme"
+
+	. "github.com/triggermesh/scoby/test"
 )
 
 func TestCRDPriotizedVersion(t *testing.T) {
@@ -20,7 +19,7 @@ func TestCRDPriotizedVersion(t *testing.T) {
 		schema map[string]apiextensionsv1.JSONSchemaProps
 	}{
 		"one version": {
-			in: readCRD(`
+			in: ReadCRD(`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -50,7 +49,7 @@ spec:
 		},
 
 		"two versions": {
-			in: readCRD(`
+			in: ReadCRD(`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -106,7 +105,7 @@ func TestCRDStatus(t *testing.T) {
 		allowAddressURL         bool
 	}{
 		"full status": {
-			in: readCRD(`
+			in: ReadCRD(`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -208,7 +207,7 @@ spec:
 			allowAddressURL:         true,
 		},
 		"full status but no subresource": {
-			in: readCRD(`
+			in: ReadCRD(`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -303,7 +302,7 @@ spec:
 			allowAddressURL:         false,
 		},
 		"conditions only": {
-			in: readCRD(`
+			in: ReadCRD(`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -387,7 +386,7 @@ spec:
 			allowAddressURL:         false,
 		},
 		"no status": {
-			in: readCRD(`
+			in: ReadCRD(`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -414,7 +413,7 @@ spec:
 			allowAddressURL:         false,
 		},
 		"address url": {
-			in: readCRD(`
+			in: ReadCRD(`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -463,25 +462,4 @@ spec:
 			assert.Equal(t, tc.allowAddressURL, sf.AllowAddressURL(), "unexpected status address url support")
 		})
 	}
-}
-
-func readCRD(crd string) *apiextensionsv1.CustomResourceDefinition {
-	sch := runtime.NewScheme()
-
-	err := scheme.AddToScheme(sch)
-	if err != nil {
-		panic(err)
-	}
-
-	err = apiextensionsv1.AddToScheme(sch)
-	if err != nil {
-		panic(err)
-	}
-
-	obj, _, err := serializer.NewCodecFactory(sch).UniversalDeserializer().Decode([]byte(crd), nil, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	return obj.(*apiextensionsv1.CustomResourceDefinition)
 }
