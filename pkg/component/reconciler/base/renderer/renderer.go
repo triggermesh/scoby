@@ -13,11 +13,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
-	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
-	"github.com/triggermesh/scoby/pkg/reconciler/resources"
+	"github.com/triggermesh/scoby/pkg/component/reconciler"
+	"github.com/triggermesh/scoby/pkg/utils/resolver"
+	"github.com/triggermesh/scoby/pkg/utils/resources"
 )
 
 // rootObject where the renderer will start inspecting
@@ -109,7 +108,6 @@ func (r *renderer) Render(ctx context.Context, obj reconciler.Object) error {
 		return err
 	}
 
-	// TODO Render Status
 	err = r.renderStatus(obj)
 	if err != nil {
 		return err
@@ -379,30 +377,9 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
 		}
 
-		// envNames = append(envNames, ev.Name)
 		obj.AddEnvVar(k, ev)
-		// rendered.evsByName[ev.Name] = ev
-		// rendered.evsByPath[k] = ev
 	}
 
-	// // Prepare the result as an ordered set of options.
-	// copts := []resources.ContainerOption{
-	// 	resources.ContainerWithTerminationMessagePolicy(corev1.TerminationMessageFallbackToLogsOnError),
-	// }
-
-	// sort.Strings(envNames)
-	// for _, k := range envNames {
-	// 	ev := rendered.evsByName[k]
-	// 	copts = append(copts, resources.ContainerAddEnv(ev))
-	// }
-
-	// rendered.podSpecOptions = []resources.PodSpecOption{
-	// 	resources.PodSpecAddContainer(
-	// 		resources.NewContainer(r.containerName, r.containerImage, copts...),
-	// 	),
-	// }
-
-	// return rendered, nil
 	return nil
 }
 
@@ -552,7 +529,7 @@ func (r *renderer) resolveAddress(ctx context.Context, namespace, path string, p
 		ref.Namespace = namespace
 	}
 
-	uri, err := r.resolver.Resolve(ctx, &v1alpha1.Reference{
+	uri, err := r.resolver.Resolve(ctx, &commonv1alpha1.Reference{
 		APIVersion: ref.APIVersion,
 		Kind:       ref.Kind,
 		Namespace:  ref.Namespace,
@@ -599,40 +576,6 @@ type Rendered interface {
 	GetEnvVarByPath(path string) *corev1.EnvVar
 	GetEnvVarByName(name string) *corev1.EnvVar
 }
-
-// type renderedObject struct {
-// 	// Reference to the reconciled object that generates
-// 	// this rendering.
-// 	obj Reconciling
-
-// 	// Environment variables to be added to the workload,
-// 	// mapped by their JSON path and Name.
-// 	//
-// 	// These values are stored to be able to use them
-// 	// for calculations.
-// 	evsByPath map[string]*corev1.EnvVar
-// 	evsByName map[string]*corev1.EnvVar
-
-// 	// pre-baked PodSpecOptions including the workload container
-// 	podSpecOptions []resources.PodSpecOption
-// }
-
-// // GetPodSpecOptions for the workload, including the configured container.
-// func (r *renderedObject) GetPodSpecOptions() []resources.PodSpecOption {
-// 	return r.podSpecOptions
-// }
-
-// // GetEnvVarByPath given an object data path, returns the associated
-// // environment variable. Nil when not found.
-// func (r *renderedObject) GetEnvVarByPath(path string) *corev1.EnvVar {
-// 	return r.evsByPath[path]
-// }
-
-// // GetEnvVarByName given an object data path, returns the associated
-// // environment variable. Nil when not found.
-// func (r *renderedObject) GetEnvVarByName(name string) *corev1.EnvVar {
-// 	return r.evsByName[name]
-// }
 
 type Reference struct {
 	APIVersion string `json:"apiVersion"`

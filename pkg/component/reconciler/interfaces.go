@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/reconciler/resources"
+	"github.com/triggermesh/scoby/pkg/utils/resources"
 )
 
 type Base interface {

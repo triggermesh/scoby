@@ -17,8 +17,8 @@ import (
 
 	"github.com/go-logr/logr"
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
-	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
+	"github.com/triggermesh/scoby/pkg/component/reconciler"
+	"github.com/triggermesh/scoby/pkg/utils/semantic"
 )
 
 const (
@@ -156,6 +156,12 @@ func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) 
 	// Render using the object data and configuration
 	if err := b.objectManager.GetRenderer().Render(ctx, obj); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// Update generation if needed
+	if g := obj.GetGeneration(); g != obj.GetStatusManager().GetObservedGeneration() {
+		b.log.V(1).Info("updating observed generation", "generation", g)
+		obj.GetStatusManager().SetObservedGeneration(g)
 	}
 
 	return b.formFactorReconciler.Reconcile(ctx, obj)

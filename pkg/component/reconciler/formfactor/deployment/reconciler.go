@@ -23,10 +23,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/reconciler/component/reconciler"
-	"github.com/triggermesh/scoby/pkg/reconciler/resolver"
-	"github.com/triggermesh/scoby/pkg/reconciler/resources"
-	"github.com/triggermesh/scoby/pkg/reconciler/semantic"
+	"github.com/triggermesh/scoby/pkg/component/reconciler"
+	"github.com/triggermesh/scoby/pkg/utils/resolver"
+	"github.com/triggermesh/scoby/pkg/utils/resources"
+	"github.com/triggermesh/scoby/pkg/utils/semantic"
 )
 
 const (
@@ -122,12 +122,6 @@ func (dr *deploymentReconciler) InitializeStatus(obj reconciler.Object) {
 
 func (dr *deploymentReconciler) Reconcile(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
 	dr.log.V(1).Info("reconciling object instance", "object", obj)
-
-	// Update generation if needed
-	if g := obj.GetGeneration(); g != obj.GetStatusManager().GetObservedGeneration() {
-		dr.log.V(1).Info("updating observed generation", "generation", g)
-		obj.GetStatusManager().SetObservedGeneration(g)
-	}
 
 	d, err := dr.reconcileDeployment(ctx, obj)
 	if err != nil {
