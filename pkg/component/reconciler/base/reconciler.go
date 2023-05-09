@@ -84,7 +84,7 @@ func (b *base) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, er
 	cp := obj.AsKubeObject().DeepCopyObject()
 
 	// Initialize status according to the form factor if needed.
-	b.formFactorReconciler.InitializeStatus(obj)
+	obj.GetStatusManager().SanitizeConditions()
 
 	var res ctrl.Result
 	var err error

@@ -124,8 +124,6 @@ func (sm *statusManager) ensureStatusRoot() {
 	}
 }
 
-// makes sure the set of expected conditions exist with their default value,
-// not overwritting the existing ones and removing any that should not exist.
 func (sm *statusManager) sanitizeConditions() {
 	// When no flags set there status at the object's CRD.
 	if !sm.flag.AllowConditions() {
@@ -279,6 +277,20 @@ func (sm *statusManager) GetCondition(conditionType string) *commonv1alpha1.Cond
 
 	sm.log.V(2).Info("Status condition not found", "type", conditionType)
 	return nil
+}
+
+// SanitizeConditions makes sure the set of expected conditions exist with
+// default values, not overwritting the existing ones and removing any that
+// should not exist.
+func (sm *statusManager) SanitizeConditions() {
+	if !sm.flag.AllowConditions() {
+		return
+	}
+
+	sm.m.Lock()
+	defer sm.m.Unlock()
+
+	sm.sanitizeConditions()
 }
 
 func (sm *statusManager) SetCondition(condition *commonv1alpha1.Condition) {

@@ -63,6 +63,7 @@ type StatusManager interface {
 	SetObservedGeneration(int64)
 	GetCondition(conditionType string) *commonv1alpha1.Condition
 	SetCondition(condition *commonv1alpha1.Condition)
+	SanitizeConditions()
 	GetAddressURL() string
 	SetAddressURL(string)
 	SetValue(value interface{}, path ...string) error
@@ -91,7 +92,6 @@ type FormFactorReconciler interface {
 	GetStatusConditions() (happy string, all []string)
 	SetupController(name string, c controller.Controller, owner runtime.Object) error
 	Reconcile(context.Context, Object) (ctrl.Result, error)
-	InitializeStatus(obj Object)
 }
 
 type HookReconciler interface {

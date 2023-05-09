@@ -81,21 +81,6 @@ func (sr *knserviceReconciler) SetupController(name string, c controller.Control
 	return nil
 }
 
-func (dr *knserviceReconciler) InitializeStatus(obj reconciler.Object) {
-	// Make sure Deployment and Status conditions exist set
-	sm := obj.GetStatusManager()
-
-	if sm.GetCondition(ConditionTypeKnativeServiceReady) == nil {
-		sm.SetCondition(&commonv1alpha1.Condition{
-			Type:               ConditionTypeKnativeServiceReady,
-			Status:             metav1.ConditionUnknown,
-			LastTransitionTime: metav1.Now(),
-			Reason:             ConditionReasonKnativeServiceUnknown,
-		})
-	}
-
-}
-
 func (sr *knserviceReconciler) Reconcile(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
 	sr.log.V(1).Info("reconciling object instance", "object", obj)
 
