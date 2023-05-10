@@ -4,12 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-logr/logr"
 	tlogr "github.com/go-logr/logr/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/yaml"
@@ -27,6 +26,8 @@ import (
 	. "github.com/triggermesh/scoby/test"
 )
 
+// The Kuard example contains a CRD with spec elements that
+// use most features that Scoby provides.
 var (
 	gvk = &schema.GroupVersionKind{
 		Group:   "extensions.triggermesh.io",
@@ -222,30 +223,62 @@ spec:
 `
 )
 
-func TestRenderer(t *testing.T) {
+func TestRenderedContainer(t *testing.T) {
+
+	// Use the Kuard CRD for all cases
+	crdv := basecrd.CRDPrioritizedVersion(ReadCRD(kuardCRD))
 
 	testCases := map[string]struct {
+		// Resolver related rendering might need existing objects. The
+		// kuard instance used for reconciliation does not need to be
+		// here, only any referenced object.
 		existingObjects []client.Object
-		wkl             *commonv1alpha1.Workload
-		crd             *apiextensionsv1.CustomResourceDefinition
-		happyCond       string
-		conditionSet    []string
-		log             logr.Logger
 
-		// Conditions
-		recObject *unstructured.Unstructured
+		// Kuard instance fir rendering.
+		kuardInstance string
 
+		// Registration sub-element for parameter configuration.
+		parameterConfig string
+
+		// Managed conditions
+		happyCond    string
+		conditionSet []string
+
+		//
+		// Expected data fiels
+		//
+
+		// Only if rendering should return an error.
 		expectedError *string
+
+		// Environment variables for the rendered container.
+		expectedEnvs []corev1.EnvVar
 	}{
-		"nothing to render": {
-			wkl: &commonv1alpha1.Workload{
-				FormFactor: &commonv1alpha1.FormFactor{
-					Deployment: &commonv1alpha1.DeploymentFormFactor{
-						Replicas: 1,
-					},
-				},
+		"no parameter policies": {
+			kuardInstance: kuardInstance,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "VARIABLE1", Value: "value 1"},
+				{Name: "VARIABLE2", Value: "value 2"},
 			},
-			crd: ReadCRD(kuardCRD),
+		},
+		"skip variable from rendering": {
+			kuardInstance: kuardInstance,
+			parameterConfig: `
+customize:
+- path: spec.variable2
+  render:
+    skip: true
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "VARIABLE1", Value: "value 1"},
+				/* {Name: "VARIABLE2", Value: "value 2"}, */
+			},
 		},
 	}
 
@@ -253,29 +286,42 @@ func TestRenderer(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
+			// for this test we can hardcode to deployment, we are only testing container output.
+			wkl := &commonv1alpha1.Workload{
+				FormFactor: &commonv1alpha1.FormFactor{
+					Deployment: &commonv1alpha1.DeploymentFormFactor{
+						Replicas: 1,
+					},
+				},
+				ParameterConfiguration: &commonv1alpha1.ParameterConfiguration{},
+			}
+
+			// Read parameter configuration into structure
+			err := yaml.Unmarshal([]byte(tc.parameterConfig), wkl.ParameterConfiguration)
+			require.NoError(t, err)
+
 			ctx := context.Background()
 
 			cb := fake.NewClientBuilder()
 			rsv := resolver.New(cb.WithObjects(tc.existingObjects...).Build())
-			r := NewRenderer(tc.wkl, rsv)
 
-			crdv := basecrd.CRDPrioritizedVersion(tc.crd)
+			r := NewRenderer(wkl, rsv)
+
 			smf := basestatus.NewStatusManagerFactory(crdv, tc.happyCond, tc.conditionSet, logr)
 			mgr := baseobject.NewManager(gvk, r, smf)
 
-			// replace with the test object
+			// Replace with the test object
 			obj := mgr.NewObject()
 			u := obj.AsKubeObject().(*unstructured.Unstructured)
-			err := yaml.Unmarshal([]byte(kuardInstance), u)
+			err = yaml.Unmarshal([]byte(kuardInstance), u)
 			require.NoError(t, err)
-
-			// *u = *tc.recObject
 
 			err = r.Render(ctx, obj)
 			if tc.expectedError != nil {
-				assert.Contains(t, err.Error(), *tc.expectedError)
+				require.Contains(t, err.Error(), *tc.expectedError)
+
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			c := resources.NewContainer(
@@ -284,7 +330,7 @@ func TestRenderer(t *testing.T) {
 				obj.AsContainerOptions()...,
 			)
 
-			t.Logf("container: %+v", c)
+			assert.Equal(t, tc.expectedEnvs, c.Env)
 		})
 	}
 
