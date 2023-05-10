@@ -4,7 +4,6 @@ metadata:
   name: my-kuard-extension
 spec:
   variable1: value 1
-  variable2: value 2
   group:
     variable3: false
     variable4: 42

@@ -16,7 +16,7 @@ spec:
 
     parameterConfiguration:
       customize:
-      # Override variable2 value
+      # Set a default value for variable2
       - path: spec.variable2
         render:
-          value: new variable2 value
+          defaultValue: new variable2 value

@@ -342,8 +342,8 @@ func (in *ParameterRenderConfiguration) DeepCopyInto(out *ParameterRenderConfigu
 		*out = new(string)
 		**out = **in
 	}
-	if in.Value != nil {
-		in, out := &in.Value, &out.Value
+	if in.DefaultValue != nil {
+		in, out := &in.DefaultValue, &out.DefaultValue
 		*out = new(string)
 		**out = **in
 	}

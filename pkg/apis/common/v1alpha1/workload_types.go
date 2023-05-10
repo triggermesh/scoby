@@ -81,9 +81,10 @@ type ParameterRenderConfiguration struct {
 	// +optional
 	Name *string `json:"name,omitempty"`
 
-	// Value is a literal value to be assigned to the parameter.
+	// Value is a literal value to be assigned to the parameter when
+	// a value is not provided by users.
 	// +optional
-	Value *string `json:"value,omitempty"`
+	DefaultValue *string `json:"defaultValue,omitempty"`
 
 	// ValueFromConfigMap is a reference to a ConfigMap.
 	// +optional
@@ -105,8 +106,7 @@ type ParameterRenderConfiguration struct {
 }
 
 func (prc *ParameterRenderConfiguration) IsValueOverriden() bool {
-	if prc == nil || (prc.Value == nil &&
-		prc.ValueFromConfigMap == nil &&
+	if prc == nil || (prc.ValueFromConfigMap == nil &&
 		prc.ValueFromSecret == nil &&
 		prc.ValueFromBuiltInFunc == nil) {
 		return false

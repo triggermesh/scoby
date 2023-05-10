@@ -37,18 +37,28 @@ func NewRenderer(wkl *commonv1alpha1.Workload, resolver resolver.Resolver) recon
 			r.global = *pcfg.Global
 		}
 
+		// Keep the list of extra environment variables to be appended.
+		if pcfg.AddEnvs != nil && len(pcfg.AddEnvs) != 0 {
+			r.addEnvs = make([]corev1.EnvVar, len(pcfg.AddEnvs))
+			copy(r.addEnvs, pcfg.AddEnvs)
+		}
+
 		// Curate object fields customization, index them by their
 		// relaxed JSONPath.
 		if pcfg.Customize != nil && len(pcfg.Customize) != 0 {
 			r.customization = make(map[string]commonv1alpha1.CustomizeParameterConfiguration, len(pcfg.Customize))
 			for _, c := range pcfg.Customize {
 				r.customization[strings.TrimLeft(c.Path, "$.")] = c
+
+				// default values are set
+				if c.Render.DefaultValue != nil {
+					if r.defaultEnvs == nil {
+						r.defaultEnvs = make(map[string]*commonv1alpha1.ParameterRenderConfiguration)
+					}
+
+					r.defaultEnvs[c.Path] = c.Render
+				}
 			}
-		}
-		// Keep the list of extra environment variables to be appended.
-		if pcfg.AddEnvs != nil && len(pcfg.AddEnvs) != 0 {
-			r.addEnvs = make([]corev1.EnvVar, len(pcfg.AddEnvs))
-			copy(r.addEnvs, pcfg.AddEnvs)
 		}
 	}
 
@@ -77,6 +87,10 @@ type renderer struct {
 	// Static set of environment variables to be added to as
 	// parameters to the workload.
 	addEnvs []corev1.EnvVar
+
+	// Default values that should be set if either the environment
+	// variable does not exists, or it exists with an empty value.
+	defaultEnvs map[string]*commonv1alpha1.ParameterRenderConfiguration
 
 	// Set of rules that add or fill elements at the object status.
 	addStatus []commonv1alpha1.StatusAddElement
@@ -117,6 +131,17 @@ func (r *renderer) Render(ctx context.Context, obj reconciler.Object) error {
 }
 
 func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object, pfs map[string]parsedField) error {
+
+	// Iterate default environment variables defined at the registration, if they are not
+	// present at the object's parsed fields, add them now with the defaulted value.
+	for k, v := range r.defaultEnvs {
+		if _, ok := pfs[k]; !ok {
+			pfs[k] = parsedField{
+				branch: strings.Split(k, "."),
+				value:  *v.DefaultValue,
+			}
+		}
+	}
 
 	// Order parsed fields to be able to process elements that do custom rendering, and
 	// that need to avoid processing of nested elements. Secret and ConfigMap rednering are
@@ -272,8 +297,8 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 				// TODO this is not expected
 			}
 
-		case renderConfig.Value != nil:
-			ev.Value = *renderConfig.Value
+		case renderConfig.DefaultValue != nil:
+			ev.Value = *renderConfig.DefaultValue
 
 			// If there are further internal elements, avoid
 			// parsing them.

@@ -287,6 +287,11 @@ spec:
                             render:
                               description: Render options for the parameter generation.
                               properties:
+                                defaultValue:
+                                  description: Value is a literal value to be assigned
+                                    to the parameter when a value is not provided
+                                    by users.
+                                  type: string
                                 name:
                                   description: Name is the name of the parameter to
                                     be created.
@@ -295,10 +300,6 @@ spec:
                                   description: Skip sets whether the object should
                                     skip rendering as a workload parameter.
                                   type: boolean
-                                value:
-                                  description: Value is a literal value to be assigned
-                                    to the parameter.
-                                  type: string
                                 valueFromBuiltInFunc:
                                   description: ValueFromBuiltInFunc configures the
                                     field to be rendered acording to the chosen built-in
