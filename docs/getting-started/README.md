@@ -456,9 +456,9 @@ kubectl delete kuard my-kuard-extension
 kubectl delete crdregistration kuard
 ```
 
-### Parameter Value Literal
+### Parameter Default Value
 
-The value for an environment variable can be set to a literal value using `spec.workload.parameterConfiguration.customize[].render.value`.
+The value for an environment variable can be set to a default value using `spec.workload.parameterConfiguration.customize[].render.defaultValue`.
 
 ```yaml
 apiVersion: scoby.triggermesh.io/v1alpha1
@@ -481,7 +481,7 @@ spec:
       # Override variable2 value
       - path: spec.variable2
         render:
-          value: new variable2 value
+          defaultValue: new variable2 value
 ```
 
 Create the registration:
@@ -490,7 +490,7 @@ Create the registration:
 kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/05.param.value/01.kuard-registration.yaml
 ```
 
-Create the same instance we have created so far:
+Create a mutation fo the instance we have created so far that doesn't inform `spec.value2`:
 
 ```console
 kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/05.param.value/02.kuard-instance.yaml
@@ -529,7 +529,7 @@ Look at the result:
 ]
 ```
 
-Note the variable at `.spec.variable2` value has been overriden.
+Note the variable at `.spec.variable2` value has been defaulted.
 Clean up the example:
 
 ```console

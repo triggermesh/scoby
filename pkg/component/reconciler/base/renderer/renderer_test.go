@@ -2,6 +2,7 @@ package renderer
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	tlogr "github.com/go-logr/logr/testing"
@@ -280,6 +281,87 @@ customize:
 				/* {Name: "VARIABLE2", Value: "value 2"}, */
 			},
 		},
+		"rename variable": {
+			kuardInstance: kuardInstance,
+			parameterConfig: `
+customize:
+- path: spec.variable2
+  render:
+    name: KUARD_VARIABLE_TWO
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "KUARD_VARIABLE_TWO", Value: "value 2"},
+				{Name: "VARIABLE1", Value: "value 1"},
+			},
+		},
+		"default value - when present": {
+			kuardInstance: kuardInstance,
+			parameterConfig: `
+customize:
+- path: spec.variable2
+  render:
+    defaultValue: new variable2 value
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "VARIABLE1", Value: "value 1"},
+				{Name: "VARIABLE2", Value: "value 2"},
+			},
+		},
+		"default value - when not present": {
+			// remove variable2 entry from kuard instance.
+			kuardInstance: strings.ReplaceAll(kuardInstance, "variable2: value 2", ""),
+			parameterConfig: `
+customize:
+- path: spec.variable2
+  render:
+    defaultValue: new variable2 value
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "VARIABLE1", Value: "value 1"},
+				{Name: "VARIABLE2", Value: "new variable2 value"},
+			},
+		},
+		"secret reference": {
+			// add secret reference to kuard base instance.
+			kuardInstance: kuardInstance + `
+  refToSecret:
+    secretName: kuard-secret
+    secretKey: kuard-key
+`,
+			parameterConfig: `
+customize:
+- path: spec.refToSecret
+  render:
+    name: FOO_CREDENTIALS
+    valueFromSecret:
+      name: spec.refToSecret.secretName
+      key: spec.refToSecret.secretKey
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "FOO_CREDENTIALS", ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "kuard-secret",
+						},
+						Key: "kuard-key",
+					},
+				}},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "VARIABLE1", Value: "value 1"},
+				{Name: "VARIABLE2", Value: "value 2"},
+			},
+		},
 	}
 
 	logr := tlogr.NewTestLogger(t)
@@ -313,7 +395,7 @@ customize:
 			// Replace with the test object
 			obj := mgr.NewObject()
 			u := obj.AsKubeObject().(*unstructured.Unstructured)
-			err = yaml.Unmarshal([]byte(kuardInstance), u)
+			err = yaml.Unmarshal([]byte(tc.kuardInstance), u)
 			require.NoError(t, err)
 
 			err = r.Render(ctx, obj)

@@ -174,14 +174,14 @@ The default behavior is to create parameters from each spec element (arrays will
           name: FOO_BAR
 ```
 
-- [x] Change value to literal.
+- [x] Add default value to element when not informed.
 
 ```yaml
     parameterConfiguration:
       customize:
       - path: spec.bar
         render:
-          value: hello scoby
+          defaultValue: hello scoby
 ```
 
 - [x] Generate secret parameter from element.
