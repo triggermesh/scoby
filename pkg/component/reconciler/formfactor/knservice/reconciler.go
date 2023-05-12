@@ -218,7 +218,7 @@ func (sr *knserviceReconciler) createKnServiceFromRegistered(obj reconciler.Obje
 		}
 	}
 
-	return resources.NewKnativeService(obj.GetNamespace(), obj.GetName(),
+	return resources.NewKnativeService(obj.GetNamespace(), sr.name+"-"+obj.GetName(),
 		resources.KnativeServiceWithMetaOptions(metaopts...),
 		resources.KnativeServiceWithRevisionOptions(revspecopts...)), nil
 }
