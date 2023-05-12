@@ -159,7 +159,7 @@ kubectl port-forward svc/my-kuard-extension  8888:80
 
 ![scoby summary](../assets/kuard-deployment-envs.png)
 
-If the registratered CRD constains a `status.address.url` element, and it renders a Kubernetes service or Knative service, the internal address is populated at the aforementioned element.
+If the registered CRD constains a `status.address.url` element, and it renders a Kubernetes service or Knative service, the internal address is populated at the aforementioned element.
 
 ```console
 kubectl get kuard my-kuard-extension -ojsonpath='{.status}' | jq .

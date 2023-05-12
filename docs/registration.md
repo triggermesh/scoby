@@ -194,7 +194,7 @@ The default behavior is to create parameters from each spec element (arrays will
           name: FOO_CREDENTIALS
           valueFromSecret:
             name: spec.credentials.name
-            key: spec.preferences.key
+            key: spec.credentials.key
 ```
 
 - [x] Generate configmap parameter from element.

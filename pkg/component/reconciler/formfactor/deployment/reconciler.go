@@ -204,7 +204,7 @@ func (dr *deploymentReconciler) createDeploymentFromRegistered(obj reconciler.Ob
 		replicas = dr.formFactor.Replicas
 	}
 
-	return resources.NewDeployment(obj.GetNamespace(), obj.GetName(),
+	return resources.NewDeployment(obj.GetNamespace(), dr.name+"-"+obj.GetName(),
 		resources.DeploymentWithMetaOptions(
 			resources.MetaAddLabel(resources.AppNameLabel, dr.name),
 			resources.MetaAddLabel(resources.AppInstanceLabel, obj.GetName()),
@@ -295,7 +295,7 @@ func (dr *deploymentReconciler) updateServiceStatus(obj reconciler.Object, s *co
 }
 
 func (dr *deploymentReconciler) createServiceFromRegistered(obj reconciler.Object) (*corev1.Service, error) {
-	return resources.NewService(obj.GetNamespace(), obj.GetName(),
+	return resources.NewService(obj.GetNamespace(), dr.name+"-"+obj.GetName(),
 		resources.ServiceWithMetaOptions(
 			resources.MetaAddLabel(resources.AppNameLabel, dr.name),
 			resources.MetaAddLabel(resources.AppInstanceLabel, obj.GetName()),
