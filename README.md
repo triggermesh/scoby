@@ -6,10 +6,16 @@
 [![Release](https://img.shields.io/github/v/release/triggermesh/scoby?label=release)](https://github.com/triggermesh/scoby/releases)
 [![Slack](https://img.shields.io/badge/Slack-Join%20chat-4a154b?style=flat&logo=slack)](https://join.slack.com/t/triggermesh-community/shared_invite/zt-1kngevosm-MY7kqn9h6bT08hWh8PeltA)
 
-Generic Kubernetes controller for simple workloads.
+# `Scoby`: Generic Kubernetes controller for simple workloads
 
 ![scoby](docs/assets/images/harrison-kugler-kombucha.jpg)
 > photo by [Harrison Kugler](https://unsplash.com/@harrisonkugler?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+
+## Why?
+
+We created Scoby to save (a lot of) time creating controllers for TriggerMesh, and letting users choose the set of TriggerMesh components that they want to use as well as easily creating custom components.
+
+Read the full story [here](docs/why.md).
 
 ## Description
 
