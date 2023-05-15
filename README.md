@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/triggermesh/scoby?label=release)](https://github.com/triggermesh/scoby/releases)
 [![Slack](https://img.shields.io/badge/Slack-Join%20chat-4a154b?style=flat&logo=slack)](https://join.slack.com/t/triggermesh-community/shared_invite/zt-1kngevosm-MY7kqn9h6bT08hWh8PeltA)
 
-# `Scoby`: Generic Kubernetes controller for simple workloads
+# `Scoby`: Generic Kubernetes controllers
 
 ![scoby](docs/assets/images/harrison-kugler-kombucha.jpg)
 > photo by [Harrison Kugler](https://unsplash.com/@harrisonkugler?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
