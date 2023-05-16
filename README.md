@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/triggermesh/scoby?label=release)](https://github.com/triggermesh/scoby/releases)
 [![Slack](https://img.shields.io/badge/Slack-Join%20chat-4a154b?style=flat&logo=slack)](https://join.slack.com/t/triggermesh-community/shared_invite/zt-1kngevosm-MY7kqn9h6bT08hWh8PeltA)
 
-# `Scoby`: Generic Kubernetes controllers
+# `Scoby`: Generic Kubernetes Controllers
 
 ![scoby](docs/assets/images/harrison-kugler-kombucha.jpg)
 > photo by [Harrison Kugler](https://unsplash.com/@harrisonkugler?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
@@ -269,6 +269,8 @@ Our recommended approach to use Scoby is:
 - When users require functionality not built-in at Scoby, [Hooks](docs/hooks.md) can be used. They provide mechanisms to do custom reconciling, add environment variables to the workload and inform statuses. For security reasons they are not allowed to manage objects that are not part of Scoby's workload. :warning: Hooks are experimental :warning:
 
 - Other than the documentation linked at the bullets above, we have put togheter a :computer_mouse: [getting started guide](docs/getting-started/README.md) that will get you through most of the rendering cases that Scoby supports.
+
+- An example of [migrating a TriggerMesh component to Scoby](docs/triggermesh/README.md).
 
 ## Contributing
 

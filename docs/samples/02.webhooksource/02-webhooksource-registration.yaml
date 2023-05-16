@@ -1,0 +1,72 @@
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: webhooksource
+spec:
+  crd: webhooksources.sources.triggermesh.io
+  workload:
+    fromImage:
+      repo: gcr.io/triggermesh/webhooksource-adapter:v1.24.4
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+
+    parameterConfiguration:
+      global:
+        defaultPrefix: WEBHOOK_
+
+      addEnvs:
+      - name: METRICS_DOMAIN
+        value: triggermesh.io/sources
+      - name: NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      - name: K_METRICS_CONFIG
+        value: "{}"
+      - name: K_LOGGING_CONFIG
+        value: "{}"
+
+      customize:
+      - path: spec.eventType
+        render:
+          name: WEBHOOK_EVENT_TYPE
+
+      - path: spec.eventSource
+        render:
+          name: WEBHOOK_EVENT_SOURCE
+
+      - path: spec.basicAuthUsername
+        render:
+          name: WEBHOOK_BASICAUTH_USERNAME
+
+      - path: spec.basicAuthPassword
+        render:
+          name: WEBHOOK_BASICAUTH_PASSWORD
+          valueFromSecret:
+            name: spec.basicAuthPassword.valueFromSecret.name
+            key: spec.basicAuthPassword.valueFromSecret.key
+
+      - path: spec.eventExtensionAttributes.from
+        render:
+          name: WEBHOOK_EVENT_EXTENSION_ATTRIBUTES_FROM
+
+      - path: spec.corsAllowOrigin
+        render:
+          name: WEBHOOK_CORS_ALLOW_ORIGIN
+
+      - path: spec.sink
+        render:
+          name: K_SINK
+          valueFromBuiltInFunc:
+            name: resolveAddress
+
+    statusConfiguration:
+      addElements:
+      - path: status.sinkUri
+        render:
+          valueFromParameter:
+            path: spec.sink
