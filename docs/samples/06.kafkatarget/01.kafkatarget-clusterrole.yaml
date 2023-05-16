@@ -1,0 +1,51 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: scoby-triggermesh-kafkatargets
+  labels:
+    scoby.triggermesh.io/crdregistration: "true"
+    app.kubernetes.io/name: scoby
+# Do not use this role directly. These rules will be added to the "crd-registrations-scoby" role.
+rules:
+
+# Component
+- apiGroups:
+  - targets.triggermesh.io
+  resources:
+  - kafkatargets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+# Status
+- apiGroups:
+  - targets.triggermesh.io
+  resources:
+  - kafkatargets/status
+  verbs:
+  - get
+  - update
+  - patch
+
+---
+
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: scoby-triggermesh-kafkatargets-addressable
+  labels:
+    app.kubernetes.io/part-of: triggermesh
+    duck.knative.dev/addressable: 'true'
+rules:
+# +rbac-check
+- apiGroups:
+  - targets.triggermesh.io
+  resources:
+  - kafkatargets
+  verbs:
+  - get
+  - list
+  - watch
+
+

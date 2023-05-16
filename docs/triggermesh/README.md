@@ -1,6 +1,6 @@
 # Migrating TriggerMesh Components
 
-This is a practical example of how we are using Scoby to manage TriggerMesh components at Kubernetes. We have chosen simple components that do not require extra controller logic to avoid using [hooks](../hooks.md).
+This is a practical example of how we are using Scoby to manage TriggerMesh components at Kubernetes. We have chosen simple components that do not require extra controller logic to avoid using [hooks](../reference/hooks.md).
 
 Some CRD elements like `spec.adapterOverrides` are not yet supported by Scoby.
 
@@ -121,7 +121,7 @@ The resolved URI should be used as a value at the `status.sinkUri`, which is som
 Bundle all those snippets at a YAML file and apply the registration:
 
 ```console
-kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/02.webhooksource/01.webhooksource-registration.yaml
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/02.webhooksource/02.webhooksource-registration.yaml
 ```
 
 ## Usage

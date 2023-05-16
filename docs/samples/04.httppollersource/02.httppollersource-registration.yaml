@@ -1,0 +1,43 @@
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: httppollersource
+spec:
+  crd: httppollersources.sources.triggermesh.io
+  workload:
+    fromImage:
+      repo: gcr.io/triggermesh/httppollersource-adapter:v1.24.4
+    formFactor:
+      deployment:
+        replicas: 1
+    parameterConfiguration:
+      global:
+        defaultPrefix: HTTPPOLLER_
+
+      addEnvs:
+      - name: METRICS_DOMAIN
+        value: triggermesh.io/sources
+      - name: NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      - name: K_METRICS_CONFIG
+        value: "{}"
+      - name: K_LOGGING_CONFIG
+        value: "{}"
+
+      customize:
+      - path: spec.eventType
+        render:
+          name: HTTPPOLLER_EVENT_TYPE
+
+      - path: spec.eventSource
+        render:
+          name: HTTPPOLLER_EVENT_SOURCE
+
+
+      - path: spec.sink
+        render:
+          name: K_SINK
+          valueFromBuiltInFunc:
+            name: resolveAddress

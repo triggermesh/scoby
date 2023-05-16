@@ -48,4 +48,4 @@ While Scoby simplifies and brings flexibility to TriggerMesh components it bears
 - Some controllers might update custom fields at the user object's status.
 - Some controllers need to create or customize resources like ServiceAccounts.
 
-This limitations will be tackled in Scoby when it can be solved in a generic way, or using [hooks](hooks.md) under specific scenarios.
+This limitations will be tackled in Scoby when it can be solved in a generic way, or using [hooks](reference/hooks.md) under specific scenarios.

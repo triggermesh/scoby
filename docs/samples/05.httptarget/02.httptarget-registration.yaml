@@ -1,0 +1,90 @@
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: httptarget
+spec:
+  crd: httptargets.targets.triggermesh.io
+  workload:
+    fromImage:
+      repo: gcr.io/triggermesh/httptarget-adapter:1b998248ccaad71316471904dadec5e41b09c565
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+    parameterConfiguration:
+      global:
+        defaultPrefix: HTTP_
+
+      addEnvs:
+      - name: METRICS_DOMAIN
+        value: triggermesh.io/targets
+      - name: NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      - name: K_METRICS_CONFIG
+        value: "{}"
+      - name: K_LOGGING_CONFIG
+        value: "{}"
+
+      customize:
+      - path: spec.response.eventType
+        render:
+          name: HTTP_EVENT_TYPE
+
+      - path: spec.response.eventSource
+        render:
+          name: HTTP_EVENT_SOURCE
+          defaultValue: httptarget
+
+      - path: spec.endpoint
+        render:
+          name: HTTP_URL
+
+      - path: spec.method
+        render:
+          name: HTTP_METHOD
+
+      - path: spec.skipVerify
+        render:
+          name: HTTP_SKIP_VERIFY
+
+      - path: spec.caCertificate
+        render:
+          name: HTTP_CA_CERTIFICATE
+
+      - path: spec.basicAuthUsername
+        render:
+          name: HTTP_BASICAUTH_USERNAME
+
+      - path: spec.basicAuthPassword
+        render:
+          name: HTTP_BASICAUTH_PASSWORD
+          valueFromSecret:
+            name: spec.credentials.name
+            key: spec.preferences.key
+
+      - path: spec.oauthClientID
+        render:
+          name: HTTP_OAUTH_CLIENT_ID
+
+      - path: spec.oauthClientSecret
+        render:
+          name: HTTP_OAUTH_CLIENT_SECRET
+          valueFromSecret:
+            name: spec.credentials.name
+            key: spec.preferences.key
+
+      - path: spec.oauthTokenURL
+        render:
+          name: HTTP_OAUTH_TOKEN_URL
+
+      - path: spec.oauthScopes
+        render:
+          name: HTTP_OAUTH_SCOPE
+
+      - path: spec.headers
+        render:
+          name: HTTP_HEADERS

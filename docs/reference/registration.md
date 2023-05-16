@@ -243,4 +243,4 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ## Examples
 
-The [getting started guide](getting-started/README.md) drives you through the [examples found at the Scoby repository](https://github.com/triggermesh/scoby/tree/main/docs/samples/01.kuard).
+The [Scoby tutorial](../tutorial.md) drives you through the [examples found at the Scoby repository](https://github.com/triggermesh/scoby/tree/main/docs/samples/01.kuard).
