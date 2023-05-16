@@ -1,11 +1,11 @@
-# Getting Started
+# Scoby Tutorial
 
 In this guide we will use the Kuard application image which was created by the authors of Kubernetes Up and Ready book, and is able to render a list of its environment variables:
 
 - [Kuard repository](https://github.com/kubernetes-up-and-running/kuard)
 - Kuard image: gcr.io/kuar-demo/kuard-amd64:blue
 
-A very generic playground [kuard CRD](../../docs/samples/01.kuard/01.kuard-crd.yaml) can be found at Scoby repo, containing combination of nested elements, arrays, object references and [full status support for Scoby](../status.md).
+A very generic playground [kuard CRD](https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/01.kuard/01.kuard-crd.yaml) can be found at Scoby repo, containing combination of nested elements, arrays, object references and [full status support for Scoby](reference/status.md).
 
 A flattened version of that CRD `spec` contents would look like this:
 
@@ -157,7 +157,7 @@ Exploring kuard's interface we can also find these environment variables:
 kubectl port-forward svc/my-kuard-extension  8888:80
 ```
 
-![scoby summary](../assets/kuard-deployment-envs.png)
+![scoby summary](assets/kuard-deployment-envs.png)
 
 If the registered CRD constains a `status.address.url` element, and it renders a Kubernetes service or Knative service, the internal address is populated at the aforementioned element.
 
