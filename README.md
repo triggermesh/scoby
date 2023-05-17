@@ -48,7 +48,7 @@ ko apply -f ./config
 
 - [Primer: learn Scoby](docs/primer.md).
 - [Tutorial: get the most out of Scoby](docs/tutorial.md).
-- [Examples: migration TriggerMesh controllers](docs/triggermesh/README.md)
+- [Examples: migrating TriggerMesh controllers](docs/triggermesh/README.md)
 - Reference:
   - [Registration](docs/reference/registration.md).
   - [Status](docs/reference/status.md).

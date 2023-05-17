@@ -123,7 +123,7 @@ spec:
           targetPort: 8080
 ```
 
-We only provided the CRD and the container image to be used and the rendering form factor for each instance of `kuard` created by users, a deployment will be created that uses the provided image and an environment variable after each element under the instance's `.spec`. Kuard exposes a web server which is targetted by a Kubernetes service also defined at the form factor.
+We only provided the CRD and the container image to be used and the rendering form factor for each instance of `kuard` created by users, a deployment will be created that uses the provided image and an environment variable after each element under the instance's `.spec` (in our case only the `primer` element). Kuard exposes a web server which is targetted by a Kubernetes service also defined at the form factor.
 
 ```console
 kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/00.primer/03.kuard-registration.yaml
