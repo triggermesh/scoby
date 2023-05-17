@@ -287,7 +287,7 @@ kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/s
 Apply the CRD from [the TriggerMesh repo](https://github.com/triggermesh/triggermesh/blob/main/config/301-httptarget.yaml):
 
 ```console
-kubectl apply -f https://raw.githubusercontent.com/triggermesh/triggermesh/main/config/300-httptarget.yaml
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/triggermesh/main/config/301-httptarget.yaml
 ```
 
 Grant permissions to the controller using the aggregated ClusterRole:
@@ -405,7 +405,7 @@ kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/s
 Apply the CRD from [the TriggerMesh repo](https://github.com/triggermesh/triggermesh/blob/main/config/301-kafkatarget.yaml):
 
 ```console
-kubectl apply -f https://raw.githubusercontent.com/triggermesh/triggermesh/main/config/300-kafkatarget.yaml
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/triggermesh/main/config/301-kafkatarget.yaml
 ```
 
 Grant permissions to the controller using the aggregated ClusterRole:
