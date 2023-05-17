@@ -6,7 +6,7 @@ spec:
   crd: kafkatargets.targets.triggermesh.io
   workload:
     fromImage:
-      repo: gcr.io/triggermesh/kafkatarget-adapter:v1.24.4
+      repo: gcr.io/triggermesh/kafkatarget-adapter:v1.25.0
     formFactor:
       deployment:
         replicas: 1
@@ -64,21 +64,21 @@ spec:
         render:
           name: SKIP_VERIFY
 
-      - path: spec.auth.tls.ca.valueFromSecret
+      - path: spec.auth.tls.ca
         render:
           name: CA
           valueFromSecret:
             name: spec.auth.tls.ca.valueFromSecret.name
             key: spec.auth.tls.ca.valueFromSecret.key
 
-      - path: spec.auth.tls.clientCert.valueFromSecret
+      - path: spec.auth.tls.clientCert
         render:
           name: CLIENT_CERT
           valueFromSecret:
             name: spec.auth.tls.clientCert.valueFromSecret.name
             key: spec.auth.tls.clientCert.valueFromSecret.key
 
-      - path: spec.auth.tls.clientKey.valueFromSecret
+      - path: spec.auth.tls.clientKey
         render:
           name: CLIENT_KEY
           valueFromSecret:
@@ -89,7 +89,7 @@ spec:
         render:
           name: USERNAME
 
-      - path: spec.auth.password.valueFromSecret
+      - path: spec.auth.password
         render:
           name: PASSWORD
           valueFromSecret:

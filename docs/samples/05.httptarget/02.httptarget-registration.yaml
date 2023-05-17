@@ -6,7 +6,7 @@ spec:
   crd: httptargets.targets.triggermesh.io
   workload:
     fromImage:
-      repo: gcr.io/triggermesh/httptarget-adapter:1b998248ccaad71316471904dadec5e41b09c565
+      repo: gcr.io/triggermesh/httptarget-adapter:v1.25.0
     formFactor:
       deployment:
         replicas: 1
@@ -18,8 +18,6 @@ spec:
         defaultPrefix: HTTP_
 
       addEnvs:
-      - name: METRICS_DOMAIN
-        value: triggermesh.io/targets
       - name: NAMESPACE
         valueFrom:
           fieldRef:

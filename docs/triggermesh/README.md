@@ -236,21 +236,21 @@ Given the CRD element to environment variables table above, add this workload pa
         render:
           name: SKIP_VERIFY
 
-      - path: spec.auth.tls.ca.valueFromSecret
+      - path: spec.auth.tls.ca
         render:
           name: CA
           valueFromSecret:
             name: spec.auth.tls.ca.valueFromSecret.name
             key: spec.auth.tls.ca.valueFromSecret.key
 
-      - path: spec.auth.tls.clientCert.valueFromSecret
+      - path: spec.auth.tls.clientCert
         render:
           name: CLIENT_CERT
           valueFromSecret:
             name: spec.auth.tls.clientCert.valueFromSecret.name
             key: spec.auth.tls.clientCert.valueFromSecret.key
 
-      - path: spec.auth.tls.clientKey.valueFromSecret
+      - path: spec.auth.tls.clientKey
         render:
           name: CLIENT_KEY
           valueFromSecret:
@@ -261,7 +261,7 @@ Given the CRD element to environment variables table above, add this workload pa
         render:
           name: USERNAME
 
-      - path: spec.auth.password.valueFromSecret
+      - path: spec.auth.password
         render:
           name: PASSWORD
           valueFromSecret:
@@ -280,4 +280,250 @@ Bundle all those snippets at a YAML file and apply the registration:
 
 ```console
 kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/03.kafkasource/02.kafkasource-registration.yaml
+```
+
+## HTTPTarget Registration
+
+Apply the CRD from [the TriggerMesh repo](https://github.com/triggermesh/triggermesh/blob/main/config/301-httptarget.yaml):
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/triggermesh/main/config/300-httptarget.yaml
+```
+
+Grant permissions to the controller using the aggregated ClusterRole:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/05.httptarget/01.httptarget-clusterrole.yaml
+```
+
+Use the CRD reference, a supported image and your form factor of choice for registering:
+
+```yaml
+spec:
+  crd: httptargets.targets.triggermesh.io
+  workload:
+    fromImage:
+      repo: gcr.io/triggermesh/httptarget-adapter:v1.25.0
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+```
+
+| CRD element  | Environment Variable |
+|---|---|
+| spec.response.eventType | HTTP_EVENT_TYPE |
+| spec.response.eventSource | HTTP_EVENT_SOURCE |
+| spec.endpoint  | HTTP_URL |
+| spec.method  | HTTP_METHOD |
+| spec.headers (array) | HTTP_HEADERS (comma separated array) |
+| spec.skipVerify | HTTP_SKIP_VERIFY |
+| spec.caCertificate | HTTP_CA_CERTIFICATE |
+| spec.basicAuthUsername | HTTP_BASICAUTH_USERNAME |
+| spec.basicAuthPassword (secret) | HTTP_BASICAUTH_PASSWORD |
+| spec.oauthClientID | HTTP_OAUTH_CLIENT_ID |
+| spec.oauthClientSecret (secret) | HTTP_OAUTH_CLIENT_SECRET |
+| spec.oauthTokenURL | HTTP_OAUTH_TOKEN_URL |
+| spec.oauthScopes | HTTP_OAUTH_SCOPE |
+
+Given the CRD element to environment variables table above, add this workload parametrization configuration:
+
+```yaml
+    parameterConfiguration:
+
+      customize:
+      - path: spec.response.eventType
+        render:
+          name: HTTP_EVENT_TYPE
+
+      - path: spec.response.eventSource
+        render:
+          name: HTTP_EVENT_SOURCE
+          defaultValue: httptarget
+
+      - path: spec.endpoint
+        render:
+          name: HTTP_URL
+
+      - path: spec.method
+        render:
+          name: HTTP_METHOD
+
+      - path: spec.skipVerify
+        render:
+          name: HTTP_SKIP_VERIFY
+
+      - path: spec.caCertificate
+        render:
+          name: HTTP_CA_CERTIFICATE
+
+      - path: spec.basicAuthUsername
+        render:
+          name: HTTP_BASICAUTH_USERNAME
+
+      - path: spec.basicAuthPassword
+        render:
+          name: HTTP_BASICAUTH_PASSWORD
+          valueFromSecret:
+            name: spec.credentials.name
+            key: spec.preferences.key
+
+      - path: spec.oauthClientID
+        render:
+          name: HTTP_OAUTH_CLIENT_ID
+
+      - path: spec.oauthClientSecret
+        render:
+          name: HTTP_OAUTH_CLIENT_SECRET
+          valueFromSecret:
+            name: spec.credentials.name
+            key: spec.preferences.key
+
+      - path: spec.oauthTokenURL
+        render:
+          name: HTTP_OAUTH_TOKEN_URL
+
+      - path: spec.oauthScopes
+        render:
+          name: HTTP_OAUTH_SCOPE
+
+      - path: spec.headers
+        render:
+          name: HTTP_HEADERS
+```
+
+Bundle all those snippets at a YAML file and apply the registration:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/05.httptarget/02.httptarget-registration.yaml
+```
+
+## KafkaTarget Registration
+
+Apply the CRD from [the TriggerMesh repo](https://github.com/triggermesh/triggermesh/blob/main/config/301-kafkatarget.yaml):
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/triggermesh/main/config/300-kafkatarget.yaml
+```
+
+Grant permissions to the controller using the aggregated ClusterRole:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/06.kafkatarget/01.kafkatarget-clusterrole.yaml
+```
+
+Use the CRD reference, a supported image and your form factor of choice for registering:
+
+```yaml
+spec:
+  crd: kafkatargets.targets.triggermesh.io
+  workload:
+    fromImage:
+      repo: gcr.io/triggermesh/kafkatarget-adapter:v1.25.0
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+```
+
+| CRD element  | Environment Variable |
+|---|---|
+| spec.bootstrapServers | BOOTSTRAP_SERVERS |
+| spec.topic | TOPIC |
+| spec.topicReplicationFactor  | TOPIC_REPLICATION_FACTOR |
+| spec.topicPartitions  | TOPIC_PARTITIONS |
+| spec.discardCloudEventContext  | DISCARD_CE_CONTEXT |
+| spec.auth.saslEnable  | SASL_ENABLE |
+| spec.auth.securityMechanism  | SECURITY_MECHANISMS |
+| spec.auth.tlsEnable  | TLS_ENABLE |
+| spec.auth.tls.skipVerify  | SKIP_VERIFY |
+| spec.auth.tls.ca (secret)  | CA |
+| spec.auth.tls.clientCert (secret)  | CLIENT_CERT |
+| spec.auth.tls.clientKey (secret)  | CLIENT_KEY |
+| spec.auth.username  | USERNAME |
+| spec.auth.password (secret) | PASSWORD |
+
+Given the CRD element to environment variables table above, add this workload parametrization configuration:
+
+```yaml
+    parameterConfiguration:
+
+      customize:
+      - path: spec.bootstrapServers
+        render:
+          name: BOOTSTRAP_SERVERS
+
+      - path: spec.topic
+        render:
+          name: TOPIC
+
+      - path: spec.topicReplicationFactor
+        render:
+          name: TOPIC_REPLICATION_FACTOR
+
+      - path: spec.topicPartitions
+        render:
+          name: TOPIC_PARTITIONS
+
+      - path: spec.discardCloudEventContext
+        render:
+          name: DISCARD_CE_CONTEXT
+
+      - path: spec.auth.saslEnable
+        render:
+          name: SASL_ENABLE
+
+      - path: spec.auth.securityMechanism
+        render:
+          name: SECURITY_MECHANISMS
+
+      - path: spec.auth.tlsEnable
+        render:
+          name: TLS_ENABLE
+
+      - path: spec.auth.tls.skipVerify
+        render:
+          name: SKIP_VERIFY
+
+      - path: spec.auth.tls.ca
+        render:
+          name: CA
+          valueFromSecret:
+            name: spec.auth.tls.ca.valueFromSecret.name
+            key: spec.auth.tls.ca.valueFromSecret.key
+
+      - path: spec.auth.tls.clientCert
+        render:
+          name: CLIENT_CERT
+          valueFromSecret:
+            name: spec.auth.tls.clientCert.valueFromSecret.name
+            key: spec.auth.tls.clientCert.valueFromSecret.key
+
+      - path: spec.auth.tls.clientKey
+        render:
+          name: CLIENT_KEY
+          valueFromSecret:
+            name: spec.auth.tls.clientKey.valueFromSecret.name
+            key: spec.auth.tls.clientKey.valueFromSecret.key
+
+      - path: spec.auth.username
+        render:
+          name: USERNAME
+
+      - path: spec.auth.password
+        render:
+          name: PASSWORD
+          valueFromSecret:
+            name: spec.auth.password.valueFromSecret.name
+            key: spec.auth.password.valueFromSecret.key
+```
+
+Bundle all those snippets at a YAML file and apply the registration:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/06.kafkatarget/02.kafkatarget-registration.yaml
 ```
