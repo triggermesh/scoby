@@ -362,6 +362,34 @@ customize:
 				{Name: "VARIABLE2", Value: "value 2"},
 			},
 		},
+		"add parameters": {
+			kuardInstance: kuardInstance,
+			parameterConfig: `
+addEnvs:
+- name: NAMESPACE
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.namespace
+- name: K_METRICS_CONFIG
+  value: "{}"
+- name: K_LOGGING_CONFIG
+  value: "{}"
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "K_LOGGING_CONFIG", Value: "{}"},
+				{Name: "K_METRICS_CONFIG", Value: "{}"},
+				{Name: "NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				}},
+				{Name: "VARIABLE1", Value: "value 1"},
+				{Name: "VARIABLE2", Value: "value 2"},
+			},
+		},
 	}
 
 	logr := tlogr.NewTestLogger(t)
