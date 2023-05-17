@@ -6,15 +6,13 @@ spec:
   crd: kafkasources.sources.triggermesh.io
   workload:
     fromImage:
-      repo: gcr.io/triggermesh/kafkasource-adapter:v1.24.4
+      repo: gcr.io/triggermesh/kafkasource-adapter:v1.25.0
     formFactor:
       deployment:
         replicas: 1
     parameterConfiguration:
 
       addEnvs:
-      - name: METRICS_DOMAIN
-        value: triggermesh.io/sources
       - name: NAMESPACE
         valueFrom:
           fieldRef:

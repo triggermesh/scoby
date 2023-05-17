@@ -1,39 +1,100 @@
 # Migrating TriggerMesh Components
 
-This is a practical example of how we are using Scoby to manage TriggerMesh components at Kubernetes. We have chosen simple components that do not require extra controller logic to avoid using [hooks](../reference/hooks.md).
+These are practical examples of how we are using Scoby to manage TriggerMesh components at Kubernetes. We have chosen simple components that do not require extra controller logic to avoid using [hooks](../reference/hooks.md).
 
-Some CRD elements like `spec.adapterOverrides` are not yet supported by Scoby.
+Some CRD elements containing complex parameters like `spec.adapterOverrides` are not yet migrated, status reporting might show different messages, and some other features like custom reporting at status wont be supported.
 
-When trying this guide it is important to scale down or remove the TriggerMesh controller to avoid multiple processes fighting to reconcile the same objects.
+:warning: When trying this guide it is important to scale down or remove the TriggerMesh controller to avoid multiple processes fighting to reconcile the same objects.
 
-## WebhookSource
+## Process
 
-The CRD for this source can be found [here](https://github.com/triggermesh/triggermesh/blob/main/config/300-webhooksource.yaml).
+For each element migrated in this guide we will follow this steps:
 
-Apply the CRD:
+1. Reference the source CRD: the CRD manifests already exists at the [TriggerMesh components repo](https://github.com/triggermesh/triggermesh), we will apply them before registering at Scoby.
+2. Create the `ClusterRole`: Scoby will need to be granted read permissions on the CRD instances created by users to manage them. By means of  role aggregations any `ClusterRole` that is labeled `scoby.triggermesh.io/crdregistration: "true"` will be applied to the Scoby controller.
+3. Register at Scoby: this require us to go through the expected environment variables at the TriggerMesh adapter and map them with the CRD `.spec` subelements. The image to be used at registration can be found at the repository [releases page](https://github.com/triggermesh/triggermesh/releases)
+
+## Inspecting Components
+
+For each migrated component we will create a table that maps CRDs to environment variables:
+
+| CRD element  | Environment Variable |
+|---|---|
+| spec.myElement1  | MY_ELEMENT_ONE |
+| spec.myElement2  | MY_ELEMENT_TWO |
+
+To gather this information we will need to use [component CRDs](https://github.com/triggermesh/triggermesh/tree/main/config), which are the manifests prefixed with `300-` for sources and `301-` for targets.
+
+The environment variables are defined at the adater code of [sources](https://github.com/triggermesh/triggermesh/tree/main/pkg/sources/adapter) and [targets](https://github.com/triggermesh/triggermesh/tree/main/pkg/targets/adapter). Navigating them you will find at each component a structure like this one:
+
+```go
+type envAccessor struct {
+  pkgadapter.EnvConfig
+
+  MyElementOne string `envconfig:"MY_ELEMENT_ONE"`
+  MyElementTwo int `envconfig:"MY_ELEMENT_TWO"`
+}
+```
+
+The `pkgadapter.EnvConfig` includes some environment variables that we will be using for all components:
+
+- `NAMESPACE`: Kubernetes namespace where the workload is running.
+- `K_METRICS_CONFIG`: JSON configuration for metrics. Refer to [Knative documentation](https://knative.dev/docs/serving/observability/metrics/collecting-metrics/).
+- `K_LOGGING_CONFIG`: JSON confdiguration for logging. Refer to [Knative documentation](https://knative.dev/docs/serving/observability/logging/config-logging/).
+- `K_SINK`: for sources only, this environment variable must point to a URL where events are being produced to.
+
+While `K_SINK` must be derived from a field specified by the user, the other ones are not. We will add them at the registration using the `.spec.workload.parameterConfiguration.addEnvs` element. You can replace the empty values with your logging and metrics configuration:
+
+```YAML
+spec:
+  workload:
+    parameterConfiguration:
+      addEnvs:
+      - name: NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      - name: K_METRICS_CONFIG
+        value: "{}"
+      - name: K_LOGGING_CONFIG
+        value: "{}"
+```
+
+For non trivial transformations between the CRD elements and the environment variables we will refer to the reconciler's code where you should find an `adapter.go` file that shows how each element is being serialized. Also at the reconciler we need to make sure if the reconciliation process is executing some extra task like connecting an external API or provisioning resources, in which case we should rely on hooks.
+
+Sources contain an status element that must be informed the resolved URI for the target to which they produce events, that is something we can do with at the `statusConfiguration` using the `valueFromParameter` feature.
+
+```yaml
+    statusConfiguration:
+      addElements:
+      - path: status.sinkUri
+        render:
+          valueFromParameter:
+            path: spec.sink
+```
+
+## WebhookSource Registration
+
+Apply the CRD from [the TriggerMesh repo](https://github.com/triggermesh/triggermesh/blob/main/config/300-webhooksource.yaml):
 
 ```console
 kubectl apply -f https://raw.githubusercontent.com/triggermesh/triggermesh/main/config/300-webhooksource.yaml
 ```
 
-Before registering the CRD at Scoby we need to grant permissions to the controller using the aggregated ClusterRole label and letting it read the source and update the status.
+Grant permissions to the controller using the aggregated ClusterRole:
 
 ```console
 kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/02.webhooksource/01.webhooksource-clusterrole.yaml
 ```
 
-The image can be found at the repository [releases page](https://github.com/triggermesh/triggermesh/releases). The registration using a Kubernetes deployment and service would look like this:
+Use the CRD reference, a supported image and your form factor of choice for registering:
 
 ```yaml
-apiVersion: scoby.triggermesh.io/v1alpha1
-kind: CRDRegistration
-metadata:
-  name: webhooksource
 spec:
   crd: webhooksources.sources.triggermesh.io
   workload:
     fromImage:
-      repo: gcr.io/triggermesh/webhooksource-adapter:v1.24.4
+      repo: gcr.io/triggermesh/webhooksource-adapter:v1.25.0
     formFactor:
       deployment:
         replicas: 1
@@ -42,23 +103,17 @@ spec:
           targetPort: 8080
 ```
 
-Replace the `deployment` section with a `knativeService` when using Knative.
-
-The schema contains all object fields under the `.spec` root element, and the `.status` element contains `conditions` array and a `sinkUri` to host the resolved URI to send events to.
-
-This is the mapping from CRD elements to the `WebhookSource` adapter application expected environment variables:
-
 | CRD element  | Environment Variable |
 |---|---|
 | spec.eventType  | WEBHOOK_EVENT_TYPE |
 | spec.eventSource  | WEBHOOK_EVENT_SOURCE |
 | spec.basicAuthUsername  | WEBHOOK_BASICAUTH_USERNAME |
 | spec.basicAuthPassword.(secret)  | WEBHOOK_BASICAUTH_PASSWORD |
-| spec.eventExtensionAttributes.from (array) | WEBHOOK_EVENT_EXTENSION_ATTRIBUTES_FROM |
+| spec.eventExtensionAttributes.from (array) | WEBHOOK_EVENT_EXTENSION_ATTRIBUTES_FROM (comma separated array)|
 | spec.corsAllowOrigin | WEBHOOK_CORS_ALLOW_ORIGIN |
 | spec.sink (destination) | K_SINK |
 
-Primitive values need no special treatment. Also the `spec.eventExtensionAttributes.from` array, which produces CloudEvents attributes from the HTTP request, is expected to be a comma separated string at the environment variable, and that is the default rendering at Scoby for an array, hence can be added to the registration.
+Given the CRD element to environment variables table above, add this workload parametrization configuration:
 
 ```yaml
     parameterConfiguration:
@@ -84,38 +139,18 @@ Primitive values need no special treatment. Also the `spec.eventExtensionAttribu
         render:
           name: WEBHOOK_CORS_ALLOW_ORIGIN
 
-```
-
-HTTP basic authentication password is informed using a secret. Use the `valueFromSecret` element at the registration to point at the secret name and key that hosts the user's password.
-
-```yaml
       - path: spec.basicAuthPassword
         render:
           name: WEBHOOK_BASICAUTH_PASSWORD
           valueFromSecret:
             name: spec.basicAuthPassword.valueFromSecret.name
             key: spec.basicAuthPassword.valueFromSecret.key
-```
 
-The `spec.sink` is a filed that can inform either a URI or an object that should be resolved to an URI. This is a non straighforward task at the controller, usually this kind of operations require hooks to be called from Scoby but for this one we created a built-in function called `resolveAddress`.
-
-```yaml
       - path: spec.sink
         render:
           name: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
-```
-
-The resolved URI should be used as a value at the `status.sinkUri`, which is something we can do with at the `statusConfiguration` using the `valueFromParameter` feature.
-
-```yaml
-    statusConfiguration:
-      addElements:
-      - path: status.sinkUri
-        render:
-          valueFromParameter:
-            path: spec.sink
 ```
 
 Bundle all those snippets at a YAML file and apply the registration:
@@ -124,27 +159,125 @@ Bundle all those snippets at a YAML file and apply the registration:
 kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/02.webhooksource/02.webhooksource-registration.yaml
 ```
 
-## Usage
+## KafkaSource Registration
 
-Users can now create `WebhookSource` objects, Scoby will do the reconciliation, resolve the sink URI, create the required workload using the parameters that we registered, and will reflect the provisioning outcome at the status:
+Apply the CRD from [the TriggerMesh repo](https://github.com/triggermesh/triggermesh/blob/main/config/300-kafkasource.yaml):
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/triggermesh/main/config/300-kafkasource.yaml
+```
+
+Grant permissions to the controller using the aggregated ClusterRole:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/03.kafkasource/01.kafkasource-clusterrole.yaml
+```
+
+Use the CRD reference, a supported image and your form factor of choice for registering:
 
 ```yaml
-apiVersion: sources.triggermesh.io/v1alpha1
-kind: WebhookSource
-metadata:
-  name: sample
 spec:
-  eventType: com.example.mysample.event
-  eventSource: instance-abc123
+  crd: kafkasources.sources.triggermesh.io
+  workload:
+    fromImage:
+      repo: gcr.io/triggermesh/kafkasource-adapter:v1.25.0
+    formFactor:
+      deployment:
+        replicas: 1
+```
 
-  eventExtensionAttributes:
-    from:
-    - path
-    - queries
+| CRD element  | Environment Variable |
+|---|---|
+| spec.bootstrapServers  | BOOTSTRAP_SERVERS |
+| spec.topic  | TOPIC |
+| spec.groupID  | GROUP_ID |
+| spec.auth.saslEnable  | SASL_ENABLE |
+| spec.auth.securityMechanism  | SECURITY_MECHANISMS |
+| spec.auth.tlsEnable  | TLS_ENABLE |
+| spec.auth.tls.skipVerify  | SKIP_VERIFY |
+| spec.auth.tls.ca (secret)  | CA |
+| spec.auth.tls.clientCert (secret) | CLIENT_CERT |
+| spec.auth.tls.clientKey (secret) | CLIENT_KEY |
+| spec.auth.username  | USERNAME |
+| spec.auth.password (secret) | PASSWORD |
+| spec.sink (destination) | K_SINK |
 
-  sink:
-    ref:
-      apiVersion: eventing.triggermesh.io/v1alpha1
-      kind: RedisBroker
-      name: demo
+Given the CRD element to environment variables table above, add this workload parametrization configuration:
+
+```yaml
+    parameterConfiguration:
+
+      customize:
+      - path: spec.bootstrapServers
+        render:
+          name: BOOTSTRAP_SERVERS
+
+      - path: spec.topic
+        render:
+          name: TOPIC
+
+      - path: spec.groupID
+        render:
+          name: GROUP_ID
+
+      - path: spec.auth.saslEnable
+        render:
+          name: SASL_ENABLE
+
+      - path: spec.auth.securityMechanism
+        render:
+          name: SECURITY_MECHANISMS
+
+      - path: spec.auth.tlsEnable
+        render:
+          name: TLS_ENABLE
+
+      - path: spec.auth.tls.skipVerify
+        render:
+          name: SKIP_VERIFY
+
+      - path: spec.auth.tls.ca.valueFromSecret
+        render:
+          name: CA
+          valueFromSecret:
+            name: spec.auth.tls.ca.valueFromSecret.name
+            key: spec.auth.tls.ca.valueFromSecret.key
+
+      - path: spec.auth.tls.clientCert.valueFromSecret
+        render:
+          name: CLIENT_CERT
+          valueFromSecret:
+            name: spec.auth.tls.clientCert.valueFromSecret.name
+            key: spec.auth.tls.clientCert.valueFromSecret.key
+
+      - path: spec.auth.tls.clientKey.valueFromSecret
+        render:
+          name: CLIENT_KEY
+          valueFromSecret:
+            name: spec.auth.tls.clientKey.valueFromSecret.name
+            key: spec.auth.tls.clientKey.valueFromSecret.key
+
+      - path: spec.auth.username
+        render:
+          name: USERNAME
+
+      - path: spec.auth.password.valueFromSecret
+        render:
+          name: PASSWORD
+          valueFromSecret:
+            name: spec.auth.password.valueFromSecret.name
+            key: spec.auth.password.valueFromSecret.key
+
+      - path: spec.sink
+        render:
+          name: K_SINK
+          valueFromBuiltInFunc:
+            name: resolveAddress
+
+```
+
+Bundle all those snippets at a YAML file and apply the registration:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/03.kafkasource/02.kafkasource-registration.yaml
 ```

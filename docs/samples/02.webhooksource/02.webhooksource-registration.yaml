@@ -6,7 +6,7 @@ spec:
   crd: webhooksources.sources.triggermesh.io
   workload:
     fromImage:
-      repo: gcr.io/triggermesh/webhooksource-adapter:v1.24.4
+      repo: gcr.io/triggermesh/webhooksource-adapter:v1.25.0
     formFactor:
       deployment:
         replicas: 1
@@ -19,8 +19,6 @@ spec:
         defaultPrefix: WEBHOOK_
 
       addEnvs:
-      - name: METRICS_DOMAIN
-        value: triggermesh.io/sources
       - name: NAMESPACE
         valueFrom:
           fieldRef:
