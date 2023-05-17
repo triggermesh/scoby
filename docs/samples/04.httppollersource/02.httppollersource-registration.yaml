@@ -6,7 +6,7 @@ spec:
   crd: httppollersources.sources.triggermesh.io
   workload:
     fromImage:
-      repo: gcr.io/triggermesh/httppollersource-adapter:v1.24.4
+      repo: gcr.io/triggermesh/httppollersource-adapter:v1.25.0
     formFactor:
       deployment:
         replicas: 1
