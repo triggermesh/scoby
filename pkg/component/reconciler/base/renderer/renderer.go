@@ -178,11 +178,11 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 
 	// Add all added environment variables that are not related to
 	// the object's data
-	for _, ev := range r.addEnvs {
+	for i := range r.addEnvs {
 		// There is no path for added envrionment variables, but
 		// we want to keep consistency, so we also add them here
 		// using a prefix plus the variable name.
-		obj.AddEnvVar(addEnvsPrefix+ev.Name, &ev)
+		obj.AddEnvVar(addEnvsPrefix+r.addEnvs[i].Name, &r.addEnvs[i])
 	}
 
 	// Iterate all elements in the parsed fields structure.
