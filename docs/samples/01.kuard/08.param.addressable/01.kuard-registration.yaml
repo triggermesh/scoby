@@ -16,7 +16,7 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
 
     parameterConfiguration:
-      customize:
+      specToEnvs:
       # Resolve an address
       - path: spec.refToAddress
         render:

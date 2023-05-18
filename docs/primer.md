@@ -59,8 +59,6 @@ The CRD above defines a `kuard` resource with an schema that lets users define a
 kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/00.primer/01.kuard-crd.yaml
 ```
 
-## Kuard ClusterRole
-
 Since the CRD has been created at the previous step, the `kuard` resource is available and we can run a command to list the instances at the cluster:
 
 ```console
@@ -69,7 +67,9 @@ $ kubectl get kuards
 No resources found in default namespace.
 ```
 
-Not all users can manage resources though, `ServiceAccount` that need it must be granted roles on the new resource. One of those `ServiceAccount` is the one that runs Scoby, that will need to watch any changes at `kuard` instances at every namespace of the cluster and update the status (when the CRD contains the status element).
+## Kuard ClusterRole
+
+Not all users can manage resources, each `ServiceAccount` that need it must be granted roles on the new resource. One of those `ServiceAccount` is the one that runs Scoby, that will need to watch any changes at `kuard` instances at every namespace of the cluster and update the status (when the CRD contains the status element).
 
 Scoby's `ServiceAccount` uses an aggregation pattern where any `ClusterRole` that contains the label `scoby.triggermesh.io/crdregistration: "true"` will be automatically granted.
 
@@ -150,7 +150,7 @@ Users can now create `kuards` like this one:
 apiVersion: extensions.triggermesh.io/v1
 kind: Kuard
 metadata:
-  name: kuard-primer-instance
+  name: primer-instance
 spec:
   primer: Hello World!
 ```
@@ -164,16 +164,16 @@ The instance will generate a deployment and a service.
 ```console
 $ kubectl get deployment,svc
 NAME                                    READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/kuard-primer-instance   1/1     1            1           1m00s
+deployment.apps/kuards-primer-instance   1/1     1            1           1m00s
 
 NAME                            TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
-service/kuard-primer-instance   ClusterIP   10.98.247.15   <none>        80/TCP    1m00s
+service/kuards-primer-instance   ClusterIP   10.98.247.15   <none>        80/TCP    1m00s
 ```
 
 The service can be forwarded to be able to reach `kuard` using `http://localhost:8888`.
 
 ```console
-kubectl port-forward svc/kuard-primer-instance  8888:80
+kubectl port-forward svc/kuards-primer-instance  8888:80
 ```
 
 Open the URL and navigate to `Server Env` option at the vertical menu. You should find that the `.spec.primer` element at the spec has been reflected as `PRIMER` environment variable at the running pod.
@@ -189,7 +189,7 @@ This primer example does not contain status management though, which means that 
 Remove assets created, preferably in reverse creation order to avoid getting error logs at Scoby controller.
 
 ```console
-kubectl delete kuards kuard-primer-instance
+kubectl delete kuards primer-instance
 kubectl delete crdregistrations.scoby.triggermesh.io kuards
 kubectl delete clusterroles crd-registrations-scoby-kuard
 kubectl delete crd kuards.extensions.triggermesh.io

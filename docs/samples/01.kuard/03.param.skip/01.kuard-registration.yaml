@@ -15,7 +15,7 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
 
     parameterConfiguration:
-      customize:
+      specToEnvs:
       # Skip variable2 from generating a parameter for the workload
       - path: spec.variable2
         render:

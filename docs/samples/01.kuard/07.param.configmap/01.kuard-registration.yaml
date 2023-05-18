@@ -16,7 +16,7 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
 
     parameterConfiguration:
-      customize:
+      specToEnvs:
       # Reference a ConfigMap
       - path: spec.refToConfigMap
         render:

@@ -316,7 +316,7 @@ spec:
     fromImage:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
-      customize:
+      specToEnvs:
       # Skip variable2 from generating a parameter for the workload
       - path: spec.variable2
         render:
@@ -324,7 +324,7 @@ spec:
 
 ```
 
-The `spec.workload.parameterConfiguration.customize[].render.skip` boolean indicates whether the environment variable for the element should be generated.
+The `spec.workload.parameterConfiguration.specToEnvs[].render.skip` boolean indicates whether the environment variable for the element should be generated.
 
 Create the registration:
 
@@ -377,7 +377,7 @@ kubectl delete crdregistration kuard
 
 ### Parameter Renaming
 
-Most often expected environment variables at the container do not match Scoby's automatic rendering. All generated environment variables can be renamed using `spec.workload.parameterConfiguration.customize[].render.key`.
+Most often expected environment variables at the container do not match Scoby's automatic rendering. All generated environment variables can be renamed using `spec.workload.parameterConfiguration.specToEnvs[].render.key`.
 
 ```yaml
 apiVersion: scoby.triggermesh.io/v1alpha1
@@ -396,7 +396,7 @@ spec:
     fromImage:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
-      customize:
+      specToEnvs:
       # Rename variable2
       - path: spec.variable2
         render:
@@ -458,7 +458,7 @@ kubectl delete crdregistration kuard
 
 ### Parameter Default Value
 
-The value for an environment variable can be set to a default value using `spec.workload.parameterConfiguration.customize[].render.defaultValue`.
+The value for an environment variable can be set to a default value using `spec.workload.parameterConfiguration.specToEnvs[].render.defaultValue`.
 
 ```yaml
 apiVersion: scoby.triggermesh.io/v1alpha1
@@ -477,7 +477,7 @@ spec:
     fromImage:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
-      customize:
+      specToEnvs:
       # Override variable2 value
       - path: spec.variable2
         render:
@@ -539,7 +539,7 @@ kubectl delete crdregistration kuard
 
 ### Parameter Value From Secret
 
-The value for an environment variable can reference a Secret through the `spec.workload.parameterConfiguration.customize[].render.valueFromSecret` customization option, that needs the `name` and `key` subelements to be set. In this example we will also be setting the variable name.
+The value for an environment variable can reference a Secret through the `spec.workload.parameterConfiguration.specToEnvs[].render.valueFromSecret` customization option, that needs the `name` and `key` subelements to be set. In this example we will also be setting the variable name.
 
 ```yaml
 apiVersion: scoby.triggermesh.io/v1alpha1
@@ -558,7 +558,7 @@ spec:
     fromImage:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
-      customize:
+      specToEnvs:
       # Reference a secret
       - path: spec.refToSecret
         render:
@@ -634,7 +634,7 @@ kubectl delete secret kuard-secret
 
 ### Parameter Value From ConfigMap
 
-The value for an environment variable can reference a ConfigMap through the `spec.workload.parameterConfiguration.customize[].render.valueFromConfigMap` customization option, that needs the `name` and `key` subelements to be set.
+The value for an environment variable can reference a ConfigMap through the `spec.workload.parameterConfiguration.specToEnvs[].render.valueFromConfigMap` customization option, that needs the `name` and `key` subelements to be set.
 
 ```yaml
 apiVersion: scoby.triggermesh.io/v1alpha1
@@ -653,7 +653,7 @@ spec:
     fromImage:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
-      customize:
+      specToEnvs:
       # Reference a ConfigMap
       - path: spec.refToConfigMap
         render:
@@ -742,7 +742,7 @@ A destination duck type informs either an URI, a Kubernetes service, or a Kubern
     uri: <uri>
 ```
 
-Use the built-in function `spec.workload.parameterConfiguration.customize[].valueFromBuiltInFunc.resolveAddress` on the element that contains the Destination type. As an added feature this example also updates an status element with the resolved address.
+Use the built-in function `spec.workload.parameterConfiguration.specToEnvs[].valueFromBuiltInFunc.resolveAddress` on the element that contains the Destination type. As an added feature this example also updates an status element with the resolved address.
 
 ```yaml
 apiVersion: scoby.triggermesh.io/v1alpha1
@@ -761,7 +761,7 @@ spec:
     fromImage:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
-      customize:
+      specToEnvs:
       # Resolve an address
       - path: spec.refToAddress
         render:

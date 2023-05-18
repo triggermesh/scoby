@@ -16,7 +16,7 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
 
     parameterConfiguration:
-      customize:
+      specToEnvs:
       # Reference a secret
       - path: spec.refToSecret
         render:

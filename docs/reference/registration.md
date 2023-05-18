@@ -158,7 +158,7 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      customize:
+      specToEnvs:
       - path: spec.bar
         render:
           skip: true
@@ -168,7 +168,7 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      customize:
+      specToEnvs:
       - path: spec.bar
         render:
           name: FOO_BAR
@@ -178,7 +178,7 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      customize:
+      specToEnvs:
       - path: spec.bar
         render:
           defaultValue: hello scoby
@@ -188,7 +188,7 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      customize:
+      specToEnvs:
       - path: spec.credentials
         render:
           name: FOO_CREDENTIALS
@@ -201,7 +201,7 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      customize:
+      specToEnvs:
       - path: spec.preferences
         render:
           valueFromConfigmap:
@@ -213,7 +213,7 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      customize:
+      specToEnvs:
       - path: spec.destination
         render:
           name: K_SINK
@@ -227,7 +227,7 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      customize:
+      specToEnvs:
       - path: spec.destination
         render:
           name: K_SINK
