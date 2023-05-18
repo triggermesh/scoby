@@ -28,7 +28,7 @@ spec:
       - name: K_LOGGING_CONFIG
         value: "{}"
 
-      customize:
+      specToEnvs:
       - path: spec.eventType
         render:
           name: WEBHOOK_EVENT_TYPE

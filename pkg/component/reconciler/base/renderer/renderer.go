@@ -45,10 +45,10 @@ func NewRenderer(wkl *commonv1alpha1.Workload, resolver resolver.Resolver) recon
 
 		// Curate object fields customization, index them by their
 		// relaxed JSONPath.
-		if pcfg.Customize != nil && len(pcfg.Customize) != 0 {
-			r.customization = make(map[string]commonv1alpha1.CustomizeParameterConfiguration, len(pcfg.Customize))
-			for _, c := range pcfg.Customize {
-				r.customization[strings.TrimLeft(c.Path, "$.")] = c
+		if pcfg.SpecToEnvs != nil && len(pcfg.SpecToEnvs) != 0 {
+			r.specToEnvs = make(map[string]commonv1alpha1.SpecToEnvParameterConfiguration, len(pcfg.SpecToEnvs))
+			for _, c := range pcfg.SpecToEnvs {
+				r.specToEnvs[strings.TrimLeft(c.Path, "$.")] = c
 
 				// default values are set
 				if c.Render.DefaultValue != nil {
@@ -78,7 +78,7 @@ type renderer struct {
 	resolver resolver.Resolver
 
 	// JSONPath indexed configuration parameters.
-	customization map[string]commonv1alpha1.CustomizeParameterConfiguration
+	specToEnvs map[string]commonv1alpha1.SpecToEnvParameterConfiguration
 
 	// Global options to be applied while transforming object fields
 	// into workload parameters.
@@ -205,8 +205,8 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 		pf := pfs[k]
 		// Retrieve custom render configuration for the field.
 		var renderConfig *commonv1alpha1.ParameterRenderConfiguration
-		if customize, ok := r.customization[pf.toJSONPath()]; ok && customize.Render != nil {
-			renderConfig = customize.Render
+		if specToEnv, ok := r.specToEnvs[pf.toJSONPath()]; ok && specToEnv.Render != nil {
+			renderConfig = specToEnv.Render
 		}
 
 		// Create environment variable for this field.

@@ -1,6 +1,6 @@
 apiVersion: extensions.triggermesh.io/v1
 kind: Kuard
 metadata:
-  name: kuard-primer-instance
+  name: primer-instance
 spec:
   primer: Hello World!

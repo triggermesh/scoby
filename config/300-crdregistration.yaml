@@ -273,12 +273,22 @@ spec:
                           - name
                           type: object
                         type: array
-                      customize:
-                        description: Customize contains instructions to modify parameters
+                      global:
+                        description: Global defines the configuration to be applied
+                          to all generated parameters.
+                        properties:
+                          defaultPrefix:
+                            description: DefaultPrefix to be appeneded to keys by
+                              all generated parameters. This configuration does not
+                              affect parameter keys explicitly set by users.
+                            type: string
+                        type: object
+                      specToEnvs:
+                        description: SpecToEnvs contains instructions to modify parameters
                           generation from the instance's spec.
                         items:
-                          description: CustomizeParameters contains instructions to
-                            modify parameters generation for the controlled instance
+                          description: SpecToEnvsParameterConfiguration contains instructions
+                            to modify parameters generation for the controlled instance
                             spec.
                           properties:
                             path:
@@ -349,16 +359,6 @@ spec:
                           - path
                           type: object
                         type: array
-                      global:
-                        description: Global defines the configuration to be applied
-                          to all generated parameters.
-                        properties:
-                          defaultPrefix:
-                            description: DefaultPrefix to be appeneded to keys by
-                              all generated parameters. This configuration does not
-                              affect parameter keys explicitly set by users.
-                            type: string
-                        type: object
                     type: object
                   statusConfiguration:
                     description: StatusConfiguration contains rules to populate a

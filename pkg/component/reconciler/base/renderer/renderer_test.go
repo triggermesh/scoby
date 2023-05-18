@@ -268,7 +268,7 @@ func TestRenderedContainer(t *testing.T) {
 		"skip variable from rendering": {
 			kuardInstance: kuardInstance,
 			parameterConfig: `
-customize:
+specToEnvs:
 - path: spec.variable2
   render:
     skip: true
@@ -284,7 +284,7 @@ customize:
 		"rename variable": {
 			kuardInstance: kuardInstance,
 			parameterConfig: `
-customize:
+specToEnvs:
 - path: spec.variable2
   render:
     name: KUARD_VARIABLE_TWO
@@ -300,7 +300,7 @@ customize:
 		"default value - when present": {
 			kuardInstance: kuardInstance,
 			parameterConfig: `
-customize:
+specToEnvs:
 - path: spec.variable2
   render:
     defaultValue: new variable2 value
@@ -317,7 +317,7 @@ customize:
 			// remove variable2 entry from kuard instance.
 			kuardInstance: strings.ReplaceAll(kuardInstance, "variable2: value 2", ""),
 			parameterConfig: `
-customize:
+specToEnvs:
 - path: spec.variable2
   render:
     defaultValue: new variable2 value
@@ -338,7 +338,7 @@ customize:
     secretKey: kuard-key
 `,
 			parameterConfig: `
-customize:
+specToEnvs:
 - path: spec.refToSecret
   render:
     name: FOO_CREDENTIALS

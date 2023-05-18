@@ -118,7 +118,7 @@ Given the CRD element to environment variables table above, add this workload pa
 ```yaml
     parameterConfiguration:
 
-      customize:
+      specToEnvs:
       - path: spec.eventType
         render:
           name: WEBHOOK_EVENT_TYPE
@@ -207,7 +207,7 @@ Given the CRD element to environment variables table above, add this workload pa
 ```yaml
     parameterConfiguration:
 
-      customize:
+      specToEnvs:
       - path: spec.bootstrapServers
         render:
           name: BOOTSTRAP_SERVERS
@@ -333,7 +333,7 @@ Given the CRD element to environment variables table above, add this workload pa
 ```yaml
     parameterConfiguration:
 
-      customize:
+      specToEnvs:
       - path: spec.response.eventType
         render:
           name: HTTP_EVENT_TYPE
@@ -452,7 +452,7 @@ Given the CRD element to environment variables table above, add this workload pa
 ```yaml
     parameterConfiguration:
 
-      customize:
+      specToEnvs:
       - path: spec.bootstrapServers
         render:
           name: BOOTSTRAP_SERVERS

@@ -42,10 +42,10 @@ type ParameterConfiguration struct {
 	// +optional
 	AddEnvs []corev1.EnvVar `json:"addEnvs,omitempty"`
 
-	// Customize contains instructions to modify parameters generation from
+	// SpecToEnvs contains instructions to modify parameters generation from
 	// the instance's spec.
 	// +optional
-	Customize []CustomizeParameterConfiguration `json:"customize,omitempty"`
+	SpecToEnvs []SpecToEnvParameterConfiguration `json:"specToEnvs,omitempty"`
 }
 
 // GlobalParameterConfiguration defines configuration to be applied to all generated parameters.
@@ -63,9 +63,9 @@ func (gpc *GlobalParameterConfiguration) GetDefaultPrefix() string {
 	return *gpc.DefaultPrefix
 }
 
-// CustomizeParameters contains instructions to modify parameters generation for
+// SpecToEnvsParameterConfiguration contains instructions to modify parameters generation for
 // the controlled instance spec.
-type CustomizeParameterConfiguration struct {
+type SpecToEnvParameterConfiguration struct {
 	// JSON simplified path for the parameter.
 	Path string `json:"path"`
 
