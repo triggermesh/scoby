@@ -37,15 +37,20 @@ type ParameterConfiguration struct {
 	// +optional
 	Global *GlobalParameterConfiguration `json:"global,omitempty"`
 
-	// AddEnvs contains configurations for parameters to be added to the workload
+	// AddEnvs contains instructions to create environment variables at the workload
 	// not derived from the user instance.
 	// +optional
 	AddEnvs []corev1.EnvVar `json:"addEnvs,omitempty"`
 
-	// SpecToEnvs contains instructions to modify parameters generation from
+	// SpecToEnvs contains instructions to generate environment variables from
 	// the instance's spec.
 	// +optional
 	SpecToEnvs []SpecToEnvParameterConfiguration `json:"specToEnvs,omitempty"`
+
+	// SpecToVolumes contains instructions to generate volumes and mounts from
+	// the instance's spec.
+	// +optional
+	SpecToVolumes []SpecToVolumeParameterConfiguration `json:"specToVolumes,omitempty"`
 }
 
 // GlobalParameterConfiguration defines configuration to be applied to all generated parameters.
@@ -63,7 +68,7 @@ func (gpc *GlobalParameterConfiguration) GetDefaultPrefix() string {
 	return *gpc.DefaultPrefix
 }
 
-// SpecToEnvsParameterConfiguration contains instructions to modify parameters generation for
+// SpecToEnvsParameterConfiguration contains instructions to generate environment variables from
 // the controlled instance spec.
 type SpecToEnvParameterConfiguration struct {
 	// JSON simplified path for the parameter.
@@ -72,6 +77,27 @@ type SpecToEnvParameterConfiguration struct {
 	// Render options for the parameter generation.
 	// +optional
 	Render *ParameterRenderConfiguration `json:"render,omitempty"`
+}
+
+// SpecToVolumeParameterConfiguration contains instructions to generate volumes
+// and volume mounts from the controlled instance spec.
+type SpecToVolumeParameterConfiguration struct {
+	// JSON simplified path for the parameter.
+	Path string `json:"path"`
+
+	// Name for the volume.
+	Name string `json:"name,omitempty"`
+
+	// Path where the file will be mounted.
+	MountPath string `json:"mountPath,omitempty"`
+
+	// ValueFromConfigMap is a reference to a ConfigMap.
+	// +optional
+	ValueFromConfigMap *ObjectReference `json:"valueFromConfigMap,omitempty"`
+
+	// ValueFromSecret is a reference to a Secret.
+	// +optional
+	ValueFromSecret *ObjectReference `json:"valueFromSecret,omitempty"`
 }
 
 // ParameterRenderConfiguration are the customization options for an specific

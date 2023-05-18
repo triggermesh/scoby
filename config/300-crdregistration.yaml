@@ -155,8 +155,8 @@ spec:
                       transformed into workload parameters.
                     properties:
                       addEnvs:
-                        description: AddEnvs contains configurations for parameters
-                          to be added to the workload not derived from the user instance.
+                        description: AddEnvs contains instructions to create environment
+                          variables at the workload not derived from the user instance.
                         items:
                           description: EnvVar represents an environment variable present
                             in a Container.
@@ -284,12 +284,12 @@ spec:
                             type: string
                         type: object
                       specToEnvs:
-                        description: SpecToEnvs contains instructions to modify parameters
-                          generation from the instance's spec.
+                        description: SpecToEnvs contains instructions to generate
+                          environment variables from the instance's spec.
                         items:
                           description: SpecToEnvsParameterConfiguration contains instructions
-                            to modify parameters generation for the controlled instance
-                            spec.
+                            to generate environment variables from the controlled
+                            instance spec.
                           properties:
                             path:
                               description: JSON simplified path for the parameter.
@@ -354,6 +354,54 @@ spec:
                                   - key
                                   - name
                                   type: object
+                              type: object
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      specToVolumes:
+                        description: SpecToVolumes contains instructions to generate
+                          volumes and mounts from the instance's spec.
+                        items:
+                          description: SpecToVolumeParameterConfiguration contains
+                            instructions to generate volumes and volume mounts from
+                            the controlled instance spec.
+                          properties:
+                            mountPath:
+                              description: Path where the file will be mounted.
+                              type: string
+                            name:
+                              description: Name for the volume.
+                              type: string
+                            path:
+                              description: JSON simplified path for the parameter.
+                              type: string
+                            valueFromConfigMap:
+                              description: ValueFromConfigMap is a reference to a
+                                ConfigMap.
+                              properties:
+                                key:
+                                  description: The key to select.
+                                  type: string
+                                name:
+                                  description: Object name
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                            valueFromSecret:
+                              description: ValueFromSecret is a reference to a Secret.
+                              properties:
+                                key:
+                                  description: The key to select.
+                                  type: string
+                                name:
+                                  description: Object name
+                                  type: string
+                              required:
+                              - key
+                              - name
                               type: object
                           required:
                           - path
