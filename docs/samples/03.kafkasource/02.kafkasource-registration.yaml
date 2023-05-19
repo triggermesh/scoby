@@ -22,69 +22,69 @@ spec:
       - name: K_LOGGING_CONFIG
         value: "{}"
 
-      specToEnvs:
+      fromSpec:
       - path: spec.bootstrapServers
-        render:
+        toEnv:
           name: BOOTSTRAP_SERVERS
 
       - path: spec.topic
-        render:
+        toEnv:
           name: TOPIC
 
       - path: spec.groupID
-        render:
+        toEnv:
           name: GROUP_ID
 
       - path: spec.auth.saslEnable
-        render:
+        toEnv:
           name: SASL_ENABLE
 
       - path: spec.auth.securityMechanism
-        render:
+        toEnv:
           name: SECURITY_MECHANISMS
 
       - path: spec.auth.tlsEnable
-        render:
+        toEnv:
           name: TLS_ENABLE
 
       - path: spec.auth.tls.skipVerify
-        render:
+        toEnv:
           name: SKIP_VERIFY
 
       - path: spec.auth.tls.ca
-        render:
+        toEnv:
           name: CA
           valueFromSecret:
             name: spec.auth.tls.ca.valueFromSecret.name
             key: spec.auth.tls.ca.valueFromSecret.key
 
       - path: spec.auth.tls.clientCert
-        render:
+        toEnv:
           name: CLIENT_CERT
           valueFromSecret:
             name: spec.auth.tls.clientCert.valueFromSecret.name
             key: spec.auth.tls.clientCert.valueFromSecret.key
 
       - path: spec.auth.tls.clientKey
-        render:
+        toEnv:
           name: CLIENT_KEY
           valueFromSecret:
             name: spec.auth.tls.clientKey.valueFromSecret.name
             key: spec.auth.tls.clientKey.valueFromSecret.key
 
       - path: spec.auth.username
-        render:
+        toEnv:
           name: USERNAME
 
       - path: spec.auth.password
-        render:
+        toEnv:
           name: PASSWORD
           valueFromSecret:
             name: spec.auth.password.valueFromSecret.name
             key: spec.auth.password.valueFromSecret.key
 
       - path: spec.sink
-        render:
+        toEnv:
           name: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress

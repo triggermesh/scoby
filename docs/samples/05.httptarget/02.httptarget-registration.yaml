@@ -27,62 +27,62 @@ spec:
       - name: K_LOGGING_CONFIG
         value: "{}"
 
-      specToEnvs:
+      fromSpec:
       - path: spec.response.eventType
-        render:
+        toEnv:
           name: HTTP_EVENT_TYPE
 
       - path: spec.response.eventSource
-        render:
+        toEnv:
           name: HTTP_EVENT_SOURCE
           defaultValue: httptarget
 
       - path: spec.endpoint
-        render:
+        toEnv:
           name: HTTP_URL
 
       - path: spec.method
-        render:
+        toEnv:
           name: HTTP_METHOD
 
       - path: spec.skipVerify
-        render:
+        toEnv:
           name: HTTP_SKIP_VERIFY
 
       - path: spec.caCertificate
-        render:
+        toEnv:
           name: HTTP_CA_CERTIFICATE
 
       - path: spec.basicAuthUsername
-        render:
+        toEnv:
           name: HTTP_BASICAUTH_USERNAME
 
       - path: spec.basicAuthPassword
-        render:
+        toEnv:
           name: HTTP_BASICAUTH_PASSWORD
           valueFromSecret:
             name: spec.credentials.name
             key: spec.preferences.key
 
       - path: spec.oauthClientID
-        render:
+        toEnv:
           name: HTTP_OAUTH_CLIENT_ID
 
       - path: spec.oauthClientSecret
-        render:
+        toEnv:
           name: HTTP_OAUTH_CLIENT_SECRET
           valueFromSecret:
             name: spec.credentials.name
             key: spec.preferences.key
 
       - path: spec.oauthTokenURL
-        render:
+        toEnv:
           name: HTTP_OAUTH_TOKEN_URL
 
       - path: spec.oauthScopes
-        render:
+        toEnv:
           name: HTTP_OAUTH_SCOPE
 
       - path: spec.headers
-        render:
+        toEnv:
           name: HTTP_HEADERS

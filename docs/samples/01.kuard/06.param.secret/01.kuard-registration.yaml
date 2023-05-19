@@ -16,10 +16,10 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
 
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       # Reference a secret
       - path: spec.refToSecret
-        render:
+        toEnv:
           name: FOO_CREDENTIALS
           valueFromSecret:
             name: spec.refToSecret.secretName

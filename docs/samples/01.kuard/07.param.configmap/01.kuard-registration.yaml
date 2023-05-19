@@ -16,10 +16,10 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
 
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       # Reference a ConfigMap
       - path: spec.refToConfigMap
-        render:
+        toEnv:
           valueFromConfigMap:
             name: spec.refToConfigMap.configName
             key: spec.refToConfigMap.configKey

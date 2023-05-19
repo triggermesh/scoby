@@ -15,9 +15,9 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
 
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       # Use a specific env var key for variable2
       - path: spec.variable2
-        render:
+        toEnv:
           name: KUARD_VARIABLE_TWO
 

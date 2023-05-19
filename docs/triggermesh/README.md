@@ -118,36 +118,36 @@ Given the CRD element to environment variables table above, add this workload pa
 ```yaml
     parameterConfiguration:
 
-      specToEnvs:
+      fromSpec:
       - path: spec.eventType
-        render:
+        toEnv:
           name: WEBHOOK_EVENT_TYPE
 
       - path: spec.eventSource
-        render:
+        toEnv:
           name: WEBHOOK_EVENT_SOURCE
 
       - path: spec.basicAuthUsername
-        render:
+        toEnv:
           name: WEBHOOK_BASICAUTH_USERNAME
 
       - path: spec.eventExtensionAttributes.from
-        render:
+        toEnv:
           name: WEBHOOK_EVENT_EXTENSION_ATTRIBUTES_FROM
 
       - path: spec.corsAllowOrigin
-        render:
+        toEnv:
           name: WEBHOOK_CORS_ALLOW_ORIGIN
 
       - path: spec.basicAuthPassword
-        render:
+        toEnv:
           name: WEBHOOK_BASICAUTH_PASSWORD
           valueFromSecret:
             name: spec.basicAuthPassword.valueFromSecret.name
             key: spec.basicAuthPassword.valueFromSecret.key
 
       - path: spec.sink
-        render:
+        toEnv:
           name: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
@@ -207,69 +207,69 @@ Given the CRD element to environment variables table above, add this workload pa
 ```yaml
     parameterConfiguration:
 
-      specToEnvs:
+      fromSpec:
       - path: spec.bootstrapServers
-        render:
+        toEnv:
           name: BOOTSTRAP_SERVERS
 
       - path: spec.topic
-        render:
+        toEnv:
           name: TOPIC
 
       - path: spec.groupID
-        render:
+        toEnv:
           name: GROUP_ID
 
       - path: spec.auth.saslEnable
-        render:
+        toEnv:
           name: SASL_ENABLE
 
       - path: spec.auth.securityMechanism
-        render:
+        toEnv:
           name: SECURITY_MECHANISMS
 
       - path: spec.auth.tlsEnable
-        render:
+        toEnv:
           name: TLS_ENABLE
 
       - path: spec.auth.tls.skipVerify
-        render:
+        toEnv:
           name: SKIP_VERIFY
 
       - path: spec.auth.tls.ca
-        render:
+        toEnv:
           name: CA
           valueFromSecret:
             name: spec.auth.tls.ca.valueFromSecret.name
             key: spec.auth.tls.ca.valueFromSecret.key
 
       - path: spec.auth.tls.clientCert
-        render:
+        toEnv:
           name: CLIENT_CERT
           valueFromSecret:
             name: spec.auth.tls.clientCert.valueFromSecret.name
             key: spec.auth.tls.clientCert.valueFromSecret.key
 
       - path: spec.auth.tls.clientKey
-        render:
+        toEnv:
           name: CLIENT_KEY
           valueFromSecret:
             name: spec.auth.tls.clientKey.valueFromSecret.name
             key: spec.auth.tls.clientKey.valueFromSecret.key
 
       - path: spec.auth.username
-        render:
+        toEnv:
           name: USERNAME
 
       - path: spec.auth.password
-        render:
+        toEnv:
           name: PASSWORD
           valueFromSecret:
             name: spec.auth.password.valueFromSecret.name
             key: spec.auth.password.valueFromSecret.key
 
       - path: spec.sink
-        render:
+        toEnv:
           name: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
@@ -333,64 +333,64 @@ Given the CRD element to environment variables table above, add this workload pa
 ```yaml
     parameterConfiguration:
 
-      specToEnvs:
+      fromSpec:
       - path: spec.response.eventType
-        render:
+        toEnv:
           name: HTTP_EVENT_TYPE
 
       - path: spec.response.eventSource
-        render:
+        toEnv:
           name: HTTP_EVENT_SOURCE
           defaultValue: httptarget
 
       - path: spec.endpoint
-        render:
+        toEnv:
           name: HTTP_URL
 
       - path: spec.method
-        render:
+        toEnv:
           name: HTTP_METHOD
 
       - path: spec.skipVerify
-        render:
+        toEnv:
           name: HTTP_SKIP_VERIFY
 
       - path: spec.caCertificate
-        render:
+        toEnv:
           name: HTTP_CA_CERTIFICATE
 
       - path: spec.basicAuthUsername
-        render:
+        toEnv:
           name: HTTP_BASICAUTH_USERNAME
 
       - path: spec.basicAuthPassword
-        render:
+        toEnv:
           name: HTTP_BASICAUTH_PASSWORD
           valueFromSecret:
             name: spec.credentials.name
             key: spec.preferences.key
 
       - path: spec.oauthClientID
-        render:
+        toEnv:
           name: HTTP_OAUTH_CLIENT_ID
 
       - path: spec.oauthClientSecret
-        render:
+        toEnv:
           name: HTTP_OAUTH_CLIENT_SECRET
           valueFromSecret:
             name: spec.credentials.name
             key: spec.preferences.key
 
       - path: spec.oauthTokenURL
-        render:
+        toEnv:
           name: HTTP_OAUTH_TOKEN_URL
 
       - path: spec.oauthScopes
-        render:
+        toEnv:
           name: HTTP_OAUTH_SCOPE
 
       - path: spec.headers
-        render:
+        toEnv:
           name: HTTP_HEADERS
 ```
 
@@ -452,70 +452,70 @@ Given the CRD element to environment variables table above, add this workload pa
 ```yaml
     parameterConfiguration:
 
-      specToEnvs:
+      fromSpec:
       - path: spec.bootstrapServers
-        render:
+        toEnv:
           name: BOOTSTRAP_SERVERS
 
       - path: spec.topic
-        render:
+        toEnv:
           name: TOPIC
 
       - path: spec.topicReplicationFactor
-        render:
+        toEnv:
           name: TOPIC_REPLICATION_FACTOR
 
       - path: spec.topicPartitions
-        render:
+        toEnv:
           name: TOPIC_PARTITIONS
 
       - path: spec.discardCloudEventContext
-        render:
+        toEnv:
           name: DISCARD_CE_CONTEXT
 
       - path: spec.auth.saslEnable
-        render:
+        toEnv:
           name: SASL_ENABLE
 
       - path: spec.auth.securityMechanism
-        render:
+        toEnv:
           name: SECURITY_MECHANISMS
 
       - path: spec.auth.tlsEnable
-        render:
+        toEnv:
           name: TLS_ENABLE
 
       - path: spec.auth.tls.skipVerify
-        render:
+        toEnv:
           name: SKIP_VERIFY
 
       - path: spec.auth.tls.ca
-        render:
+        toEnv:
           name: CA
           valueFromSecret:
             name: spec.auth.tls.ca.valueFromSecret.name
             key: spec.auth.tls.ca.valueFromSecret.key
 
       - path: spec.auth.tls.clientCert
-        render:
+        toEnv:
           name: CLIENT_CERT
           valueFromSecret:
             name: spec.auth.tls.clientCert.valueFromSecret.name
             key: spec.auth.tls.clientCert.valueFromSecret.key
 
       - path: spec.auth.tls.clientKey
-        render:
+        toEnv:
           name: CLIENT_KEY
           valueFromSecret:
             name: spec.auth.tls.clientKey.valueFromSecret.name
             key: spec.auth.tls.clientKey.valueFromSecret.key
 
       - path: spec.auth.username
-        render:
+        toEnv:
           name: USERNAME
 
       - path: spec.auth.password
-        render:
+        toEnv:
           name: PASSWORD
           valueFromSecret:
             name: spec.auth.password.valueFromSecret.name

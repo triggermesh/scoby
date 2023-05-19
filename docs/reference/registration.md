@@ -167,9 +167,9 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.bar
-        render:
+        toEnv:
           name: FOO_BAR
 ```
 
@@ -177,9 +177,9 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.bar
-        render:
+        toEnv:
           defaultValue: hello scoby
 ```
 
@@ -187,9 +187,9 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.credentials
-        render:
+        toEnv:
           name: FOO_CREDENTIALS
           valueFromSecret:
             name: spec.credentials.name
@@ -200,9 +200,9 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.preferences
-        render:
+        toEnv:
           valueFromConfigmap:
             name: spec.preferences.name
             key: spec.preferences.key
@@ -212,9 +212,9 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.destination
-        render:
+        toEnv:
           name: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
@@ -228,9 +228,9 @@ Secrets and ConfigMaps can be mounted as a volume inside the workload. The regis
 
 ```yaml
     parameterConfiguration:
-      specToVolumes:
+      fromSpec:
       - path: spec.userList
-        render:
+        toVolume:
           name: userfile
           mountPath: /opt/user.lst
           valueFromConfigMap:
@@ -244,9 +244,9 @@ Secrets and ConfigMaps can be mounted as a volume inside the workload. The regis
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.destination
-        render:
+        toEnv:
           name: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
