@@ -158,10 +158,9 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.bar
-        render:
-          skip: true
+        skip: true
 ```
 
 - [x] Change key for generated param. Can be combined.
@@ -231,11 +230,12 @@ Secrets and ConfigMaps can be mounted as a volume inside the workload. The regis
     parameterConfiguration:
       specToVolumes:
       - path: spec.userList
-        name: userfile
-        mountPath: /opt/user.lst
-        valueFromConfigMap:
-          name: spec.userList.name
-          key: spec.userList.key
+        render:
+          name: userfile
+          mountPath: /opt/user.lst
+          valueFromConfigMap:
+            name: spec.userList.name
+            key: spec.userList.key
 ```
 
 ## Workload Status

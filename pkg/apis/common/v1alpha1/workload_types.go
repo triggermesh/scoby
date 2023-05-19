@@ -42,15 +42,15 @@ type ParameterConfiguration struct {
 	// +optional
 	AddEnvs []corev1.EnvVar `json:"addEnvs,omitempty"`
 
-	// SpecToEnvs contains instructions to generate environment variables from
+	// FromSpec contains instructions to generate workload items from
 	// the instance's spec.
 	// +optional
-	SpecToEnvs []SpecToEnvParameterConfiguration `json:"specToEnvs,omitempty"`
+	FromSpec []FromSpecConfiguration `json:"fromSpec,omitempty"`
 
-	// SpecToVolumes contains instructions to generate volumes and mounts from
-	// the instance's spec.
-	// +optional
-	SpecToVolumes []SpecToVolumeParameterConfiguration `json:"specToVolumes,omitempty"`
+	// // SpecToVolumes contains instructions to generate volumes and mounts from
+	// // the instance's spec.
+	// // +optional
+	// SpecToVolumes []SpecToVolumeParameterConfiguration `json:"specToVolumes,omitempty"`
 }
 
 // GlobalParameterConfiguration defines configuration to be applied to all generated parameters.
@@ -68,23 +68,57 @@ func (gpc *GlobalParameterConfiguration) GetDefaultPrefix() string {
 	return *gpc.DefaultPrefix
 }
 
-// SpecToEnvsParameterConfiguration contains instructions to generate environment variables from
+// FromSpecConfiguration contains instructions to generate rendering from
 // the controlled instance spec.
-type SpecToEnvParameterConfiguration struct {
+type FromSpecConfiguration struct {
 	// JSON simplified path for the parameter.
 	Path string `json:"path"`
+
+	// Skip sets whether the object should skip rendering
+	// as a workload item.
+	// +optional
+	Skip *bool `json:"skip,omitempty"`
 
 	// Render options for the parameter generation.
 	// +optional
-	Render *ParameterRenderConfiguration `json:"render,omitempty"`
+	ToEnv *SpecToEnvConfiguration `json:"toEnv,omitempty"`
+
+	// Render options for the parameter generation.
+	// +optional
+	ToVolume *SpecToVolumeConfiguration `json:"toVolume,omitempty"`
 }
 
-// SpecToVolumeParameterConfiguration contains instructions to generate volumes
-// and volume mounts from the controlled instance spec.
-type SpecToVolumeParameterConfiguration struct {
-	// JSON simplified path for the parameter.
-	Path string `json:"path"`
+func (fsc *FromSpecConfiguration) IsRenderer() bool {
+	return fsc != nil && (fsc.ToEnv != nil || fsc.ToVolume == nil)
+}
 
+func (fsc *FromSpecConfiguration) IsValueOverriden() bool {
+	if fsc == nil || (!fsc.ToEnv.IsValueOverriden() && !fsc.ToVolume.IsValueOverriden()) {
+		return false
+	}
+	return true
+}
+
+// IsSkip returns if the parameter rendering should be skipped.
+func (fsc *FromSpecConfiguration) IsSkip() bool {
+	if fsc == nil || fsc.Skip == nil {
+		return false
+	}
+	return *fsc.Skip
+}
+
+// // SpecToVolumeParameterConfiguration contains instructions to generate volumes
+// // and volume mounts from the controlled instance spec.
+// type SpecToVolumeParameterConfiguration struct {
+// 	// JSON simplified path for the parameter.
+// 	Path string `json:"path"`
+
+// 	Render *SpecToVolumeRenderConfiguration `json:"render,omitempty"`
+// }
+
+// SpecToVolumeRenderConfiguration are the customization options for an specific
+// parameter generation.
+type SpecToVolumeConfiguration struct {
 	// Name for the volume.
 	Name string `json:"name,omitempty"`
 
@@ -100,9 +134,17 @@ type SpecToVolumeParameterConfiguration struct {
 	ValueFromSecret *ObjectReference `json:"valueFromSecret,omitempty"`
 }
 
-// ParameterRenderConfiguration are the customization options for an specific
+func (svc *SpecToVolumeConfiguration) IsValueOverriden() bool {
+	if svc == nil || (svc.ValueFromConfigMap == nil &&
+		svc.ValueFromSecret == nil) {
+		return false
+	}
+	return true
+}
+
+// SpecToEnvRenderConfiguration are the customization options for an specific
 // parameter generation.
-type ParameterRenderConfiguration struct {
+type SpecToEnvConfiguration struct {
 	// Name is the name of the parameter to be created.
 	// +optional
 	Name *string `json:"name,omitempty"`
@@ -124,17 +166,22 @@ type ParameterRenderConfiguration struct {
 	// be rendered acording to the chosen built-in function.
 	// +optional
 	ValueFromBuiltInFunc *BuiltInfunction `json:"valueFromBuiltInFunc,omitempty"`
-
-	// Skip sets whether the object should skip rendering
-	// as a workload parameter.
-	// +optional
-	Skip *bool `json:"skip,omitempty"`
 }
 
-func (prc *ParameterRenderConfiguration) IsValueOverriden() bool {
-	if prc == nil || (prc.ValueFromConfigMap == nil &&
-		prc.ValueFromSecret == nil &&
-		prc.ValueFromBuiltInFunc == nil) {
+// GetName returns the key defined at the parameter rendering
+// configuration.
+// Returns an empty string if not defined.
+func (sec *SpecToEnvConfiguration) GetName() string {
+	if sec == nil || sec.Name == nil {
+		return ""
+	}
+	return *sec.Name
+}
+
+func (sec *SpecToEnvConfiguration) IsValueOverriden() bool {
+	if sec == nil || (sec.ValueFromConfigMap == nil &&
+		sec.ValueFromSecret == nil &&
+		sec.ValueFromBuiltInFunc == nil) {
 		return false
 	}
 	return true
@@ -155,24 +202,6 @@ type BuiltInfunction struct {
 	// The key to select.
 	// +optional
 	Args []string `json:"args,omitempty"`
-}
-
-// IsSkip returns if the parameter rendering should be skipped.
-func (prc *ParameterRenderConfiguration) IsSkip() bool {
-	if prc == nil || prc.Skip == nil {
-		return false
-	}
-	return *prc.Skip
-}
-
-// GetName returns the key defined at the parameter rendering
-// configuration.
-// Returns an empty string if not defined.
-func (prc *ParameterRenderConfiguration) GetName() string {
-	if prc == nil || prc.Name == nil {
-		return ""
-	}
-	return *prc.Name
 }
 
 // StatusConfiguration contains instructions to modify status generation for
