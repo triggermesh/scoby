@@ -155,8 +155,8 @@ spec:
                       transformed into workload parameters.
                     properties:
                       addEnvs:
-                        description: AddEnvs contains configurations for parameters
-                          to be added to the workload not derived from the user instance.
+                        description: AddEnvs contains instructions to create environment
+                          variables at the workload not derived from the user instance.
                         items:
                           description: EnvVar represents an environment variable present
                             in a Container.
@@ -273,28 +273,21 @@ spec:
                           - name
                           type: object
                         type: array
-                      global:
-                        description: Global defines the configuration to be applied
-                          to all generated parameters.
-                        properties:
-                          defaultPrefix:
-                            description: DefaultPrefix to be appeneded to keys by
-                              all generated parameters. This configuration does not
-                              affect parameter keys explicitly set by users.
-                            type: string
-                        type: object
-                      specToEnvs:
-                        description: SpecToEnvs contains instructions to modify parameters
-                          generation from the instance's spec.
+                      fromSpec:
+                        description: FromSpec contains instructions to generate workload
+                          items from the instance's spec.
                         items:
-                          description: SpecToEnvsParameterConfiguration contains instructions
-                            to modify parameters generation for the controlled instance
-                            spec.
+                          description: FromSpecConfiguration contains instructions
+                            to generate rendering from the controlled instance spec.
                           properties:
                             path:
                               description: JSON simplified path for the parameter.
                               type: string
-                            render:
+                            skip:
+                              description: Skip sets whether the object should skip
+                                rendering as a workload item.
+                              type: boolean
+                            toEnv:
                               description: Render options for the parameter generation.
                               properties:
                                 defaultValue:
@@ -306,10 +299,6 @@ spec:
                                   description: Name is the name of the parameter to
                                     be created.
                                   type: string
-                                skip:
-                                  description: Skip sets whether the object should
-                                    skip rendering as a workload parameter.
-                                  type: boolean
                                 valueFromBuiltInFunc:
                                   description: ValueFromBuiltInFunc configures the
                                     field to be rendered acording to the chosen built-in
@@ -355,10 +344,58 @@ spec:
                                   - name
                                   type: object
                               type: object
+                            toVolume:
+                              description: Render options for the parameter generation.
+                              properties:
+                                mountPath:
+                                  description: Path where the file will be mounted.
+                                  type: string
+                                name:
+                                  description: Name for the volume.
+                                  type: string
+                                valueFromConfigMap:
+                                  description: ValueFromConfigMap is a reference to
+                                    a ConfigMap.
+                                  properties:
+                                    key:
+                                      description: The key to select.
+                                      type: string
+                                    name:
+                                      description: Object name
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                valueFromSecret:
+                                  description: ValueFromSecret is a reference to a
+                                    Secret.
+                                  properties:
+                                    key:
+                                      description: The key to select.
+                                      type: string
+                                    name:
+                                      description: Object name
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                              type: object
                           required:
                           - path
                           type: object
                         type: array
+                      global:
+                        description: Global defines the configuration to be applied
+                          to all generated parameters.
+                        properties:
+                          defaultPrefix:
+                            description: DefaultPrefix to be appeneded to keys by
+                              all generated parameters. This configuration does not
+                              affect parameter keys explicitly set by users.
+                            type: string
+                        type: object
                     type: object
                   statusConfiguration:
                     description: StatusConfiguration contains rules to populate a

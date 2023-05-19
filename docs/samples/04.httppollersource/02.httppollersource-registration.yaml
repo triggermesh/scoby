@@ -26,18 +26,18 @@ spec:
       - name: K_LOGGING_CONFIG
         value: "{}"
 
-      specToEnvs:
+      fromSpec:
       - path: spec.eventType
-        render:
+        toEnv:
           name: HTTPPOLLER_EVENT_TYPE
 
       - path: spec.eventSource
-        render:
+        toEnv:
           name: HTTPPOLLER_EVENT_SOURCE
 
 
       - path: spec.sink
-        render:
+        toEnv:
           name: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress

@@ -28,36 +28,36 @@ spec:
       - name: K_LOGGING_CONFIG
         value: "{}"
 
-      specToEnvs:
+      fromSpec:
       - path: spec.eventType
-        render:
+        toEnv:
           name: WEBHOOK_EVENT_TYPE
 
       - path: spec.eventSource
-        render:
+        toEnv:
           name: WEBHOOK_EVENT_SOURCE
 
       - path: spec.basicAuthUsername
-        render:
+        toEnv:
           name: WEBHOOK_BASICAUTH_USERNAME
 
       - path: spec.basicAuthPassword
-        render:
+        toEnv:
           name: WEBHOOK_BASICAUTH_PASSWORD
           valueFromSecret:
             name: spec.basicAuthPassword.valueFromSecret.name
             key: spec.basicAuthPassword.valueFromSecret.key
 
       - path: spec.eventExtensionAttributes.from
-        render:
+        toEnv:
           name: WEBHOOK_EVENT_EXTENSION_ATTRIBUTES_FROM
 
       - path: spec.corsAllowOrigin
-        render:
+        toEnv:
           name: WEBHOOK_CORS_ALLOW_ORIGIN
 
       - path: spec.sink
-        render:
+        toEnv:
           name: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress

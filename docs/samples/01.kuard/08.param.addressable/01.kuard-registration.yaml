@@ -16,10 +16,10 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
 
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       # Resolve an address
       - path: spec.refToAddress
-        render:
+        toEnv:
           name: FOO_SINK
           valueFromBuiltInFunc:
             name: resolveAddress

@@ -43,23 +43,37 @@ func NewRenderer(wkl *commonv1alpha1.Workload, resolver resolver.Resolver) recon
 			copy(r.addEnvs, pcfg.AddEnvs)
 		}
 
-		// Curate object fields customization, index them by their
-		// relaxed JSONPath.
-		if pcfg.SpecToEnvs != nil && len(pcfg.SpecToEnvs) != 0 {
-			r.specToEnvs = make(map[string]commonv1alpha1.SpecToEnvParameterConfiguration, len(pcfg.SpecToEnvs))
-			for _, c := range pcfg.SpecToEnvs {
-				r.specToEnvs[strings.TrimLeft(c.Path, "$.")] = c
+		// Curate object fields, index them by their relaxed JSONPath.
 
-				// default values are set
-				if c.Render.DefaultValue != nil {
+		if pcfg.FromSpec != nil && len(pcfg.FromSpec) != 0 {
+			r.fromSpec = make(map[string]commonv1alpha1.FromSpecConfiguration, len(pcfg.FromSpec))
+			for _, c := range pcfg.FromSpec {
+				r.fromSpec[strings.TrimLeft(c.Path, "$.")] = c
+
+				if c.ToEnv == nil {
+					continue
+				}
+
+				// Default values for environment variables are noted. We don't store
+				// the string but the whole object to be able to improve this feature and
+				// have default ConfigMap and Secrets.
+				if c.ToEnv.DefaultValue != nil {
 					if r.defaultEnvs == nil {
-						r.defaultEnvs = make(map[string]*commonv1alpha1.ParameterRenderConfiguration)
+						r.defaultEnvs = make(map[string]*commonv1alpha1.SpecToEnvConfiguration)
 					}
 
-					r.defaultEnvs[c.Path] = c.Render
+					r.defaultEnvs[c.Path] = c.ToEnv
 				}
 			}
 		}
+
+		// if pcfg.SpecToVolumes != nil && len(pcfg.SpecToVolumes) != 0 {
+		// 	r.specToVolumes = make(map[string]commonv1alpha1.SpecToVolumeParameterConfiguration, len(pcfg.SpecToVolumes))
+		// 	for _, c := range pcfg.SpecToVolumes {
+		// 		r.specToVolumes[strings.TrimLeft(c.Path, "$.")] = c
+		// 	}
+		// }
+
 	}
 
 	if wkl.StatusConfiguration != nil {
@@ -77,8 +91,8 @@ func NewRenderer(wkl *commonv1alpha1.Workload, resolver resolver.Resolver) recon
 type renderer struct {
 	resolver resolver.Resolver
 
-	// JSONPath indexed configuration parameters.
-	specToEnvs map[string]commonv1alpha1.SpecToEnvParameterConfiguration
+	// JSONPath indexed spec to envs.
+	fromSpec map[string]commonv1alpha1.FromSpecConfiguration
 
 	// Global options to be applied while transforming object fields
 	// into workload parameters.
@@ -90,7 +104,8 @@ type renderer struct {
 
 	// Default values that should be set if either the environment
 	// variable does not exists, or it exists with an empty value.
-	defaultEnvs map[string]*commonv1alpha1.ParameterRenderConfiguration
+	defaultEnvs map[string]*commonv1alpha1.SpecToEnvConfiguration
+	// defaultEnvs map[string]*commonv1alpha1.SpecToEnvRenderConfiguration
 
 	// Set of rules that add or fill elements at the object status.
 	addStatus []commonv1alpha1.StatusAddElement
@@ -203,15 +218,11 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 		}
 
 		pf := pfs[k]
-		// Retrieve custom render configuration for the field.
-		var renderConfig *commonv1alpha1.ParameterRenderConfiguration
-		if specToEnv, ok := r.specToEnvs[pf.toJSONPath()]; ok && specToEnv.Render != nil {
-			renderConfig = specToEnv.Render
-		}
 
-		// Create environment variable for this field.
-		ev := &corev1.EnvVar{
-			Name: strings.ToUpper(strings.Join(pf.branch[1:], "_")),
+		// Retrieve custom render configuration for the field.
+		var fromSpec *commonv1alpha1.FromSpecConfiguration
+		if fs, ok := r.fromSpec[pf.toJSONPath()]; ok && fs.IsRenderer() {
+			fromSpec = &fs
 		}
 
 		// Check soon if the value needs to be skipped, move over to the next.
@@ -219,7 +230,7 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 		// Note: maybe in the future we will find skip conbined with a function
 		// that would need to generate a result, probably because some other
 		// registration configuration references it.
-		if renderConfig.IsSkip() {
+		if fromSpec.IsSkip() {
 			continue
 		}
 
@@ -227,186 +238,224 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 		// to allow them to be used for caluculations.
 		// When customizations are defined they will need to parse to produce
 		// an environment variable
-		if pf.intermediateNode && renderConfig == nil {
+		if pf.intermediateNode && !fromSpec.IsRenderer() {
 			continue
 		}
 
-		// If name is overriden by customization set it, if not
-		// apply global prefix.
-		if key := renderConfig.GetName(); key != "" {
-			ev.Name = key
-		} else if prefix := r.global.GetDefaultPrefix(); prefix != "" {
-			ev.Name = prefix + ev.Name
+		// TODO move somewhere up
+		// If this is no intermediate node and there is no instructions, perform
+		// default rendering
+		if fromSpec == nil {
+			ev := &corev1.EnvVar{
+				Name: strings.ToUpper(strings.Join(pf.branch[1:], "_")),
+			}
+
+			if prefix := r.global.GetDefaultPrefix(); prefix != "" {
+				ev.Name = prefix + ev.Name
+			}
 		}
 
-		switch {
-		case !renderConfig.IsValueOverriden():
-			// By default process the value depending on the type.
+		// TODO maybe extract to function
+
+		if fromSpec != nil && fromSpec.ToVolume != nil {
+			// TODO maybe extract to function
+		} else {
+			// TODO Ugly hack due to previous code, restructure this
+			var specToEnvConfig *commonv1alpha1.SpecToEnvConfiguration
+			if fromSpec != nil {
+				specToEnvConfig = fromSpec.ToEnv
+			}
+
+			// if specToEnvConfig := fromSpec.ToEnv; specToEnvConfig != nil {
+
+			// Create environment variable for this field.
+			ev := &corev1.EnvVar{
+				Name: strings.ToUpper(strings.Join(pf.branch[1:], "_")),
+			}
+
+			// If name is overriden by customization set it, if not
+			// apply global prefix.
+			if key := specToEnvConfig.GetName(); key != "" {
+				ev.Name = key
+			} else if prefix := r.global.GetDefaultPrefix(); prefix != "" {
+				ev.Name = prefix + ev.Name
+			}
+
 			switch {
-			case pf.array != nil:
-				// primitive indicates that all elements in an array are the
-				// same primitive. We pre-create the primitive array to avoid
-				// a second loop.
-				primitive := true
-				primitiveArr := []string{}
+			case !specToEnvConfig.IsValueOverriden():
+				// By default process the value depending on the type.
+				switch {
+				case pf.array != nil:
+					// primitive indicates that all elements in an array are the
+					// same primitive. We pre-create the primitive array to avoid
+					// a second loop.
+					primitive := true
+					primitiveArr := []string{}
 
-				// preserve order for arrays by iterating using the map key,
-				// which contains the ornidal
-				paths := make([]string, 0, len(pf.array))
-				for path := range pf.array {
-					paths = append(paths, path)
-				}
-				sort.Strings(paths)
+					// preserve order for arrays by iterating using the map key,
+					// which contains the ornidal
+					paths := make([]string, 0, len(pf.array))
+					for path := range pf.array {
+						paths = append(paths, path)
+					}
+					sort.Strings(paths)
 
-				for _, p := range paths {
-					switch v := pf.array[p].value.(type) {
-					case map[string]interface{}:
-						primitive = false
+					for _, p := range paths {
+						switch v := pf.array[p].value.(type) {
+						case map[string]interface{}:
+							primitive = false
+						default:
+							primitiveArr = append(primitiveArr, fmt.Sprintf("%v", v))
+						}
+					}
+
+					// If the array contains primitives, return a comma separated string
+					if primitive {
+						ev.Value = strings.Join(primitiveArr, ",")
+					} else {
+						// If the array contains complex structures, return a JSON serialization
+						vb, err := json.Marshal(pf.value)
+						if err != nil {
+							return err
+						}
+						ev.Value = string(vb)
+					}
+
+				case pf.value != nil:
+					// Primitive values
+					switch v := pf.value.(type) {
+					case string:
+						ev.Value = v
+
 					default:
-						primitiveArr = append(primitiveArr, fmt.Sprintf("%v", v))
+						vb, err := json.Marshal(v)
+						if err != nil {
+							return err
+						}
+						ev.Value = string(vb)
+
 					}
-				}
-
-				// If the array contains primitives, return a comma separated string
-				if primitive {
-					ev.Value = strings.Join(primitiveArr, ",")
-				} else {
-					// If the array contains complex structures, return a JSON serialization
-					vb, err := json.Marshal(pf.value)
-					if err != nil {
-						return err
-					}
-					ev.Value = string(vb)
-				}
-
-			case pf.value != nil:
-				// Primitive values
-				switch v := pf.value.(type) {
-				case string:
-					ev.Value = v
-
 				default:
-					vb, err := json.Marshal(v)
-					if err != nil {
-						return err
-					}
-					ev.Value = string(vb)
-
+					// TODO this is not expected
 				}
-			default:
-				// TODO this is not expected
-			}
 
-		case renderConfig.DefaultValue != nil:
-			ev.Value = *renderConfig.DefaultValue
+			case specToEnvConfig.DefaultValue != nil:
+				ev.Value = *specToEnvConfig.DefaultValue
 
-			// If there are further internal elements, avoid
-			// parsing them.
-			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
+				// If there are further internal elements, avoid
+				// parsing them.
+				avoidFieldPrefixes = append(avoidFieldPrefixes, k)
 
-		case renderConfig.ValueFromConfigMap != nil:
-			refName, ok := pfs[renderConfig.ValueFromConfigMap.Name]
-			if !ok {
-				return fmt.Errorf("could not find reference to ConfigMap at %q", renderConfig.ValueFromConfigMap.Name)
-			}
-			name, ok := refName.value.(string)
-			if !ok {
-				return fmt.Errorf("reference to ConfigMap at %q is not a string: %v", renderConfig.ValueFromConfigMap.Name, refName)
-			}
-			refKey, ok := pfs[renderConfig.ValueFromConfigMap.Key]
-			if !ok {
-				return fmt.Errorf("could not find reference to ConfigMap key at %q", renderConfig.ValueFromConfigMap.Name)
-			}
-			key, ok := refKey.value.(string)
-			if !ok {
-				return fmt.Errorf("reference to ConfigMap key at %q is not a string: %v", renderConfig.ValueFromConfigMap.Name, refKey)
-			}
-
-			ev.ValueFrom = &corev1.EnvVarSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: name,
-					},
-					Key: key,
-				},
-			}
-
-			// If there are further internal elements, avoid
-			// parsing them.
-			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
-
-		case renderConfig.ValueFromSecret != nil:
-			refName, ok := pfs[renderConfig.ValueFromSecret.Name]
-			if !ok {
-				return fmt.Errorf("could not find reference to Secret at %q", renderConfig.ValueFromSecret.Name)
-			}
-			name, ok := refName.value.(string)
-			if !ok {
-				return fmt.Errorf("reference to Secret at %q is not a string: %v", renderConfig.ValueFromSecret.Name, refName)
-			}
-			refKey, ok := pfs[renderConfig.ValueFromSecret.Key]
-			if !ok {
-				return fmt.Errorf("could not find reference to Secret key at %q", renderConfig.ValueFromSecret.Name)
-			}
-			key, ok := refKey.value.(string)
-			if !ok {
-				return fmt.Errorf("reference to Secret key at %q is not a string: %v", renderConfig.ValueFromSecret.Name, refKey)
-			}
-
-			ev.ValueFrom = &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: name,
-					},
-					Key: key,
-				},
-			}
-
-			// If there are further internal elements, avoid
-			// parsing them.
-			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
-
-		case renderConfig.ValueFromBuiltInFunc != nil:
-			switch renderConfig.ValueFromBuiltInFunc.Name {
-			case "resolveAddress":
-				// element:
-				//   ref:
-				//     apiVersion:
-				//     group:
-				//     kind:
-				// 	   name:
-				//  uri:
-
-				addressable, ok := pf.value.(map[string]interface{})
+			case specToEnvConfig.ValueFromConfigMap != nil:
+				refName, ok := pfs[specToEnvConfig.ValueFromConfigMap.Name]
 				if !ok {
-					return fmt.Errorf("unexpected addressable structure at  %q: %+v", k, pf.value)
+					return fmt.Errorf("could not find reference to ConfigMap at %q", specToEnvConfig.ValueFromConfigMap.Name)
+				}
+				name, ok := refName.value.(string)
+				if !ok {
+					return fmt.Errorf("reference to ConfigMap at %q is not a string: %v", specToEnvConfig.ValueFromConfigMap.Name, refName)
+				}
+				refKey, ok := pfs[specToEnvConfig.ValueFromConfigMap.Key]
+				if !ok {
+					return fmt.Errorf("could not find reference to ConfigMap key at %q", specToEnvConfig.ValueFromConfigMap.Name)
+				}
+				key, ok := refKey.value.(string)
+				if !ok {
+					return fmt.Errorf("reference to ConfigMap key at %q is not a string: %v", specToEnvConfig.ValueFromConfigMap.Name, refKey)
 				}
 
-				if uri, ok := addressable["uri"]; ok {
-					value, ok := uri.(string)
-					if !ok {
-						return fmt.Errorf("uri value at %q is not a string", k)
-					}
-					ev.Value = value
-				} else if ref, ok := addressable["ref"]; ok {
-					uri, err := r.resolveAddress(ctx, obj.GetNamespace(), k, ref)
-					if err != nil {
-						return err
-					}
-					ev.Value = uri
+				ev.ValueFrom = &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: name,
+						},
+						Key: key,
+					},
 				}
+
+				// If there are further internal elements, avoid
+				// parsing them.
+				avoidFieldPrefixes = append(avoidFieldPrefixes, k)
+
+			case specToEnvConfig.ValueFromSecret != nil:
+				refName, ok := pfs[specToEnvConfig.ValueFromSecret.Name]
+				if !ok {
+					return fmt.Errorf("could not find reference to Secret at %q", specToEnvConfig.ValueFromSecret.Name)
+				}
+				name, ok := refName.value.(string)
+				if !ok {
+					return fmt.Errorf("reference to Secret at %q is not a string: %v", specToEnvConfig.ValueFromSecret.Name, refName)
+				}
+				refKey, ok := pfs[specToEnvConfig.ValueFromSecret.Key]
+				if !ok {
+					return fmt.Errorf("could not find reference to Secret key at %q", specToEnvConfig.ValueFromSecret.Name)
+				}
+				key, ok := refKey.value.(string)
+				if !ok {
+					return fmt.Errorf("reference to Secret key at %q is not a string: %v", specToEnvConfig.ValueFromSecret.Name, refKey)
+				}
+
+				ev.ValueFrom = &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: name,
+						},
+						Key: key,
+					},
+				}
+
+				// If there are further internal elements, avoid
+				// parsing them.
+				avoidFieldPrefixes = append(avoidFieldPrefixes, k)
+
+			case specToEnvConfig.ValueFromBuiltInFunc != nil:
+				switch specToEnvConfig.ValueFromBuiltInFunc.Name {
+				case "resolveAddress":
+					// element:
+					//   ref:
+					//     apiVersion:
+					//     group:
+					//     kind:
+					// 	   name:
+					//  uri:
+
+					addressable, ok := pf.value.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("unexpected addressable structure at  %q: %+v", k, pf.value)
+					}
+
+					if uri, ok := addressable["uri"]; ok {
+						value, ok := uri.(string)
+						if !ok {
+							return fmt.Errorf("uri value at %q is not a string", k)
+						}
+						ev.Value = value
+					} else if ref, ok := addressable["ref"]; ok {
+						uri, err := r.resolveAddress(ctx, obj.GetNamespace(), k, ref)
+						if err != nil {
+							return err
+						}
+						ev.Value = uri
+					}
+				}
+
+				// If there are further internal elements, avoid
+				// parsing them.
+				avoidFieldPrefixes = append(avoidFieldPrefixes, k)
 			}
 
-			// If there are further internal elements, avoid
-			// parsing them.
-			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
-		}
+			obj.AddEnvVar(k, ev)
 
-		obj.AddEnvVar(k, ev)
+			// }
+		}
 	}
 
 	return nil
 }
+
+// func (r *renderer) defaultFieldRender(ctx context.Context, obj reconciler.Object, pfs map[string]parsedField) error {
+
+// }
 
 // parsedField is a representation of a user instance element
 // containing the location, value, and in case of arrays the

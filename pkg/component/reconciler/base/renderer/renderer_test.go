@@ -224,6 +224,117 @@ spec:
 `
 )
 
+// func TestRenderedContainerCopy(t *testing.T) {
+
+// 	// Use the Kuard CRD for all cases
+// 	crdv := basecrd.CRDPrioritizedVersion(ReadCRD(kuardCRD))
+
+// 	testCases := map[string]struct {
+// 		// Resolver related rendering might need existing objects. The
+// 		// kuard instance used for reconciliation does not need to be
+// 		// here, only any referenced object.
+// 		existingObjects []client.Object
+
+// 		// Kuard instance fir rendering.
+// 		kuardInstance string
+
+// 		// Registration sub-element for parameter configuration.
+// 		parameterConfig string
+
+// 		// Managed conditions
+// 		happyCond    string
+// 		conditionSet []string
+
+// 		//
+// 		// Expected data fiels
+// 		//
+
+// 		// Only if rendering should return an error.
+// 		expectedError *string
+
+// 		// Environment variables for the rendered container.
+// 		expectedEnvs []corev1.EnvVar
+// 	}{
+// 		"no parameter policies": {
+// 			kuardInstance: kuardInstance,
+// 			expectedEnvs: []corev1.EnvVar{
+// 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+// 				{Name: "GROUP_VARIABLE3", Value: "false"},
+// 				{Name: "GROUP_VARIABLE4", Value: "42"},
+// 				{Name: "VARIABLE1", Value: "value 1"},
+// 				{Name: "VARIABLE2", Value: "value 2"},
+// 			},
+// 		},
+// 		"skip variable from rendering": {
+// 			kuardInstance: kuardInstance,
+// 			parameterConfig: `
+// fromSpec:
+// - path: spec.variable2
+//   skip: true
+// `,
+// 			expectedEnvs: []corev1.EnvVar{
+// 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+// 				{Name: "GROUP_VARIABLE3", Value: "false"},
+// 				{Name: "GROUP_VARIABLE4", Value: "42"},
+// 				{Name: "VARIABLE1", Value: "value 1"},
+// 				/* {Name: "VARIABLE2", Value: "value 2"}, */
+// 			},
+// 		},
+// 	}
+
+// 	logr := tlogr.NewTestLogger(t)
+
+// 	for name, tc := range testCases {
+// 		t.Run(name, func(t *testing.T) {
+// 			// for this test we can hardcode to deployment, we are only testing container output.
+// 			wkl := &commonv1alpha1.Workload{
+// 				FormFactor: &commonv1alpha1.FormFactor{
+// 					Deployment: &commonv1alpha1.DeploymentFormFactor{
+// 						Replicas: 1,
+// 					},
+// 				},
+// 				ParameterConfiguration: &commonv1alpha1.ParameterConfiguration{},
+// 			}
+
+// 			// Read parameter configuration into structure
+// 			err := yaml.Unmarshal([]byte(tc.parameterConfig), wkl.ParameterConfiguration)
+// 			require.NoError(t, err)
+
+// 			ctx := context.Background()
+
+// 			cb := fake.NewClientBuilder()
+// 			rsv := resolver.New(cb.WithObjects(tc.existingObjects...).Build())
+
+// 			r := NewRenderer(wkl, rsv)
+
+// 			smf := basestatus.NewStatusManagerFactory(crdv, tc.happyCond, tc.conditionSet, logr)
+// 			mgr := baseobject.NewManager(gvk, r, smf)
+
+// 			// Replace with the test object
+// 			obj := mgr.NewObject()
+// 			u := obj.AsKubeObject().(*unstructured.Unstructured)
+// 			err = yaml.Unmarshal([]byte(tc.kuardInstance), u)
+// 			require.NoError(t, err)
+
+// 			err = r.Render(ctx, obj)
+// 			if tc.expectedError != nil {
+// 				require.Contains(t, err.Error(), *tc.expectedError)
+
+// 			} else {
+// 				require.NoError(t, err)
+// 			}
+
+// 			c := resources.NewContainer(
+// 				"test-name",
+// 				"test-image",
+// 				obj.AsContainerOptions()...,
+// 			)
+
+// 			assert.Equal(t, tc.expectedEnvs, c.Env)
+// 		})
+// 	}
+// }
+
 func TestRenderedContainer(t *testing.T) {
 
 	// Use the Kuard CRD for all cases
@@ -268,10 +379,9 @@ func TestRenderedContainer(t *testing.T) {
 		"skip variable from rendering": {
 			kuardInstance: kuardInstance,
 			parameterConfig: `
-specToEnvs:
+fromSpec:
 - path: spec.variable2
-  render:
-    skip: true
+  skip: true
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -284,9 +394,9 @@ specToEnvs:
 		"rename variable": {
 			kuardInstance: kuardInstance,
 			parameterConfig: `
-specToEnvs:
+fromSpec:
 - path: spec.variable2
-  render:
+  toEnv:
     name: KUARD_VARIABLE_TWO
 `,
 			expectedEnvs: []corev1.EnvVar{
@@ -300,9 +410,9 @@ specToEnvs:
 		"default value - when present": {
 			kuardInstance: kuardInstance,
 			parameterConfig: `
-specToEnvs:
+fromSpec:
 - path: spec.variable2
-  render:
+  toEnv:
     defaultValue: new variable2 value
 `,
 			expectedEnvs: []corev1.EnvVar{
@@ -317,10 +427,11 @@ specToEnvs:
 			// remove variable2 entry from kuard instance.
 			kuardInstance: strings.ReplaceAll(kuardInstance, "variable2: value 2", ""),
 			parameterConfig: `
-specToEnvs:
+fromSpec:
 - path: spec.variable2
-  render:
+  toEnv:
     defaultValue: new variable2 value
+
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -338,9 +449,9 @@ specToEnvs:
     secretKey: kuard-key
 `,
 			parameterConfig: `
-specToEnvs:
+fromSpec:
 - path: spec.refToSecret
-  render:
+  toEnv:
     name: FOO_CREDENTIALS
     valueFromSecret:
       name: spec.refToSecret.secretName
@@ -354,6 +465,38 @@ specToEnvs:
 							Name: "kuard-secret",
 						},
 						Key: "kuard-key",
+					},
+				}},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "VARIABLE1", Value: "value 1"},
+				{Name: "VARIABLE2", Value: "value 2"},
+			},
+		},
+		"configmap reference": {
+			// add secret reference to kuard base instance.
+			kuardInstance: kuardInstance + `
+  refToConfigMap:
+    configMapName: kuard-cm
+    configMapKey: kuard-cm-key
+`,
+			parameterConfig: `
+fromSpec:
+- path: spec.refToConfigMap
+  toEnv:
+    name: FOO_CONFIG
+    valueFromConfigMap:
+      name: spec.refToConfigMap.configMapName
+      key: spec.refToConfigMap.configMapKey
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "FOO_CONFIG", ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "kuard-cm",
+						},
+						Key: "kuard-cm-key",
 					},
 				}},
 				{Name: "GROUP_VARIABLE3", Value: "false"},
@@ -443,5 +586,4 @@ addEnvs:
 			assert.Equal(t, tc.expectedEnvs, c.Env)
 		})
 	}
-
 }

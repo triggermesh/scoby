@@ -158,19 +158,18 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.bar
-        render:
-          skip: true
+        skip: true
 ```
 
 - [x] Change key for generated param. Can be combined.
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.bar
-        render:
+        toEnv:
           name: FOO_BAR
 ```
 
@@ -178,9 +177,9 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.bar
-        render:
+        toEnv:
           defaultValue: hello scoby
 ```
 
@@ -188,9 +187,9 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.credentials
-        render:
+        toEnv:
           name: FOO_CREDENTIALS
           valueFromSecret:
             name: spec.credentials.name
@@ -201,9 +200,9 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.preferences
-        render:
+        toEnv:
           valueFromConfigmap:
             name: spec.preferences.name
             key: spec.preferences.key
@@ -213,12 +212,30 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.destination
-        render:
+        toEnv:
           name: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
+```
+
+### Generate Volumes From Spec
+
+Secrets and ConfigMaps can be mounted as a volume inside the workload. The registration needs a name for the volume, the file to mount inside the container and a reference to the Secret or ConfigMap.
+
+- [x] Function: resolve object to internal URL
+
+```yaml
+    parameterConfiguration:
+      fromSpec:
+      - path: spec.userList
+        toVolume:
+          name: userfile
+          mountPath: /opt/user.lst
+          valueFromConfigMap:
+            name: spec.userList.name
+            key: spec.userList.key
 ```
 
 ## Workload Status
@@ -227,9 +244,9 @@ The default behavior is to create parameters from each spec element (arrays will
 
 ```yaml
     parameterConfiguration:
-      specToEnvs:
+      fromSpec:
       - path: spec.destination
-        render:
+        toEnv:
           name: K_SINK
           valueFromBuiltInFunc:
             name: resolveAddress
