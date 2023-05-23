@@ -6,7 +6,7 @@ require (
 	github.com/go-logr/logr v1.2.4
 	github.com/onsi/ginkgo/v2 v2.9.4
 	github.com/onsi/gomega v1.27.6
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.3
 	go.uber.org/automaxprocs v1.5.2
 	k8s.io/api v0.26.1
 	k8s.io/apiextensions-apiserver v0.26.1
@@ -16,6 +16,7 @@ require (
 	knative.dev/pkg v0.0.0-20221123011842-b78020c16606
 	knative.dev/serving v0.35.3
 	sigs.k8s.io/controller-runtime v0.14.6
+	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
@@ -78,5 +79,4 @@ require (
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
-	sigs.k8s.io/yaml v1.3.0 // indirect
 )
