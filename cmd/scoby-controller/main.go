@@ -24,6 +24,7 @@ import (
 
 	scobyv1alpha1 "github.com/triggermesh/scoby/pkg/apis/scoby/v1alpha1"
 	crbuilder "github.com/triggermesh/scoby/pkg/component/builder"
+	scobyconfig "github.com/triggermesh/scoby/pkg/config"
 	"github.com/triggermesh/scoby/pkg/registration/reconciler/crd"
 	"github.com/triggermesh/scoby/pkg/registration/registry"
 	"github.com/triggermesh/scoby/pkg/utils/resolver"
@@ -34,6 +35,9 @@ const (
 )
 
 func main() {
+	// Parse configuration from environment variables.
+	scobyconfig.ParseFromEnvironment()
+
 	opts := zap.Options{
 		Development: false,
 	}
