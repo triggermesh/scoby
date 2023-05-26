@@ -11,6 +11,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/utils/resources"
 )
@@ -41,7 +42,12 @@ type object struct {
 	// for calculations.
 	evsByPath map[string]*corev1.EnvVar
 	evsByName map[string]*corev1.EnvVar
+
+	vmByPath map[string]*commonv1alpha1.FromSpecToVolume
+	vmByName map[string]*commonv1alpha1.FromSpecToVolume
 }
+
+var _ reconciler.Object = (*object)(nil)
 
 func (o object) AsKubeObject() client.Object {
 	return o.Unstructured
@@ -56,6 +62,11 @@ func (o object) GetStatusManager() reconciler.StatusManager {
 func (o object) AddEnvVar(fromPath string, ev *corev1.EnvVar) {
 	o.evsByPath[fromPath] = ev
 	o.evsByName[ev.Name] = ev
+}
+
+func (o object) AddVolumeMount(fromPath string, vm *commonv1alpha1.FromSpecToVolume) {
+	o.vmByPath[fromPath] = vm
+	o.vmByName[vm.Name] = vm
 }
 
 func (o object) AsContainerOptions() []resources.ContainerOption {

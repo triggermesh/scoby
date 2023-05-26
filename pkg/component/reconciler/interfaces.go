@@ -40,7 +40,7 @@ type Object interface {
 // reconciler to retrieve those assets.
 type ObjectRender interface {
 
-	// AddEnvVar is used by a renderer to add a new a new environment
+	// AddEnvVar is used by a renderer to add a new environment
 	// variable to the rendered object informing tracking information
 	// about the JSON path of the object element that originates
 	// the variable.
@@ -52,6 +52,12 @@ type ObjectRender interface {
 	// The main (and probably only) case is a status rendering option
 	// that references a value set after an object's path
 	GetEnvVarAtPath(path string) *corev1.EnvVar
+
+	// AddVolumeMount is used by a renderer to add a new volume mount
+	// to the rendered object informing tracking information
+	// about the JSON path of the object element that originates
+	// the volume mount.
+	AddVolumeMount(path string, vm *commonv1alpha1.FromSpecToVolume)
 
 	// Once rendered an object can be queried about the container options
 	// that they resulting worload must include.

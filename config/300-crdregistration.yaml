@@ -154,35 +154,95 @@ spec:
                     description: ParameterConfiguration sets how object elements are
                       transformed into workload parameters.
                     properties:
-                      addEnvs:
-                        description: AddEnvs contains instructions to create environment
-                          variables at the workload not derived from the user instance.
-                        items:
-                          description: EnvVar represents an environment variable present
-                            in a Container.
-                          properties:
-                            name:
-                              description: Name of the environment variable. Must
-                                be a C_IDENTIFIER.
-                              type: string
-                            value:
-                              description: 'Variable references $(VAR_NAME) are expanded
-                                using the previously defined environment variables
-                                in the container and any service environment variables.
-                                If a variable cannot be resolved, the reference in
-                                the input string will be unchanged. Double $$ are
-                                reduced to a single $, which allows for escaping the
-                                $(VAR_NAME) syntax: i.e. "$$(VAR_NAME)" will produce
-                                the string literal "$(VAR_NAME)". Escaped references
-                                will never be expanded, regardless of whether the
-                                variable exists or not. Defaults to "".'
-                              type: string
-                            valueFrom:
-                              description: Source for the environment variable's value.
-                                Cannot be used if value is not empty.
+                      add:
+                        description: Add contains instructions to render elements
+                          at the generated workload not derived from the user instance.
+                        properties:
+                          toEnv:
+                            description: Render options for adding environment variables
+                              unrelated to the user's object input.
+                            items:
+                              description: AddToEnvConfiguration are the customization
+                                options for an environment variable added from scratch.
                               properties:
-                                configMapKeyRef:
-                                  description: Selects a key of a ConfigMap.
+                                name:
+                                  description: Name is the name of the environment
+                                    variable to be created.
+                                  type: string
+                                value:
+                                  description: Value is a literal value to be assigned
+                                    to the parameter.
+                                  type: string
+                                valueFrom:
+                                  description: Instructions to extract envrionment
+                                    variables values from the object's registration.
+                                  properties:
+                                    configMap:
+                                      description: Selects a key of a ConfigMap.
+                                      properties:
+                                        key:
+                                          description: The key to select.
+                                          type: string
+                                        name:
+                                          description: 'Name of the referent. More
+                                            info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            TODO: Add other useful fields. apiVersion,
+                                            kind, uid?'
+                                          type: string
+                                        optional:
+                                          description: Specify whether the ConfigMap
+                                            or its key must be defined
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                    field:
+                                      description: 'Selects a field of the pod: supports
+                                        metadata.name, metadata.namespace, `metadata.labels[''<KEY>'']`,
+                                        `metadata.annotations[''<KEY>'']`, spec.nodeName,
+                                        spec.serviceAccountName, status.hostIP, status.podIP,
+                                        status.podIPs.'
+                                      properties:
+                                        apiVersion:
+                                          description: Version of the schema the FieldPath
+                                            is written in terms of, defaults to "v1".
+                                          type: string
+                                        fieldPath:
+                                          description: Path of the field to select
+                                            in the specified API version.
+                                          type: string
+                                      required:
+                                      - fieldPath
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                    secret:
+                                      description: Selects a key of a secret in the
+                                        pod's namespace
+                                      properties:
+                                        key:
+                                          description: The key of the secret to select
+                                            from.  Must be a valid secret key.
+                                          type: string
+                                        name:
+                                          description: 'Name of the referent. More
+                                            info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            TODO: Add other useful fields. apiVersion,
+                                            kind, uid?'
+                                          type: string
+                                        optional:
+                                          description: Specify whether the Secret
+                                            or its key must be defined
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                  type: object
+                                valueFromControllerConfigMap:
+                                  description: ValueFromControllerConfigMap adds an
+                                    environment variable whose value is read from
+                                    a ConfigMap at the controller's namespace.
                                   properties:
                                     key:
                                       description: The key to select.
@@ -201,191 +261,289 @@ spec:
                                   - key
                                   type: object
                                   x-kubernetes-map-type: atomic
-                                fieldRef:
-                                  description: 'Selects a field of the pod: supports
-                                    metadata.name, metadata.namespace, `metadata.labels[''<KEY>'']`,
-                                    `metadata.annotations[''<KEY>'']`, spec.nodeName,
-                                    spec.serviceAccountName, status.hostIP, status.podIP,
-                                    status.podIPs.'
-                                  properties:
-                                    apiVersion:
-                                      description: Version of the schema the FieldPath
-                                        is written in terms of, defaults to "v1".
-                                      type: string
-                                    fieldPath:
-                                      description: Path of the field to select in
-                                        the specified API version.
-                                      type: string
-                                  required:
-                                  - fieldPath
-                                  type: object
-                                  x-kubernetes-map-type: atomic
-                                resourceFieldRef:
-                                  description: 'Selects a resource of the container:
-                                    only resources limits and requests (limits.cpu,
-                                    limits.memory, limits.ephemeral-storage, requests.cpu,
-                                    requests.memory and requests.ephemeral-storage)
-                                    are currently supported.'
-                                  properties:
-                                    containerName:
-                                      description: 'Container name: required for volumes,
-                                        optional for env vars'
-                                      type: string
-                                    divisor:
-                                      anyOf:
-                                      - type: integer
-                                      - type: string
-                                      description: Specifies the output format of
-                                        the exposed resources, defaults to "1"
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                      x-kubernetes-int-or-string: true
-                                    resource:
-                                      description: 'Required: resource to select'
-                                      type: string
-                                  required:
-                                  - resource
-                                  type: object
-                                  x-kubernetes-map-type: atomic
-                                secretKeyRef:
-                                  description: Selects a key of a secret in the pod's
-                                    namespace
-                                  properties:
-                                    key:
-                                      description: The key of the secret to select
-                                        from.  Must be a valid secret key.
-                                      type: string
-                                    name:
-                                      description: 'Name of the referent. More info:
-                                        https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                        TODO: Add other useful fields. apiVersion,
-                                        kind, uid?'
-                                      type: string
-                                    optional:
-                                      description: Specify whether the Secret or its
-                                        key must be defined
-                                      type: boolean
-                                  required:
-                                  - key
-                                  type: object
-                                  x-kubernetes-map-type: atomic
                               type: object
-                          required:
-                          - name
-                          type: object
-                        type: array
-                      fromSpec:
-                        description: FromSpec contains instructions to generate workload
-                          items from the instance's spec.
-                        items:
-                          description: FromSpecConfiguration contains instructions
-                            to generate rendering from the controlled instance spec.
-                          properties:
-                            path:
-                              description: JSON simplified path for the parameter.
-                              type: string
-                            skip:
-                              description: Skip sets whether the object should skip
-                                rendering as a workload item.
-                              type: boolean
-                            toEnv:
-                              description: Render options for the parameter generation.
+                            type: array
+                          toVolume:
+                            description: Render options for mounting volumes unrelated
+                              to the user's object input. Volume source must exists
+                              at the user's namespace.
+                            items:
+                              description: Instructions to extract volume mount information
+                                from the object's registration.
                               properties:
-                                defaultValue:
-                                  description: Value is a literal value to be assigned
-                                    to the parameter when a value is not provided
-                                    by users.
-                                  type: string
-                                name:
-                                  description: Name is the name of the parameter to
-                                    be created.
-                                  type: string
-                                valueFromBuiltInFunc:
-                                  description: ValueFromBuiltInFunc configures the
-                                    field to be rendered acording to the chosen built-in
-                                    function.
+                                mountFrom:
+                                  description: ValueFrom references an object to mount.
                                   properties:
-                                    args:
-                                      description: The key to select.
-                                      items:
-                                        type: string
-                                      type: array
-                                    name:
-                                      description: Function name
-                                      type: string
-                                  required:
-                                  - name
+                                    configMap:
+                                      description: Selects a key of a ConfigMap.
+                                      properties:
+                                        key:
+                                          description: The key to select.
+                                          type: string
+                                        name:
+                                          description: 'Name of the referent. More
+                                            info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            TODO: Add other useful fields. apiVersion,
+                                            kind, uid?'
+                                          type: string
+                                        optional:
+                                          description: Specify whether the ConfigMap
+                                            or its key must be defined
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                    secret:
+                                      description: Selects a key of a secret in the
+                                        pod's namespace
+                                      properties:
+                                        key:
+                                          description: The key of the secret to select
+                                            from.  Must be a valid secret key.
+                                          type: string
+                                        name:
+                                          description: 'Name of the referent. More
+                                            info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            TODO: Add other useful fields. apiVersion,
+                                            kind, uid?'
+                                          type: string
+                                        optional:
+                                          description: Specify whether the Secret
+                                            or its key must be defined
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                      x-kubernetes-map-type: atomic
                                   type: object
-                                valueFromConfigMap:
-                                  description: ValueFromConfigMap is a reference to
-                                    a ConfigMap.
-                                  properties:
-                                    key:
-                                      description: The key to select.
-                                      type: string
-                                    name:
-                                      description: Object name
-                                      type: string
-                                  required:
-                                  - key
-                                  - name
-                                  type: object
-                                valueFromSecret:
-                                  description: ValueFromSecret is a reference to a
-                                    Secret.
-                                  properties:
-                                    key:
-                                      description: The key to select.
-                                      type: string
-                                    name:
-                                      description: Object name
-                                      type: string
-                                  required:
-                                  - key
-                                  - name
-                                  type: object
-                              type: object
-                            toVolume:
-                              description: Render options for the parameter generation.
-                              properties:
                                 mountPath:
                                   description: Path where the file will be mounted.
                                   type: string
                                 name:
                                   description: Name for the volume.
                                   type: string
-                                valueFromConfigMap:
-                                  description: ValueFromConfigMap is a reference to
-                                    a ConfigMap.
-                                  properties:
-                                    key:
-                                      description: The key to select.
-                                      type: string
-                                    name:
-                                      description: Object name
-                                      type: string
-                                  required:
-                                  - key
-                                  - name
-                                  type: object
-                                valueFromSecret:
-                                  description: ValueFromSecret is a reference to a
-                                    Secret.
-                                  properties:
-                                    key:
-                                      description: The key to select.
-                                      type: string
-                                    name:
-                                      description: Object name
-                                      type: string
-                                  required:
-                                  - key
-                                  - name
-                                  type: object
                               type: object
-                          required:
-                          - path
-                          type: object
-                        type: array
+                            type: array
+                        type: object
+                      fromSpec:
+                        description: FromSpec contains instructions to generate workload
+                          items from the instance's spec.
+                        properties:
+                          skip:
+                            description: Skip sets whether the object should skip
+                              rendering as a workload item.
+                            items:
+                              description: FromSpecToEnv is the customization option
+                                to avoid an spec path from generating any rendering
+                                output.
+                              properties:
+                                path:
+                                  description: JSON simplified path for the parameter.
+                                  type: string
+                              required:
+                              - path
+                              type: object
+                            type: array
+                          toEnv:
+                            description: Render options for generating environment
+                              variables derived from the user's object input.
+                            items:
+                              description: FromSpecToEnv are the customization options
+                                for an environment variable generated from an object
+                                spec.
+                              properties:
+                                default:
+                                  description: Default to be assigned to the parameter
+                                    when a value is not provided by users.
+                                  properties:
+                                    configMap:
+                                      description: Selects a key of a ConfigMap.
+                                      properties:
+                                        key:
+                                          description: The key to select.
+                                          type: string
+                                        name:
+                                          description: 'Name of the referent. More
+                                            info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            TODO: Add other useful fields. apiVersion,
+                                            kind, uid?'
+                                          type: string
+                                        optional:
+                                          description: Specify whether the ConfigMap
+                                            or its key must be defined
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                    secret:
+                                      description: Selects a key of a secret in the
+                                        pod's namespace
+                                      properties:
+                                        key:
+                                          description: The key of the secret to select
+                                            from.  Must be a valid secret key.
+                                          type: string
+                                        name:
+                                          description: 'Name of the referent. More
+                                            info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            TODO: Add other useful fields. apiVersion,
+                                            kind, uid?'
+                                          type: string
+                                        optional:
+                                          description: Specify whether the Secret
+                                            or its key must be defined
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                    value:
+                                      description: Value is a literal value to be
+                                        assigned to the parameter.
+                                      type: string
+                                  type: object
+                                name:
+                                  description: Name is the name of the envr to be
+                                    created.
+                                  type: string
+                                path:
+                                  description: JSON simplified path for the parameter.
+                                  type: string
+                                valueFrom:
+                                  description: ValueFrom uses a .
+                                  properties:
+                                    builtInFunc:
+                                      description: BuiltInFunc configures the field
+                                        to be rendered acording to the chosen built-in
+                                        function.
+                                      properties:
+                                        args:
+                                          description: The key to select.
+                                          items:
+                                            type: string
+                                          type: array
+                                        name:
+                                          description: Function name
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    configMap:
+                                      description: Selects a key of a ConfigMap.
+                                      properties:
+                                        key:
+                                          description: The key to select.
+                                          type: string
+                                        name:
+                                          description: 'Name of the referent. More
+                                            info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            TODO: Add other useful fields. apiVersion,
+                                            kind, uid?'
+                                          type: string
+                                        optional:
+                                          description: Specify whether the ConfigMap
+                                            or its key must be defined
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                    secret:
+                                      description: Selects a key of a secret in the
+                                        pod's namespace
+                                      properties:
+                                        key:
+                                          description: The key of the secret to select
+                                            from.  Must be a valid secret key.
+                                          type: string
+                                        name:
+                                          description: 'Name of the referent. More
+                                            info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            TODO: Add other useful fields. apiVersion,
+                                            kind, uid?'
+                                          type: string
+                                        optional:
+                                          description: Specify whether the Secret
+                                            or its key must be defined
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                  type: object
+                              required:
+                              - path
+                              type: object
+                            type: array
+                          toVolume:
+                            description: Render options for mounting volumes derived
+                              from the user's object input.
+                            items:
+                              description: FromSpecToVolume are the customization
+                                options for a volume being mounted from configuration.
+                              properties:
+                                mountFrom:
+                                  description: ValueFrom references an object to mount.
+                                  properties:
+                                    configMap:
+                                      description: Selects a key of a ConfigMap.
+                                      properties:
+                                        key:
+                                          description: The key to select.
+                                          type: string
+                                        name:
+                                          description: 'Name of the referent. More
+                                            info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            TODO: Add other useful fields. apiVersion,
+                                            kind, uid?'
+                                          type: string
+                                        optional:
+                                          description: Specify whether the ConfigMap
+                                            or its key must be defined
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                    secret:
+                                      description: Selects a key of a secret in the
+                                        pod's namespace
+                                      properties:
+                                        key:
+                                          description: The key of the secret to select
+                                            from.  Must be a valid secret key.
+                                          type: string
+                                        name:
+                                          description: 'Name of the referent. More
+                                            info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            TODO: Add other useful fields. apiVersion,
+                                            kind, uid?'
+                                          type: string
+                                        optional:
+                                          description: Specify whether the Secret
+                                            or its key must be defined
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                  type: object
+                                mountPath:
+                                  description: Path where the file will be mounted.
+                                  type: string
+                                name:
+                                  description: Name for the volume.
+                                  type: string
+                                path:
+                                  description: JSON simplified path for the parameter.
+                                  type: string
+                              required:
+                              - path
+                              type: object
+                            type: array
+                        type: object
                       global:
                         description: Global defines the configuration to be applied
                           to all generated parameters.
