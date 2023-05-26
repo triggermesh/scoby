@@ -160,13 +160,13 @@ type MountFrom struct {
 	Secret *corev1.SecretKeySelector `json:"secret,omitempty"`
 }
 
-func (mf *MountFrom) IsValueOverriden() bool {
-	if mf != nil && (mf.ConfigMap != nil ||
-		mf.Secret != nil) {
-		return true
-	}
-	return false
-}
+// func (mf *MountFrom) IsValueOverriden() bool {
+// 	if mf != nil && (mf.ConfigMap != nil ||
+// 		mf.Secret != nil) {
+// 		return true
+// 	}
+// 	return false
+// }
 
 // FromSpecConfiguration contains instructions to generate rendering from
 // the controlled instance spec.

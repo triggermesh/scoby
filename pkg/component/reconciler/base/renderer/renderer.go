@@ -6,6 +6,7 @@ package renderer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -143,7 +144,7 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 
 	// Iterate default environment variables defined at the registration, if they are not
 	// present at the object's parsed fields, add them now with the defaulted value.
-	for k, v := range r.spec.evDefaultValuesByPath {
+	for k := range r.spec.evDefaultValuesByPath {
 		if _, ok := pfs[k]; !ok {
 			pfs[k] = parsedField{
 				branch: strings.Split(k, "."),
@@ -192,8 +193,8 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 		return fmt.Errorf("rendering added envrionment variables: %w", err)
 	}
 
-	for k := range evs {
-		obj.AddEnvVar(k, evs[k])
+	for path := range evs {
+		obj.AddEnvVar(path, evs[path])
 	}
 
 	// Iterate all elements in the user object parsed fields structure.
@@ -353,88 +354,91 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 			continue
 		}
 
-		// TODO built in.
-
-		// TODO user provided value rendering.
-
-		// TODO Ugly hack due to previous code, restructure this
-		var specToEnvConfig *commonv1alpha1.SpecToEnvConfiguration
-		if fromSpec != nil {
-			specToEnvConfig = fromSpec.ToEnv
-		}
-
-		// if specToEnvConfig := fromSpec.ToEnv; specToEnvConfig != nil {
-
-		// Create environment variable for this field.
-		ev := &corev1.EnvVar{
-			Name: strings.ToUpper(strings.Join(pf.branch[1:], "_")),
-		}
-
-		// If name is overriden by customization set it, if not
-		// apply global prefix.
-		if key := specToEnvConfig.GetName(); key != "" {
-			ev.Name = key
-		} else if prefix := r.global.GetDefaultPrefix(); prefix != "" {
-			ev.Name = prefix + ev.Name
-		}
-
-		switch {
-		case !specToEnvConfig.IsValueOverriden():
-			// By default process the value depending on the type.
-			switch {
-			case pf.array != nil:
-				// primitive indicates that all elements in an array are the
-				// same primitive. We pre-create the primitive array to avoid
-				// a second loop.
-				primitive := true
-				primitiveArr := []string{}
-
-				// preserve order for arrays by iterating using the map key,
-				// which contains the ornidal
-				paths := make([]string, 0, len(pf.array))
-				for path := range pf.array {
-					paths = append(paths, path)
-				}
-				sort.Strings(paths)
-
-				for _, p := range paths {
-					switch v := pf.array[p].value.(type) {
-					case map[string]interface{}:
-						primitive = false
-					default:
-						primitiveArr = append(primitiveArr, fmt.Sprintf("%v", v))
-					}
+		if v, ok := r.spec.evBuiltInFunctionByPath[path]; ok {
+			switch v.Name {
+			case "resolveAddress":
+				ev, err := r.builtInResolveAddress(ctx, &pf, obj.GetNamespace(), evName)
+				if err != nil {
+					return fmt.Errorf("could not resolve address at %s: %w", k, err)
 				}
 
-				// If the array contains primitives, return a comma separated string
-				if primitive {
-					ev.Value = strings.Join(primitiveArr, ",")
-				} else {
-					// If the array contains complex structures, return a JSON serialization
-					vb, err := json.Marshal(pf.value)
-					if err != nil {
-						return err
-					}
-					ev.Value = string(vb)
-				}
+				obj.AddEnvVar(path, ev)
 
-			case pf.value != nil:
-				// Primitive values
-				switch v := pf.value.(type) {
-				case string:
-					ev.Value = v
+				// Do not parse any internal elements at next iterations.
+				avoidFieldPrefixes = append(avoidFieldPrefixes, k)
+				continue
 
-				default:
-					vb, err := json.Marshal(v)
-					if err != nil {
-						return err
-					}
-					ev.Value = string(vb)
-
-				}
-			default:
-				// TODO this is not expected
 			}
+			// Do not parse any internal elements at next iterations.
+			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
+			continue
+		}
+
+		// There are no workload configuration rules, fallback to default rendering
+		ev, err := r.defaultRendering(&pf, evName)
+		if err != nil {
+			return fmt.Errorf("could not apply default rendering at %q: %w", k, err)
+		}
+
+		obj.AddEnvVar(path, ev)
+
+		// switch {
+		// case !specToEnvConfig.IsValueOverriden():
+		// 	// By default process the value depending on the type.
+		// 	switch {
+		// 	case pf.array != nil:
+		// 		// primitive indicates that all elements in an array are the
+		// 		// same primitive. We pre-create the primitive array to avoid
+		// 		// a second loop.
+		// 		primitive := true
+		// 		primitiveArr := []string{}
+
+		// 		// preserve order for arrays by iterating using the map key,
+		// 		// which contains the ornidal
+		// 		paths := make([]string, 0, len(pf.array))
+		// 		for path := range pf.array {
+		// 			paths = append(paths, path)
+		// 		}
+		// 		sort.Strings(paths)
+
+		// 		for _, p := range paths {
+		// 			switch v := pf.array[p].value.(type) {
+		// 			case map[string]interface{}:
+		// 				primitive = false
+		// 			default:
+		// 				primitiveArr = append(primitiveArr, fmt.Sprintf("%v", v))
+		// 			}
+		// 		}
+
+		// 		// If the array contains primitives, return a comma separated string
+		// 		if primitive {
+		// 			ev.Value = strings.Join(primitiveArr, ",")
+		// 		} else {
+		// 			// If the array contains complex structures, return a JSON serialization
+		// 			vb, err := json.Marshal(pf.value)
+		// 			if err != nil {
+		// 				return err
+		// 			}
+		// 			ev.Value = string(vb)
+		// 		}
+
+		// 	case pf.value != nil:
+		// 		// Primitive values
+		// 		switch v := pf.value.(type) {
+		// 		case string:
+		// 			ev.Value = v
+
+		// 		default:
+		// 			vb, err := json.Marshal(v)
+		// 			if err != nil {
+		// 				return err
+		// 			}
+		// 			ev.Value = string(vb)
+
+		// 		}
+		// 	default:
+		// 		// TODO this is not expected
+		// 	}
 
 		// case specToEnvConfig.DefaultValue != nil:
 		// 	ev.Value = *specToEnvConfig.DefaultValue
@@ -505,43 +509,43 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 		// 	// parsing them.
 		// 	avoidFieldPrefixes = append(avoidFieldPrefixes, k)
 
-		case specToEnvConfig.ValueFromBuiltInFunc != nil:
-			switch specToEnvConfig.ValueFromBuiltInFunc.Name {
-			case "resolveAddress":
-				// element:
-				//   ref:
-				//     apiVersion:
-				//     group:
-				//     kind:
-				// 	   name:
-				//  uri:
+		// case specToEnvConfig.ValueFromBuiltInFunc != nil:
+		// 	switch specToEnvConfig.ValueFromBuiltInFunc.Name {
+		// 	case "resolveAddress":
+		// 		// element:
+		// 		//   ref:
+		// 		//     apiVersion:
+		// 		//     group:
+		// 		//     kind:
+		// 		// 	   name:
+		// 		//  uri:
 
-				addressable, ok := pf.value.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("unexpected addressable structure at  %q: %+v", k, pf.value)
-				}
+		// 		addressable, ok := pf.value.(map[string]interface{})
+		// 		if !ok {
+		// 			return fmt.Errorf("unexpected addressable structure at  %q: %+v", k, pf.value)
+		// 		}
 
-				if uri, ok := addressable["uri"]; ok {
-					value, ok := uri.(string)
-					if !ok {
-						return fmt.Errorf("uri value at %q is not a string", k)
-					}
-					ev.Value = value
-				} else if ref, ok := addressable["ref"]; ok {
-					uri, err := r.resolveAddress(ctx, obj.GetNamespace(), k, ref)
-					if err != nil {
-						return err
-					}
-					ev.Value = uri
-				}
-			}
+		// 		if uri, ok := addressable["uri"]; ok {
+		// 			value, ok := uri.(string)
+		// 			if !ok {
+		// 				return fmt.Errorf("uri value at %q is not a string", k)
+		// 			}
+		// 			ev.Value = value
+		// 		} else if ref, ok := addressable["ref"]; ok {
+		// 			uri, err := r.resolveAddress(ctx, obj.GetNamespace(), k, ref)
+		// 			if err != nil {
+		// 				return err
+		// 			}
+		// 			ev.Value = uri
+		// 		}
+		// 	}
 
-			// If there are further internal elements, avoid
-			// parsing them.
-			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
-		}
+		// 	// If there are further internal elements, avoid
+		// 	// parsing them.
+		// 	avoidFieldPrefixes = append(avoidFieldPrefixes, k)
+		// }
 
-		obj.AddEnvVar(k, ev)
+		// obj.AddEnvVar(k, ev)
 
 		// }
 
@@ -753,4 +757,113 @@ type Reference struct {
 
 func normalizePath(path string) string {
 	return strings.TrimLeft(path, "$.")
+}
+
+// Built-in function that resolves an address.
+//
+// Expected YAML element is:
+//
+// element:
+//
+//	  ref:
+//	    apiVersion:
+//	    group:
+//	    kind:
+//		   name:
+//	 uri:
+func (r *renderer) builtInResolveAddress(ctx context.Context, pf *parsedField, namespace, evName string) (*corev1.EnvVar, error) {
+	addressable, ok := pf.value.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected addressable structure: %+v", pf.value)
+	}
+
+	if uri, ok := addressable["uri"]; ok {
+		value, ok := uri.(string)
+		if !ok {
+			return nil, errors.New("uri value is not a string")
+		}
+
+		return &corev1.EnvVar{
+			Name:  evName,
+			Value: value,
+		}, nil
+
+	}
+
+	ref, ok := addressable["ref"]
+	if !ok {
+		return nil, fmt.Errorf("ref or uri must be informed: %+v", pf)
+	}
+
+	uri, err := r.resolveAddress(ctx, namespace, pf.toJSONPath(), ref)
+	if err != nil {
+		return nil, err
+	}
+
+	return &corev1.EnvVar{
+		Name:  evName,
+		Value: uri,
+	}, nil
+}
+
+func (r *renderer) defaultRendering(pf *parsedField, evName string) (*corev1.EnvVar, error) {
+	ev := &corev1.EnvVar{
+		Name: evName,
+	}
+
+	switch {
+	case pf.array != nil:
+		// primitive indicates that all elements in an array are the
+		// same primitive. We pre-create the primitive array to avoid
+		// a second loop.
+		primitive := true
+		primitiveArr := []string{}
+
+		// preserve order for arrays by iterating using the map key,
+		// which contains the ornidal
+		paths := make([]string, 0, len(pf.array))
+		for path := range pf.array {
+			paths = append(paths, path)
+		}
+		sort.Strings(paths)
+
+		for _, p := range paths {
+			switch v := pf.array[p].value.(type) {
+			case map[string]interface{}:
+				primitive = false
+			default:
+				primitiveArr = append(primitiveArr, fmt.Sprintf("%v", v))
+			}
+		}
+
+		// If the array contains primitives, return a comma separated string
+		if primitive {
+			ev.Value = strings.Join(primitiveArr, ",")
+		} else {
+			// If the array contains complex structures, return a JSON serialization
+			vb, err := json.Marshal(pf.value)
+			if err != nil {
+				return nil, err
+			}
+			ev.Value = string(vb)
+		}
+
+	case pf.value != nil:
+		// Primitive values
+		switch v := pf.value.(type) {
+		case string:
+			ev.Value = v
+
+		default:
+			vb, err := json.Marshal(v)
+			if err != nil {
+				return nil, err
+			}
+			ev.Value = string(vb)
+		}
+	default:
+		return nil, fmt.Errorf("unexpected incoming object structure at: %+v", *pf)
+	}
+
+	return ev, nil
 }
