@@ -229,117 +229,6 @@ spec:
 `
 )
 
-// func TestRenderedContainerCopy(t *testing.T) {
-
-// 	// Use the Kuard CRD for all cases
-// 	crdv := basecrd.CRDPrioritizedVersion(ReadCRD(kuardCRD))
-
-// 	testCases := map[string]struct {
-// 		// Resolver related rendering might need existing objects. The
-// 		// kuard instance used for reconciliation does not need to be
-// 		// here, only any referenced object.
-// 		existingObjects []client.Object
-
-// 		// Kuard instance fir rendering.
-// 		kuardInstance string
-
-// 		// Registration sub-element for parameter configuration.
-// 		parameterConfig string
-
-// 		// Managed conditions
-// 		happyCond    string
-// 		conditionSet []string
-
-// 		//
-// 		// Expected data fiels
-// 		//
-
-// 		// Only if rendering should return an error.
-// 		expectedError *string
-
-// 		// Environment variables for the rendered container.
-// 		expectedEnvs []corev1.EnvVar
-// 	}{
-// 		"no parameter policies": {
-// 			kuardInstance: kuardInstance,
-// 			expectedEnvs: []corev1.EnvVar{
-// 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
-// 				{Name: "GROUP_VARIABLE3", Value: "false"},
-// 				{Name: "GROUP_VARIABLE4", Value: "42"},
-// 				{Name: "VARIABLE1", Value: "value 1"},
-// 				{Name: "VARIABLE2", Value: "value 2"},
-// 			},
-// 		},
-// 		"skip variable from rendering": {
-// 			kuardInstance: kuardInstance,
-// 			parameterConfig: `
-// fromSpec:
-// - path: spec.variable2
-//   skip: true
-// `,
-// 			expectedEnvs: []corev1.EnvVar{
-// 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
-// 				{Name: "GROUP_VARIABLE3", Value: "false"},
-// 				{Name: "GROUP_VARIABLE4", Value: "42"},
-// 				{Name: "VARIABLE1", Value: "value 1"},
-// 				/* {Name: "VARIABLE2", Value: "value 2"}, */
-// 			},
-// 		},
-// 	}
-
-// 	logr := tlogr.NewTestLogger(t)
-
-// 	for name, tc := range testCases {
-// 		t.Run(name, func(t *testing.T) {
-// 			// for this test we can hardcode to deployment, we are only testing container output.
-// 			wkl := &commonv1alpha1.Workload{
-// 				FormFactor: &commonv1alpha1.FormFactor{
-// 					Deployment: &commonv1alpha1.DeploymentFormFactor{
-// 						Replicas: 1,
-// 					},
-// 				},
-// 				ParameterConfiguration: &commonv1alpha1.ParameterConfiguration{},
-// 			}
-
-// 			// Read parameter configuration into structure
-// 			err := yaml.Unmarshal([]byte(tc.parameterConfig), wkl.ParameterConfiguration)
-// 			require.NoError(t, err)
-
-// 			ctx := context.Background()
-
-// 			cb := fake.NewClientBuilder()
-// 			rsv := resolver.New(cb.WithObjects(tc.existingObjects...).Build())
-
-// 			r := NewRenderer(wkl, rsv)
-
-// 			smf := basestatus.NewStatusManagerFactory(crdv, tc.happyCond, tc.conditionSet, logr)
-// 			mgr := baseobject.NewManager(gvk, r, smf)
-
-// 			// Replace with the test object
-// 			obj := mgr.NewObject()
-// 			u := obj.AsKubeObject().(*unstructured.Unstructured)
-// 			err = yaml.Unmarshal([]byte(tc.kuardInstance), u)
-// 			require.NoError(t, err)
-
-// 			err = r.Render(ctx, obj)
-// 			if tc.expectedError != nil {
-// 				require.Contains(t, err.Error(), *tc.expectedError)
-
-// 			} else {
-// 				require.NoError(t, err)
-// 			}
-
-// 			c := resources.NewContainer(
-// 				"test-name",
-// 				"test-image",
-// 				obj.AsContainerOptions()...,
-// 			)
-
-// 			assert.Equal(t, tc.expectedEnvs, c.Env)
-// 		})
-// 	}
-// }
-
 func TestRenderedContainer(t *testing.T) {
 
 	// Use the Kuard CRD for all cases
@@ -520,7 +409,7 @@ add:
   toEnv:
   - name: NAMESPACE
     valueFrom:
-      fieldRef:
+      field:
         fieldPath: metadata.namespace
   - name: K_METRICS_CONFIG
     value: "{}"
