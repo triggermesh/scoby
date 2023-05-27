@@ -447,68 +447,6 @@ fromSpec:
 				{Name: "VARIABLE2", Value: "new variable2 value"},
 			},
 		},
-	}
-
-	_ = map[string]struct {
-		// Resolver related rendering might need existing objects. The
-		// kuard instance used for reconciliation does not need to be
-		// here, only any referenced object.
-		existingObjects []client.Object
-
-		// Kuard instance fir rendering.
-		kuardInstance string
-
-		// Registration sub-element for parameter configuration.
-		parameterConfig string
-
-		// Managed conditions
-		happyCond    string
-		conditionSet []string
-
-		//
-		// Expected data fiels
-		//
-
-		// Only if rendering should return an error.
-		expectedError *string
-
-		// Environment variables for the rendered container.
-		expectedEnvs []corev1.EnvVar
-	}{
-		"default value - when present": {
-			kuardInstance: kuardInstance,
-			parameterConfig: `
-fromSpec:
-- path: spec.variable2
-  toEnv:
-    defaultValue: new variable2 value
-`,
-			expectedEnvs: []corev1.EnvVar{
-				{Name: "ARRAY", Value: "alpha,beta,gamma"},
-				{Name: "GROUP_VARIABLE3", Value: "false"},
-				{Name: "GROUP_VARIABLE4", Value: "42"},
-				{Name: "VARIABLE1", Value: "value 1"},
-				{Name: "VARIABLE2", Value: "value 2"},
-			},
-		},
-		"default value - when not present": {
-			// remove variable2 entry from kuard instance.
-			kuardInstance: strings.ReplaceAll(kuardInstance, "variable2: value 2", ""),
-			parameterConfig: `
-fromSpec:
-- path: spec.variable2
-  toEnv:
-    defaultValue: new variable2 value
-
-`,
-			expectedEnvs: []corev1.EnvVar{
-				{Name: "ARRAY", Value: "alpha,beta,gamma"},
-				{Name: "GROUP_VARIABLE3", Value: "false"},
-				{Name: "GROUP_VARIABLE4", Value: "42"},
-				{Name: "VARIABLE1", Value: "value 1"},
-				{Name: "VARIABLE2", Value: "new variable2 value"},
-			},
-		},
 		"secret reference": {
 			// add secret reference to kuard base instance.
 			kuardInstance: kuardInstance + `
@@ -518,12 +456,13 @@ fromSpec:
 `,
 			parameterConfig: `
 fromSpec:
-- path: spec.refToSecret
   toEnv:
+  - path: spec.refToSecret
     name: FOO_CREDENTIALS
-    valueFromSecret:
-      name: spec.refToSecret.secretName
-      key: spec.refToSecret.secretKey
+    valueFrom:
+      secret:
+        name: spec.refToSecret.secretName
+        key: spec.refToSecret.secretKey
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -542,7 +481,7 @@ fromSpec:
 			},
 		},
 		"configmap reference": {
-			// add secret reference to kuard base instance.
+			// add ConfigMap reference to kuard base instance.
 			kuardInstance: kuardInstance + `
   refToConfigMap:
     configMapName: kuard-cm
@@ -550,12 +489,13 @@ fromSpec:
 `,
 			parameterConfig: `
 fromSpec:
-- path: spec.refToConfigMap
   toEnv:
+  - path: spec.refToConfigMap
     name: FOO_CONFIG
-    valueFromConfigMap:
-      name: spec.refToConfigMap.configMapName
-      key: spec.refToConfigMap.configMapKey
+    valueFrom:
+      ConfigMap:
+        name: spec.refToConfigMap.configMapName
+        key: spec.refToConfigMap.configMapKey
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -576,15 +516,16 @@ fromSpec:
 		"add parameters": {
 			kuardInstance: kuardInstance,
 			parameterConfig: `
-addEnvs:
-- name: NAMESPACE
-  valueFrom:
-    fieldRef:
-      fieldPath: metadata.namespace
-- name: K_METRICS_CONFIG
-  value: "{}"
-- name: K_LOGGING_CONFIG
-  value: "{}"
+add:
+  toEnv:
+  - name: NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+  - name: K_METRICS_CONFIG
+    value: "{}"
+  - name: K_LOGGING_CONFIG
+    value: "{}"
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},

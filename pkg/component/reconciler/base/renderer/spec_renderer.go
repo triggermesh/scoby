@@ -30,6 +30,7 @@ type specRenderer struct {
 
 func newSpecRenderer(speccfg *commonv1alpha1.FromSpecConfiguration, cmr configmap.Reader) (*specRenderer, error) {
 	sr := &specRenderer{
+		allByPath:   make(map[string]struct{}),
 		skipsByPath: make(map[string]struct{}),
 
 		evDefaultValuesByPath:   make(map[string]commonv1alpha1.SpecToEnvDefaultValue),
@@ -56,10 +57,12 @@ func newSpecRenderer(speccfg *commonv1alpha1.FromSpecConfiguration, cmr configma
 
 		if ev.Default != nil {
 			sr.evDefaultValuesByPath[path] = *ev.Default
+			sr.allByPath[path] = struct{}{}
 		}
 
 		if ev.Name != nil {
 			sr.evNameByPath[path] = *ev.Name
+			sr.allByPath[path] = struct{}{}
 		}
 
 		if ev.ValueFrom == nil {
@@ -71,15 +74,20 @@ func newSpecRenderer(speccfg *commonv1alpha1.FromSpecConfiguration, cmr configma
 		switch {
 		case vf.ConfigMap != nil:
 			sr.evConfigMapByPath[path] = *vf.ConfigMap
+			sr.allByPath[path] = struct{}{}
 		case vf.Secret != nil:
 			sr.evSecretByPath[path] = *vf.Secret
+			sr.allByPath[path] = struct{}{}
 		case vf.BuiltInFunc != nil:
 			sr.evBuiltInFunctionByPath[path] = *vf.BuiltInFunc
+			sr.allByPath[path] = struct{}{}
 		}
 	}
 
 	for i := range speccfg.ToVolume {
-		sr.volumeByPath[normalizePath(speccfg.ToVolume[i].Path)] = speccfg.ToVolume[i]
+		path := normalizePath(speccfg.ToVolume[i].Path)
+		sr.volumeByPath[path] = speccfg.ToVolume[i]
+		sr.allByPath[path] = struct{}{}
 	}
 
 	return sr, nil
