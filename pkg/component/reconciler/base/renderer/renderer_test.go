@@ -21,10 +21,15 @@ import (
 	basecrd "github.com/triggermesh/scoby/pkg/component/reconciler/base/crd"
 	baseobject "github.com/triggermesh/scoby/pkg/component/reconciler/base/object"
 	basestatus "github.com/triggermesh/scoby/pkg/component/reconciler/base/status"
+	"github.com/triggermesh/scoby/pkg/utils/configmap"
 	"github.com/triggermesh/scoby/pkg/utils/resolver"
 	"github.com/triggermesh/scoby/pkg/utils/resources"
 
 	. "github.com/triggermesh/scoby/test"
+)
+
+const (
+	tScobyNamespace = "triggermesh"
 )
 
 // The Kuard example contains a CRD with spec elements that
@@ -380,8 +385,8 @@ func TestRenderedContainer(t *testing.T) {
 			kuardInstance: kuardInstance,
 			parameterConfig: `
 fromSpec:
-- path: spec.variable2
-  skip: true
+  skip:
+  - path: spec.variable2
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -395,8 +400,8 @@ fromSpec:
 			kuardInstance: kuardInstance,
 			parameterConfig: `
 fromSpec:
-- path: spec.variable2
   toEnv:
+  - path: spec.variable2
     name: KUARD_VARIABLE_TWO
 `,
 			expectedEnvs: []corev1.EnvVar{
@@ -407,6 +412,69 @@ fromSpec:
 				{Name: "VARIABLE1", Value: "value 1"},
 			},
 		},
+		"default value - when present": {
+			kuardInstance: kuardInstance,
+			parameterConfig: `
+fromSpec:
+  toEnv:
+  - path: spec.variable2
+    default:
+      value: new variable2 value
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "VARIABLE1", Value: "value 1"},
+				{Name: "VARIABLE2", Value: "value 2"},
+			},
+		},
+		"default value - when not present": {
+			// remove variable2 entry from kuard instance.
+			kuardInstance: strings.ReplaceAll(kuardInstance, "variable2: value 2", ""),
+			parameterConfig: `
+fromSpec:
+  toEnv:
+  - path: spec.variable2
+    default:
+      value: new variable2 value
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "VARIABLE1", Value: "value 1"},
+				{Name: "VARIABLE2", Value: "new variable2 value"},
+			},
+		},
+	}
+
+	_ = map[string]struct {
+		// Resolver related rendering might need existing objects. The
+		// kuard instance used for reconciliation does not need to be
+		// here, only any referenced object.
+		existingObjects []client.Object
+
+		// Kuard instance fir rendering.
+		kuardInstance string
+
+		// Registration sub-element for parameter configuration.
+		parameterConfig string
+
+		// Managed conditions
+		happyCond    string
+		conditionSet []string
+
+		//
+		// Expected data fiels
+		//
+
+		// Only if rendering should return an error.
+		expectedError *string
+
+		// Environment variables for the rendered container.
+		expectedEnvs []corev1.EnvVar
+	}{
 		"default value - when present": {
 			kuardInstance: kuardInstance,
 			parameterConfig: `
@@ -556,9 +624,12 @@ addEnvs:
 			ctx := context.Background()
 
 			cb := fake.NewClientBuilder()
-			rsv := resolver.New(cb.WithObjects(tc.existingObjects...).Build())
+			client := cb.WithObjects(tc.existingObjects...).Build()
+			rsv := resolver.New(client)
+			cmr := configmap.NewNamespacedReader(tScobyNamespace, client)
 
-			r := NewRenderer(wkl, rsv)
+			r, err := NewRenderer(wkl, rsv, cmr)
+			assert.NoError(t, err, "error creating renderer")
 
 			smf := basestatus.NewStatusManagerFactory(crdv, tc.happyCond, tc.conditionSet, logr)
 			mgr := baseobject.NewManager(gvk, r, smf)

@@ -85,23 +85,23 @@ func NewRenderer(wkl *commonv1alpha1.Workload, resolver resolver.Resolver, cmr c
 		r.global = *pcfg.Global
 	}
 
-	if !pcfg.Add.IsEmpty() {
-		add, err := newAddRenderer(pcfg.Add, cmr)
-		if err != nil {
-			return nil, err
-		}
-
-		r.add = add
+	// if !pcfg.Add.IsEmpty() {
+	add, err := newAddRenderer(pcfg.Add, cmr)
+	if err != nil {
+		return nil, err
 	}
 
-	if !pcfg.FromSpec.IsEmpty() {
-		spec, err := newSpecRenderer(pcfg.FromSpec, cmr)
-		if err != nil {
-			return nil, err
-		}
+	r.add = add
+	// }
 
-		r.spec = spec
+	// if !pcfg.FromSpec.IsEmpty() {
+	spec, err := newSpecRenderer(pcfg.FromSpec, cmr)
+	if err != nil {
+		return nil, err
 	}
+
+	r.spec = spec
+	// }
 
 	return r, nil
 }
@@ -235,7 +235,7 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 			// default rendering.
 			// TODO call default rendering ...
 			// then continue to avoid more processing
-			continue
+			// continue
 
 			// ev := &corev1.EnvVar{
 			// 	Name: strings.ToUpper(strings.Join(pf.branch[1:], "_")),

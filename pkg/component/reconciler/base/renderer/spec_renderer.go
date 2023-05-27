@@ -41,6 +41,10 @@ func newSpecRenderer(speccfg *commonv1alpha1.FromSpecConfiguration, cmr configma
 		volumeByPath: make(map[string]commonv1alpha1.FromSpecToVolume),
 	}
 
+	if speccfg == nil {
+		return sr, nil
+	}
+
 	for i := range speccfg.Skip {
 		sr.skipsByPath[normalizePath(speccfg.Skip[i].Path)] = struct{}{}
 	}

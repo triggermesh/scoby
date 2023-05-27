@@ -33,6 +33,10 @@ func newAddRenderer(addcfg *commonv1alpha1.AddConfiguration, cmr configmap.Reade
 		cmr:               cmr,
 	}
 
+	if addcfg == nil {
+		return ar, nil
+	}
+
 	if len(addcfg.ToVolume) != 0 {
 		return nil, fmt.Errorf("registration workload contains instructions to add volumes, which are not implemented")
 	}

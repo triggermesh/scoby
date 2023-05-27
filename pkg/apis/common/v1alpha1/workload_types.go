@@ -79,7 +79,7 @@ type AddConfiguration struct {
 }
 
 func (ac *AddConfiguration) IsEmpty() bool {
-	return len(ac.ToEnv) != 0 || len(ac.ToVolume) != 0
+	return ac == nil || (len(ac.ToEnv) == 0 && len(ac.ToVolume) == 0)
 }
 
 // AddToEnvConfiguration are the customization options for an environment variable
@@ -189,7 +189,7 @@ type FromSpecConfiguration struct {
 }
 
 func (sc *FromSpecConfiguration) IsEmpty() bool {
-	return len(sc.Skip) != 0 || len(sc.ToEnv) != 0 || len(sc.ToVolume) != 0
+	return sc == nil || (len(sc.Skip) == 0 && len(sc.ToEnv) == 0 && len(sc.ToVolume) == 0)
 }
 
 // FromSpecToEnv is the customization option to avoid an spec
