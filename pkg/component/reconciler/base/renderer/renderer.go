@@ -28,30 +28,15 @@ const (
 
 type renderer struct {
 	resolver resolver.Resolver
-	// cmr      configmap.Reader
-
-	// JSONPath indexed spec to envs.
-	fromSpec map[string]commonv1alpha1.FromSpecConfiguration
 
 	// Global options to be applied while transforming object fields
 	// into workload parameters.
 	global commonv1alpha1.GlobalParameterConfiguration
 
-	// Static set of environment variables to be added to as
-	// parameters to the workload.
-	addEnvs []*commonv1alpha1.AddToEnvConfiguration
-
-	// Default values that should be set if either the environment
-	// variable does not exists, or it exists with an empty value.
-
-	// defaultEnvs     map[string]*commonv1alpha1.SpecToEnvConfiguration
-	// defaultFromSpec map[string]*commonv1alpha1.FromSpecConfiguration
-	// defaultEnvs map[string]*commonv1alpha1.SpecToEnvRenderConfiguration
-
 	// Set of rules that add or fill elements at the object status.
+	//
+	// TODO maybe move to status renderer object
 	addStatus []commonv1alpha1.StatusAddElement
-
-	// CURATED FROM HERE
 
 	add  *addRenderer
 	spec *specRenderer
