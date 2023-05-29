@@ -24,8 +24,10 @@ import (
 
 	scobyv1alpha1 "github.com/triggermesh/scoby/pkg/apis/scoby/v1alpha1"
 	crbuilder "github.com/triggermesh/scoby/pkg/component/builder"
+	scobyconfig "github.com/triggermesh/scoby/pkg/config"
 	"github.com/triggermesh/scoby/pkg/registration/reconciler/crd"
 	"github.com/triggermesh/scoby/pkg/registration/registry"
+	"github.com/triggermesh/scoby/pkg/utils/configmap"
 	"github.com/triggermesh/scoby/pkg/utils/resolver"
 )
 
@@ -34,6 +36,9 @@ const (
 )
 
 func main() {
+	// Parse configuration from environment variables.
+	scobyconfig.ParseFromEnvironment()
+
 	opts := zap.Options{
 		Development: false,
 	}
@@ -89,8 +94,12 @@ func main() {
 	// into URL.
 	reslv := resolver.New(mgr.GetClient())
 
+	// ConfigMap reader at the Scoby controller namespace will help
+	// reading ConfigMap contents and using them for rendering user workloads.
+	cmr := configmap.NewNamespacedReader(scobyconfig.Get().ScobyNamespace(), mgr.GetClient())
+
 	// Builder for component reconcilers
-	crb := crbuilder.NewBuilder(mgr, reslv)
+	crb := crbuilder.NewBuilder(mgr, reslv, cmr)
 
 	// Parent context.
 	ctx := ctrl.SetupSignalHandler()

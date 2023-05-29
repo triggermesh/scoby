@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/component/reconciler"
 )
 
@@ -35,6 +36,9 @@ func (m manager) NewObject() reconciler.Object {
 
 		evsByPath: make(map[string]*corev1.EnvVar),
 		evsByName: make(map[string]*corev1.EnvVar),
+
+		vmByPath: make(map[string]*commonv1alpha1.FromSpecToVolume),
+		vmByName: make(map[string]*commonv1alpha1.FromSpecToVolume),
 	}
 }
 

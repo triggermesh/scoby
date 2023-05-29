@@ -33,3 +33,17 @@ func VolumeFromSecretOption(secretName, secretKey, mountFile string) VolumeOptio
 		}
 	}
 }
+
+func VolumeFromConfigMapOption(cmName, cmKey, mountFile string) VolumeOption {
+	return func(v *corev1.Volume) {
+		v.ConfigMap = &corev1.ConfigMapVolumeSource{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: cmName,
+			},
+			Items: []corev1.KeyToPath{{
+				Key:  cmKey,
+				Path: mountFile,
+			}},
+		}
+	}
+}

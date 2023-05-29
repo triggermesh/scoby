@@ -318,8 +318,9 @@ spec:
     parameterConfiguration:
       fromSpec:
       # Skip variable2 from generating a parameter for the workload
-      - path: spec.variable2
-        skip: true
+        skip:
+        - path: spec.variable2
+
 
 ```
 
@@ -396,9 +397,9 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
       fromSpec:
-      # Rename variable2
-      - path: spec.variable2
         toEnv:
+        # Rename variable2
+        - path: spec.variable2
           name: KUARD_VARIABLE_TWO
 ```
 
@@ -477,9 +478,9 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
       fromSpec:
-      # Override variable2 value
-      - path: spec.variable2
         toEnv:
+        # Override variable2 value
+        - path: spec.variable2
           defaultValue: new variable2 value
 ```
 
@@ -558,13 +559,14 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
       fromSpec:
-      # Reference a secret
-      - path: spec.refToSecret
         toEnv:
+          # Reference a secret
+          - path: spec.refToSecret
           name: FOO_CREDENTIALS
-          valueFromSecret:
-            name: spec.refToSecret.secretName
-            key: spec.refToSecret.secretKey
+          valueFrom:
+            secret:
+              name: spec.refToSecret.secretName
+              key: spec.refToSecret.secretKey
 ```
 
 Create the registration:
@@ -653,12 +655,13 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
       fromSpec:
-      # Reference a ConfigMap
-      - path: spec.refToConfigMap
         toEnv:
-          valueFromConfigMap:
-            name: spec.refToConfigMap.configName
-            key: spec.refToConfigMap.configKey
+        # Reference a ConfigMap
+        - path: spec.refToConfigMap
+          valueFrom:
+            configMap:
+              name: spec.refToConfigMap.configName
+              key: spec.refToConfigMap.configKey
 ```
 
 Create the registration:
@@ -761,12 +764,13 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
       fromSpec:
-      # Resolve an address
-      - path: spec.refToAddress
         toEnv:
+        # Resolve an address
+        - path: spec.refToAddress
           name: FOO_SINK
-          valueFromBuiltInFunc:
-            name: resolveAddress
+          valueFrom:
+            builtInFunc:
+              name: resolveAddress
     statusConfiguration:
       addElements:
       # Add the result to an status element
@@ -878,7 +882,7 @@ kubectl delete service my-service
 
 ### Add New Parameter
 
-In scenarios where parameters unrelated to the instance `.spec` data needs to be added, the `spec.workload.parameterConfiguration.addEnvs[]` is used. An array of [EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#envvar-v1-core) can be provided referencing literal values, ConfigMaps, Secrets or the Downward API.
+In scenarios where parameters unrelated to the instance `.spec` data needs to be added, the `spec.workload.parameterConfiguration.add.Envs[]` is used. An array of [EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#envvar-v1-core) can be provided referencing literal values, ConfigMaps, Secrets or the Downward API.
 
 ```yaml
 apiVersion: scoby.triggermesh.io/v1alpha1
@@ -898,11 +902,12 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
       # A new variable will be created using a reference to the object's field.
-      addEnvs:
-      - name: MY_POD_NAME
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.name
+      add:
+        toEnv:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
 ```
 
 Create the registration:

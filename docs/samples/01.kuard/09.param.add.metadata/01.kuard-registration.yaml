@@ -15,9 +15,10 @@ spec:
       repo: gcr.io/kuar-demo/kuard-amd64:blue
     parameterConfiguration:
       # A new variable will be created using a reference to the object's field.
-      addEnvs:
-      - name: MY_POD_NAME
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.name
+      add:
+        toEnv:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
 

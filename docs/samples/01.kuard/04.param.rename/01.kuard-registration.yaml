@@ -16,8 +16,8 @@ spec:
 
     parameterConfiguration:
       fromSpec:
-      # Use a specific env var key for variable2
-      - path: spec.variable2
         toEnv:
+        # Use a specific env var key for variable2
+        - path: spec.variable2
           name: KUARD_VARIABLE_TWO
 

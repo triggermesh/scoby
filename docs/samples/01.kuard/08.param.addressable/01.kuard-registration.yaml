@@ -17,12 +17,13 @@ spec:
 
     parameterConfiguration:
       fromSpec:
-      # Resolve an address
-      - path: spec.refToAddress
         toEnv:
+        # Resolve an address
+        - path: spec.refToAddress
           name: FOO_SINK
-          valueFromBuiltInFunc:
-            name: resolveAddress
+          valueFrom:
+            builtInFunc:
+              name: resolveAddress
     statusConfiguration:
       addElements:
       # Add the result to an status element

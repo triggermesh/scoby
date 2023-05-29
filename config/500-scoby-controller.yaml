@@ -44,6 +44,11 @@ spec:
       - name: controller
         terminationMessagePolicy: FallbackToLogsOnError
         image: ko://github.com/triggermesh/scoby/cmd/scoby-controller
+        env:
+        - name: SCOBY_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
 
         resources:
           requests:

@@ -16,7 +16,7 @@ spec:
 
     parameterConfiguration:
       fromSpec:
-      # Set a default value for variable2
-      - path: spec.variable2
         toEnv:
+        # Set a default value for variable2
+        - path: spec.variable2
           defaultValue: new variable2 value

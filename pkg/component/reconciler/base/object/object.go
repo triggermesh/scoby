@@ -11,6 +11,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	"github.com/triggermesh/scoby/pkg/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/utils/resources"
 )
@@ -41,7 +42,12 @@ type object struct {
 	// for calculations.
 	evsByPath map[string]*corev1.EnvVar
 	evsByName map[string]*corev1.EnvVar
+
+	vmByPath map[string]*commonv1alpha1.FromSpecToVolume
+	vmByName map[string]*commonv1alpha1.FromSpecToVolume
 }
+
+var _ reconciler.Object = (*object)(nil)
 
 func (o object) AsKubeObject() client.Object {
 	return o.Unstructured
@@ -56,6 +62,11 @@ func (o object) GetStatusManager() reconciler.StatusManager {
 func (o object) AddEnvVar(fromPath string, ev *corev1.EnvVar) {
 	o.evsByPath[fromPath] = ev
 	o.evsByName[ev.Name] = ev
+}
+
+func (o object) AddVolumeMount(fromPath string, vm *commonv1alpha1.FromSpecToVolume) {
+	o.vmByPath[fromPath] = vm
+	o.vmByName[vm.Name] = vm
 }
 
 func (o object) AsContainerOptions() []resources.ContainerOption {
@@ -74,7 +85,46 @@ func (o object) AsContainerOptions() []resources.ContainerOption {
 		copts = append(copts, resources.ContainerAddEnv(ev))
 	}
 
+	for i := range o.vmByName {
+		v := o.vmByName[i]
+		copts = append(copts, resources.ContainerAddVolumeMount(
+			resources.NewVolumeMount(v.Name, v.MountPath),
+		))
+	}
+
 	return copts
+}
+
+func (o object) AsPodSpecOptions() []resources.PodSpecOption {
+	psopts := make([]resources.PodSpecOption, 0, len(o.vmByName))
+
+	for i := range o.vmByName {
+		v := o.vmByName[i]
+
+		var vol *corev1.Volume
+
+		switch {
+		case v.MountFrom.ConfigMap != nil:
+			vol = resources.NewVolume(v.Name,
+				resources.VolumeFromConfigMapOption(
+					v.MountFrom.ConfigMap.Name,
+					v.MountFrom.ConfigMap.Key,
+					v.MountPath))
+
+		case v.MountFrom.Secret != nil:
+			vol = resources.NewVolume(v.Name,
+				resources.VolumeFromSecretOption(
+					v.MountFrom.Secret.Name,
+					v.MountFrom.Secret.Key,
+					v.MountPath))
+		}
+		psopts = append(psopts, resources.PodSpecAddVolume(vol))
+
+		// A VolumeMount matching option is added to the container opts at
+		// the AsContainerOptions function.
+	}
+
+	return psopts
 }
 
 func (o object) GetEnvVarAtPath(path string) *corev1.EnvVar {

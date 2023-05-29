@@ -204,6 +204,13 @@ func (dr *deploymentReconciler) createDeploymentFromRegistered(obj reconciler.Ob
 		replicas = dr.formFactor.Replicas
 	}
 
+	pso := append(obj.AsPodSpecOptions(), resources.PodSpecAddContainer(
+		resources.NewContainer(
+			reconciler.DefaultContainerName,
+			dr.fromImage.Repo,
+			obj.AsContainerOptions()...,
+		)))
+
 	return resources.NewDeployment(obj.GetNamespace(), dr.name+"-"+obj.GetName(),
 		resources.DeploymentWithMetaOptions(
 			resources.MetaAddLabel(resources.AppNameLabel, dr.name),
@@ -220,13 +227,7 @@ func (dr *deploymentReconciler) createDeploymentFromRegistered(obj reconciler.Ob
 		resources.DeploymentAddSelectorForTemplate(resources.AppComponentLabel, reconciler.ComponentWorkload),
 
 		resources.DeploymentWithTemplateSpecOptions(
-			resources.PodTemplateSpecWithPodSpecOptions(
-				resources.PodSpecAddContainer(
-					resources.NewContainer(
-						reconciler.DefaultContainerName,
-						dr.fromImage.Repo,
-						obj.AsContainerOptions()...,
-					))))), nil
+			resources.PodTemplateSpecWithPodSpecOptions(pso...))), nil
 }
 
 func (dr *deploymentReconciler) reconcileService(ctx context.Context, obj reconciler.Object) (*corev1.Service, error) {

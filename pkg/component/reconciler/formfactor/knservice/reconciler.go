@@ -192,14 +192,15 @@ func (sr *knserviceReconciler) createKnServiceFromRegistered(obj reconciler.Obje
 		resources.MetaAddOwner(obj, obj.GetObjectKind().GroupVersionKind()),
 	}
 
+	pso := append(obj.AsPodSpecOptions(), resources.PodSpecAddContainer(
+		resources.NewContainer(
+			reconciler.DefaultContainerName,
+			sr.fromImage.Repo,
+			obj.AsContainerOptions()...,
+		)))
+
 	revspecopts := []resources.RevisionTemplateOption{
-		resources.RevisionSpecWithPodSpecOptions(
-			resources.PodSpecAddContainer(
-				resources.NewContainer(
-					reconciler.DefaultContainerName,
-					sr.fromImage.Repo,
-					obj.AsContainerOptions()...,
-				))),
+		resources.RevisionSpecWithPodSpecOptions(pso...),
 	}
 
 	if sr.formFactor != nil {

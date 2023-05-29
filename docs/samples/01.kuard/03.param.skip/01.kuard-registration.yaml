@@ -17,6 +17,6 @@ spec:
     parameterConfiguration:
       fromSpec:
       # Skip variable2 from generating a parameter for the workload
-      - path: spec.variable2
-        skip: true
+        skip:
+        - path: spec.variable2
 

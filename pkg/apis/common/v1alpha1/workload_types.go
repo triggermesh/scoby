@@ -37,20 +37,15 @@ type ParameterConfiguration struct {
 	// +optional
 	Global *GlobalParameterConfiguration `json:"global,omitempty"`
 
-	// AddEnvs contains instructions to create environment variables at the workload
+	// Add contains instructions to render elements at the generated workload
 	// not derived from the user instance.
 	// +optional
-	AddEnvs []corev1.EnvVar `json:"addEnvs,omitempty"`
+	Add *AddConfiguration `json:"add,omitempty"`
 
 	// FromSpec contains instructions to generate workload items from
 	// the instance's spec.
 	// +optional
-	FromSpec []FromSpecConfiguration `json:"fromSpec,omitempty"`
-
-	// // SpecToVolumes contains instructions to generate volumes and mounts from
-	// // the instance's spec.
-	// // +optional
-	// SpecToVolumes []SpecToVolumeParameterConfiguration `json:"specToVolumes,omitempty"`
+	FromSpec *FromSpecConfiguration `json:"fromSpec,omitempty"`
 }
 
 // GlobalParameterConfiguration defines configuration to be applied to all generated parameters.
@@ -68,131 +63,203 @@ func (gpc *GlobalParameterConfiguration) GetDefaultPrefix() string {
 	return *gpc.DefaultPrefix
 }
 
-// FromSpecConfiguration contains instructions to generate rendering from
-// the controlled instance spec.
-type FromSpecConfiguration struct {
-	// JSON simplified path for the parameter.
-	Path string `json:"path"`
-
-	// Skip sets whether the object should skip rendering
-	// as a workload item.
+// AddConfiguration contains instructions to add rendering elements
+// not related to the user spec input.
+type AddConfiguration struct {
+	// Render options for adding environment variables unrelated to
+	// the user's object input.
 	// +optional
-	Skip *bool `json:"skip,omitempty"`
+	ToEnv []AddToEnvConfiguration `json:"toEnv,omitempty"`
 
-	// Render options for the parameter generation.
+	// Render options for mounting volumes unrelated to
+	// the user's object input.
+	// Volume source must exists at the user's namespace.
 	// +optional
-	ToEnv *SpecToEnvConfiguration `json:"toEnv,omitempty"`
-
-	// Render options for the parameter generation.
-	// +optional
-	ToVolume *SpecToVolumeConfiguration `json:"toVolume,omitempty"`
+	ToVolume []AddToVolumeConfiguration `json:"toVolume,omitempty"`
 }
 
-func (fsc *FromSpecConfiguration) IsRenderer() bool {
-	return fsc != nil && (fsc.ToEnv != nil || fsc.ToVolume == nil)
+func (ac *AddConfiguration) IsEmpty() bool {
+	return ac == nil || (len(ac.ToEnv) == 0 && len(ac.ToVolume) == 0)
 }
 
-func (fsc *FromSpecConfiguration) IsValueOverriden() bool {
-	if fsc == nil || (!fsc.ToEnv.IsValueOverriden() && !fsc.ToVolume.IsValueOverriden()) {
-		return false
+// AddToEnvConfiguration are the customization options for an environment variable
+// added from scratch.
+type AddToEnvConfiguration struct {
+	// Name is the name of the environment variable to be created.
+	Name string `json:"name,omitempty"`
+
+	// Value is a literal value to be assigned to the parameter.
+	// +optional
+	Value *string `json:"value,omitempty"`
+
+	ValueFrom *AddToEnvValueFrom `json:"valueFrom,omitempty"`
+
+	// ValueFromControllerConfigMap adds an environment variable whose value is
+	// read from a ConfigMap at the controller's namespace.
+	// +optional
+	ValueFromControllerConfigMap *corev1.ConfigMapKeySelector `json:"valueFromControllerConfigMap,omitempty"`
+}
+
+// Instructions to extract envrionment variables values from the object's registration.
+type AddToEnvValueFrom struct {
+	// Selects a key of a ConfigMap.
+	// +optional
+	ConfigMap *corev1.ConfigMapKeySelector `json:"configMap,omitempty"`
+
+	// Selects a key of a secret in the pod's namespace
+	// +optional
+	Secret *corev1.SecretKeySelector `json:"secret,omitempty"`
+
+	// Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
+	// spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
+	// +optional
+	FieldRef *corev1.ObjectFieldSelector `json:"field,omitempty" protobuf:"bytes,1,opt,name=fieldRef"`
+}
+
+func (aevf *AddToEnvValueFrom) ToEnvVarSource() *corev1.EnvVarSource {
+	switch {
+	case aevf.ConfigMap != nil:
+		return &corev1.EnvVarSource{
+			ConfigMapKeyRef: aevf.ConfigMap,
+		}
+
+	case aevf.Secret != nil:
+		return &corev1.EnvVarSource{
+			SecretKeyRef: aevf.Secret,
+		}
+
+	case aevf.FieldRef != nil:
+		return &corev1.EnvVarSource{
+			FieldRef: aevf.FieldRef,
+		}
 	}
-	return true
+
+	return nil
 }
 
-// IsSkip returns if the parameter rendering should be skipped.
-func (fsc *FromSpecConfiguration) IsSkip() bool {
-	if fsc == nil || fsc.Skip == nil {
-		return false
-	}
-	return *fsc.Skip
-}
-
-// // SpecToVolumeParameterConfiguration contains instructions to generate volumes
-// // and volume mounts from the controlled instance spec.
-// type SpecToVolumeParameterConfiguration struct {
-// 	// JSON simplified path for the parameter.
-// 	Path string `json:"path"`
-
-// 	Render *SpecToVolumeRenderConfiguration `json:"render,omitempty"`
-// }
-
-// SpecToVolumeRenderConfiguration are the customization options for an specific
-// parameter generation.
-type SpecToVolumeConfiguration struct {
+// Instructions to extract volume mount information from the object's registration.
+type AddToVolumeConfiguration struct {
 	// Name for the volume.
 	Name string `json:"name,omitempty"`
 
 	// Path where the file will be mounted.
 	MountPath string `json:"mountPath,omitempty"`
 
-	// ValueFromConfigMap is a reference to a ConfigMap.
-	// +optional
-	ValueFromConfigMap *ObjectReference `json:"valueFromConfigMap,omitempty"`
-
-	// ValueFromSecret is a reference to a Secret.
-	// +optional
-	ValueFromSecret *ObjectReference `json:"valueFromSecret,omitempty"`
+	// ValueFrom references an object to mount.
+	MountFrom MountFrom `json:"mountFrom,omitempty"`
 }
 
-func (svc *SpecToVolumeConfiguration) IsValueOverriden() bool {
-	if svc == nil || (svc.ValueFromConfigMap == nil &&
-		svc.ValueFromSecret == nil) {
-		return false
-	}
-	return true
+// Instructions to look for the volume mount source.
+type MountFrom struct {
+	// Selects a key of a ConfigMap.
+	// +optional
+	ConfigMap *corev1.ConfigMapKeySelector `json:"configMap,omitempty"`
+
+	// Selects a key of a secret in the pod's namespace
+	// +optional
+	Secret *corev1.SecretKeySelector `json:"secret,omitempty"`
 }
 
-// SpecToEnvRenderConfiguration are the customization options for an specific
-// parameter generation.
-type SpecToEnvConfiguration struct {
-	// Name is the name of the parameter to be created.
+// FromSpecConfiguration contains instructions to generate rendering from
+// the controlled instance spec.
+type FromSpecConfiguration struct {
+
+	// Skip sets whether the object should skip rendering
+	// as a workload item.
+	// +optional
+	Skip []FromSpecSkip `json:"skip,omitempty"`
+
+	// Render options for generating environment variables derived from
+	// the user's object input.
+	// +optional
+	ToEnv []FromSpecToEnv `json:"toEnv,omitempty"`
+
+	// Render options for mounting volumes derived from
+	// the user's object input.
+	// +optional
+	ToVolume []FromSpecToVolume `json:"toVolume,omitempty"`
+}
+
+func (sc *FromSpecConfiguration) IsEmpty() bool {
+	return sc == nil || (len(sc.Skip) == 0 && len(sc.ToEnv) == 0 && len(sc.ToVolume) == 0)
+}
+
+// FromSpecToEnv is the customization option to avoid an spec
+// path from generating any rendering output.
+type FromSpecSkip struct {
+	// JSON simplified path for the parameter.
+	Path string `json:"path"`
+}
+
+// FromSpecToEnv are the customization options for an environment variable
+// generated from an object spec.
+type FromSpecToEnv struct {
+	// JSON simplified path for the parameter.
+	Path string `json:"path"`
+
+	// Name is the name of the envr to be created.
 	// +optional
 	Name *string `json:"name,omitempty"`
 
-	// Value is a literal value to be assigned to the parameter when
+	// Default to be assigned to the parameter when
 	// a value is not provided by users.
 	// +optional
-	DefaultValue *string `json:"defaultValue,omitempty"`
+	Default *SpecToEnvDefaultValue `json:"default,omitempty"`
 
-	// ValueFromConfigMap is a reference to a ConfigMap.
+	// ValueFrom uses a .
 	// +optional
-	ValueFromConfigMap *ObjectReference `json:"valueFromConfigMap,omitempty"`
+	ValueFrom *SpecToEnvValueFrom `json:"valueFrom,omitempty"`
+}
 
-	// ValueFromSecret is a reference to a Secret.
+// FromSpecToVolume are the customization options for a volume
+// being mounted from configuration.
+type FromSpecToVolume struct {
+	// JSON simplified path for the parameter.
+	Path string `json:"path"`
+
+	// Name for the volume.
+	Name string `json:"name,omitempty"`
+
+	// Path where the file will be mounted.
+	MountPath string `json:"mountPath,omitempty"`
+
+	// ValueFrom references an object to mount.
+	MountFrom MountFrom `json:"mountFrom,omitempty"`
+}
+
+func (fsc *FromSpecConfiguration) IsRenderer() bool {
+	return fsc != nil && (fsc.ToEnv != nil || fsc.ToVolume == nil)
+}
+
+// Instructions to extract envrionment variables values from elements or functions
+type SpecToEnvDefaultValue struct {
+	// Value is a literal value to be assigned to the parameter.
 	// +optional
-	ValueFromSecret *ObjectReference `json:"valueFromSecret,omitempty"`
+	Value *string `json:"value,omitempty"`
 
-	// ValueFromBuiltInFunc configures the field to
+	// Selects a key of a ConfigMap.
+	// +optional
+	ConfigMap *corev1.ConfigMapKeySelector `json:"configMap,omitempty"`
+
+	// Selects a key of a secret in the pod's namespace
+	// +optional
+	Secret *corev1.SecretKeySelector `json:"secret,omitempty"`
+}
+
+// Instructions to extract envrionment variables values from elements or functions
+type SpecToEnvValueFrom struct {
+	// Selects a key of a ConfigMap.
+	// +optional
+	ConfigMap *corev1.ConfigMapKeySelector `json:"configMap,omitempty"`
+
+	// Selects a key of a secret in the pod's namespace
+	// +optional
+	Secret *corev1.SecretKeySelector `json:"secret,omitempty"`
+
+	// BuiltInFunc configures the field to
 	// be rendered acording to the chosen built-in function.
 	// +optional
-	ValueFromBuiltInFunc *BuiltInfunction `json:"valueFromBuiltInFunc,omitempty"`
-}
-
-// GetName returns the key defined at the parameter rendering
-// configuration.
-// Returns an empty string if not defined.
-func (sec *SpecToEnvConfiguration) GetName() string {
-	if sec == nil || sec.Name == nil {
-		return ""
-	}
-	return *sec.Name
-}
-
-func (sec *SpecToEnvConfiguration) IsValueOverriden() bool {
-	if sec == nil || (sec.ValueFromConfigMap == nil &&
-		sec.ValueFromSecret == nil &&
-		sec.ValueFromBuiltInFunc == nil) {
-		return false
-	}
-	return true
-}
-
-// Selects a key from a Secret or ConfigMap.
-type ObjectReference struct {
-	// Object name
-	Name string `json:"name"`
-	// The key to select.
-	Key string `json:"key"`
+	BuiltInFunc *BuiltInfunction `json:"builtInFunc,omitempty"`
 }
 
 // References a built-in function.

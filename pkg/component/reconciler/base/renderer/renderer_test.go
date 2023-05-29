@@ -21,10 +21,15 @@ import (
 	basecrd "github.com/triggermesh/scoby/pkg/component/reconciler/base/crd"
 	baseobject "github.com/triggermesh/scoby/pkg/component/reconciler/base/object"
 	basestatus "github.com/triggermesh/scoby/pkg/component/reconciler/base/status"
+	"github.com/triggermesh/scoby/pkg/utils/configmap"
 	"github.com/triggermesh/scoby/pkg/utils/resolver"
 	"github.com/triggermesh/scoby/pkg/utils/resources"
 
 	. "github.com/triggermesh/scoby/test"
+)
+
+const (
+	tScobyNamespace = "triggermesh"
 )
 
 // The Kuard example contains a CRD with spec elements that
@@ -224,117 +229,6 @@ spec:
 `
 )
 
-// func TestRenderedContainerCopy(t *testing.T) {
-
-// 	// Use the Kuard CRD for all cases
-// 	crdv := basecrd.CRDPrioritizedVersion(ReadCRD(kuardCRD))
-
-// 	testCases := map[string]struct {
-// 		// Resolver related rendering might need existing objects. The
-// 		// kuard instance used for reconciliation does not need to be
-// 		// here, only any referenced object.
-// 		existingObjects []client.Object
-
-// 		// Kuard instance fir rendering.
-// 		kuardInstance string
-
-// 		// Registration sub-element for parameter configuration.
-// 		parameterConfig string
-
-// 		// Managed conditions
-// 		happyCond    string
-// 		conditionSet []string
-
-// 		//
-// 		// Expected data fiels
-// 		//
-
-// 		// Only if rendering should return an error.
-// 		expectedError *string
-
-// 		// Environment variables for the rendered container.
-// 		expectedEnvs []corev1.EnvVar
-// 	}{
-// 		"no parameter policies": {
-// 			kuardInstance: kuardInstance,
-// 			expectedEnvs: []corev1.EnvVar{
-// 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
-// 				{Name: "GROUP_VARIABLE3", Value: "false"},
-// 				{Name: "GROUP_VARIABLE4", Value: "42"},
-// 				{Name: "VARIABLE1", Value: "value 1"},
-// 				{Name: "VARIABLE2", Value: "value 2"},
-// 			},
-// 		},
-// 		"skip variable from rendering": {
-// 			kuardInstance: kuardInstance,
-// 			parameterConfig: `
-// fromSpec:
-// - path: spec.variable2
-//   skip: true
-// `,
-// 			expectedEnvs: []corev1.EnvVar{
-// 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
-// 				{Name: "GROUP_VARIABLE3", Value: "false"},
-// 				{Name: "GROUP_VARIABLE4", Value: "42"},
-// 				{Name: "VARIABLE1", Value: "value 1"},
-// 				/* {Name: "VARIABLE2", Value: "value 2"}, */
-// 			},
-// 		},
-// 	}
-
-// 	logr := tlogr.NewTestLogger(t)
-
-// 	for name, tc := range testCases {
-// 		t.Run(name, func(t *testing.T) {
-// 			// for this test we can hardcode to deployment, we are only testing container output.
-// 			wkl := &commonv1alpha1.Workload{
-// 				FormFactor: &commonv1alpha1.FormFactor{
-// 					Deployment: &commonv1alpha1.DeploymentFormFactor{
-// 						Replicas: 1,
-// 					},
-// 				},
-// 				ParameterConfiguration: &commonv1alpha1.ParameterConfiguration{},
-// 			}
-
-// 			// Read parameter configuration into structure
-// 			err := yaml.Unmarshal([]byte(tc.parameterConfig), wkl.ParameterConfiguration)
-// 			require.NoError(t, err)
-
-// 			ctx := context.Background()
-
-// 			cb := fake.NewClientBuilder()
-// 			rsv := resolver.New(cb.WithObjects(tc.existingObjects...).Build())
-
-// 			r := NewRenderer(wkl, rsv)
-
-// 			smf := basestatus.NewStatusManagerFactory(crdv, tc.happyCond, tc.conditionSet, logr)
-// 			mgr := baseobject.NewManager(gvk, r, smf)
-
-// 			// Replace with the test object
-// 			obj := mgr.NewObject()
-// 			u := obj.AsKubeObject().(*unstructured.Unstructured)
-// 			err = yaml.Unmarshal([]byte(tc.kuardInstance), u)
-// 			require.NoError(t, err)
-
-// 			err = r.Render(ctx, obj)
-// 			if tc.expectedError != nil {
-// 				require.Contains(t, err.Error(), *tc.expectedError)
-
-// 			} else {
-// 				require.NoError(t, err)
-// 			}
-
-// 			c := resources.NewContainer(
-// 				"test-name",
-// 				"test-image",
-// 				obj.AsContainerOptions()...,
-// 			)
-
-// 			assert.Equal(t, tc.expectedEnvs, c.Env)
-// 		})
-// 	}
-// }
-
 func TestRenderedContainer(t *testing.T) {
 
 	// Use the Kuard CRD for all cases
@@ -365,6 +259,10 @@ func TestRenderedContainer(t *testing.T) {
 
 		// Environment variables for the rendered container.
 		expectedEnvs []corev1.EnvVar
+
+		// Volumes mounted on rendered pod.
+		expectedVolMount []corev1.VolumeMount
+		expectedVolumes  []corev1.Volume
 	}{
 		"no parameter policies": {
 			kuardInstance: kuardInstance,
@@ -380,8 +278,8 @@ func TestRenderedContainer(t *testing.T) {
 			kuardInstance: kuardInstance,
 			parameterConfig: `
 fromSpec:
-- path: spec.variable2
-  skip: true
+  skip:
+  - path: spec.variable2
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -395,8 +293,8 @@ fromSpec:
 			kuardInstance: kuardInstance,
 			parameterConfig: `
 fromSpec:
-- path: spec.variable2
   toEnv:
+  - path: spec.variable2
     name: KUARD_VARIABLE_TWO
 `,
 			expectedEnvs: []corev1.EnvVar{
@@ -411,9 +309,10 @@ fromSpec:
 			kuardInstance: kuardInstance,
 			parameterConfig: `
 fromSpec:
-- path: spec.variable2
   toEnv:
-    defaultValue: new variable2 value
+  - path: spec.variable2
+    default:
+      value: new variable2 value
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -428,10 +327,10 @@ fromSpec:
 			kuardInstance: strings.ReplaceAll(kuardInstance, "variable2: value 2", ""),
 			parameterConfig: `
 fromSpec:
-- path: spec.variable2
   toEnv:
-    defaultValue: new variable2 value
-
+  - path: spec.variable2
+    default:
+      value: new variable2 value
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -450,12 +349,13 @@ fromSpec:
 `,
 			parameterConfig: `
 fromSpec:
-- path: spec.refToSecret
   toEnv:
+  - path: spec.refToSecret
     name: FOO_CREDENTIALS
-    valueFromSecret:
-      name: spec.refToSecret.secretName
-      key: spec.refToSecret.secretKey
+    valueFrom:
+      secret:
+        name: spec.refToSecret.secretName
+        key: spec.refToSecret.secretKey
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -474,7 +374,7 @@ fromSpec:
 			},
 		},
 		"configmap reference": {
-			// add secret reference to kuard base instance.
+			// add ConfigMap reference to kuard base instance.
 			kuardInstance: kuardInstance + `
   refToConfigMap:
     configMapName: kuard-cm
@@ -482,12 +382,13 @@ fromSpec:
 `,
 			parameterConfig: `
 fromSpec:
-- path: spec.refToConfigMap
   toEnv:
+  - path: spec.refToConfigMap
     name: FOO_CONFIG
-    valueFromConfigMap:
-      name: spec.refToConfigMap.configMapName
-      key: spec.refToConfigMap.configMapKey
+    valueFrom:
+      configMap:
+        name: spec.refToConfigMap.configMapName
+        key: spec.refToConfigMap.configMapKey
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -508,15 +409,16 @@ fromSpec:
 		"add parameters": {
 			kuardInstance: kuardInstance,
 			parameterConfig: `
-addEnvs:
-- name: NAMESPACE
-  valueFrom:
-    fieldRef:
-      fieldPath: metadata.namespace
-- name: K_METRICS_CONFIG
-  value: "{}"
-- name: K_LOGGING_CONFIG
-  value: "{}"
+add:
+  toEnv:
+  - name: NAMESPACE
+    valueFrom:
+      field:
+        fieldPath: metadata.namespace
+  - name: K_METRICS_CONFIG
+    value: "{}"
+  - name: K_LOGGING_CONFIG
+    value: "{}"
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -531,6 +433,100 @@ addEnvs:
 				}},
 				{Name: "VARIABLE1", Value: "value 1"},
 				{Name: "VARIABLE2", Value: "value 2"},
+			},
+		},
+		"mount configmap from spec": {
+			// add ConfigMap reference to kuard base instance.
+			kuardInstance: kuardInstance + `
+  refToConfigMap:
+    configMapName: kuard-cm
+    configMapKey: kuard-cm-key
+`,
+			parameterConfig: `
+fromSpec:
+  toVolume:
+  - path: spec.refToConfigMap
+    mountPath: /opt/config
+    name: config
+    mountFrom:
+      configMap:
+        name: spec.refToConfigMap.configMapName
+        key: spec.refToConfigMap.configMapKey
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "VARIABLE1", Value: "value 1"},
+				{Name: "VARIABLE2", Value: "value 2"},
+			},
+			expectedVolMount: []corev1.VolumeMount{
+				{
+					Name:      "config",
+					MountPath: "/opt/config",
+				},
+			},
+			expectedVolumes: []corev1.Volume{
+				{
+					Name: "config",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "kuard-cm",
+							},
+							Items: []corev1.KeyToPath{{
+								Key:  "kuard-cm-key",
+								Path: "/opt/config",
+							}},
+						},
+					},
+				},
+			},
+		},
+		"mount secret from spec": {
+			// add Secret reference to kuard base instance.
+			kuardInstance: kuardInstance + `
+  refToSecret:
+    secretName: kuard-sec
+    secretKey: kuard-sec-key
+`,
+			parameterConfig: `
+fromSpec:
+  toVolume:
+  - path: spec.refToSecret
+    mountPath: /opt/creds
+    name: creds
+    mountFrom:
+      secret:
+        name: spec.refToSecret.secretName
+        key: spec.refToSecret.secretKey
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "VARIABLE1", Value: "value 1"},
+				{Name: "VARIABLE2", Value: "value 2"},
+			},
+			expectedVolMount: []corev1.VolumeMount{
+				{
+					Name:      "creds",
+					MountPath: "/opt/creds",
+				},
+			},
+			expectedVolumes: []corev1.Volume{
+				{
+					Name: "creds",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "kuard-sec",
+							Items: []corev1.KeyToPath{{
+								Key:  "kuard-sec-key",
+								Path: "/opt/creds",
+							}},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -556,9 +552,12 @@ addEnvs:
 			ctx := context.Background()
 
 			cb := fake.NewClientBuilder()
-			rsv := resolver.New(cb.WithObjects(tc.existingObjects...).Build())
+			client := cb.WithObjects(tc.existingObjects...).Build()
+			rsv := resolver.New(client)
+			cmr := configmap.NewNamespacedReader(tScobyNamespace, client)
 
-			r := NewRenderer(wkl, rsv)
+			r, err := NewRenderer(wkl, rsv, cmr)
+			assert.NoError(t, err, "error creating renderer")
 
 			smf := basestatus.NewStatusManagerFactory(crdv, tc.happyCond, tc.conditionSet, logr)
 			mgr := baseobject.NewManager(gvk, r, smf)
@@ -584,6 +583,11 @@ addEnvs:
 			)
 
 			assert.Equal(t, tc.expectedEnvs, c.Env)
+			assert.Equal(t, tc.expectedVolMount, c.VolumeMounts)
+
+			ps := resources.NewPodSpec(obj.AsPodSpecOptions()...)
+
+			assert.Equal(t, tc.expectedVolumes, ps.Volumes)
 		})
 	}
 }

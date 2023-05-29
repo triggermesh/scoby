@@ -17,72 +17,51 @@ spec:
       global:
         defaultPrefix: HTTP_
 
-      addEnvs:
-      - name: NAMESPACE
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.namespace
-      - name: K_METRICS_CONFIG
-        value: "{}"
-      - name: K_LOGGING_CONFIG
-        value: "{}"
+      add:
+        toEnv:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K_METRICS_CONFIG
+          value: "{}"
+        - name: K_LOGGING_CONFIG
+          value: "{}"
 
       fromSpec:
-      - path: spec.response.eventType
         toEnv:
+        - path: spec.response.eventType
           name: HTTP_EVENT_TYPE
-
-      - path: spec.response.eventSource
-        toEnv:
+        - path: spec.response.eventSource
           name: HTTP_EVENT_SOURCE
           defaultValue: httptarget
-
-      - path: spec.endpoint
-        toEnv:
+        - path: spec.endpoint
           name: HTTP_URL
-
-      - path: spec.method
-        toEnv:
+        - path: spec.method
           name: HTTP_METHOD
-
-      - path: spec.skipVerify
-        toEnv:
+        - path: spec.skipVerify
           name: HTTP_SKIP_VERIFY
-
-      - path: spec.caCertificate
-        toEnv:
+        - path: spec.caCertificate
           name: HTTP_CA_CERTIFICATE
-
-      - path: spec.basicAuthUsername
-        toEnv:
+        - path: spec.basicAuthUsername
           name: HTTP_BASICAUTH_USERNAME
-
-      - path: spec.basicAuthPassword
-        toEnv:
+        - path: spec.basicAuthPassword
           name: HTTP_BASICAUTH_PASSWORD
-          valueFromSecret:
-            name: spec.credentials.name
-            key: spec.preferences.key
-
-      - path: spec.oauthClientID
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.credentials.name
+              key: spec.preferences.key
+        - path: spec.oauthClientID
           name: HTTP_OAUTH_CLIENT_ID
-
-      - path: spec.oauthClientSecret
-        toEnv:
+        - path: spec.oauthClientSecret
           name: HTTP_OAUTH_CLIENT_SECRET
-          valueFromSecret:
-            name: spec.credentials.name
-            key: spec.preferences.key
-
-      - path: spec.oauthTokenURL
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.credentials.name
+              key: spec.preferences.key
+        - path: spec.oauthTokenURL
           name: HTTP_OAUTH_TOKEN_URL
-
-      - path: spec.oauthScopes
-        toEnv:
+        - path: spec.oauthScopes
           name: HTTP_OAUTH_SCOPE
-
-      - path: spec.headers
-        toEnv:
+        - path: spec.headers
           name: HTTP_HEADERS

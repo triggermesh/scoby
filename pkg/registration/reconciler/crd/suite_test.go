@@ -72,7 +72,7 @@ var _ = BeforeSuite(func() {
 	cl := log.WithName("component")
 
 	// Builder for component reconcilers
-	crb := crbuilder.NewBuilder(k8sManager, nil)
+	crb := crbuilder.NewBuilder(k8sManager, nil, nil)
 
 	reg := registry.New(ctx, crb, &cl)
 

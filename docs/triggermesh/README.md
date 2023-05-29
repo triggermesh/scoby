@@ -43,21 +43,22 @@ The `pkgadapter.EnvConfig` includes some environment variables that we will be u
 - `K_LOGGING_CONFIG`: JSON confdiguration for logging. Refer to [Knative documentation](https://knative.dev/docs/serving/observability/logging/config-logging/).
 - `K_SINK`: for sources only, this environment variable must point to a URL where events are being produced to.
 
-While `K_SINK` must be derived from a field specified by the user, the other ones are not. We will add them at the registration using the `.spec.workload.parameterConfiguration.addEnvs` element. You can replace the empty values with your logging and metrics configuration:
+While `K_SINK` must be derived from a field specified by the user, the other ones are not. We will add them at the registration using the `.spec.workload.parameterConfiguration.add.toEnv` element. You can replace the empty values with your logging and metrics configuration:
 
 ```YAML
 spec:
   workload:
     parameterConfiguration:
-      addEnvs:
-      - name: NAMESPACE
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.namespace
-      - name: K_METRICS_CONFIG
-        value: "{}"
-      - name: K_LOGGING_CONFIG
-        value: "{}"
+      add:
+        toEnv:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K_METRICS_CONFIG
+          value: "{}"
+        - name: K_LOGGING_CONFIG
+          value: "{}"
 ```
 
 For non trivial transformations between the CRD elements and the environment variables we will refer to the reconciler's code where you should find an `adapter.go` file that shows how each element is being serialized. Also at the reconciler we need to make sure if the reconciliation process is executing some extra task like connecting an external API or provisioning resources, in which case we should rely on hooks.
@@ -119,38 +120,28 @@ Given the CRD element to environment variables table above, add this workload pa
     parameterConfiguration:
 
       fromSpec:
-      - path: spec.eventType
         toEnv:
+        - path: spec.eventType
           name: WEBHOOK_EVENT_TYPE
-
-      - path: spec.eventSource
-        toEnv:
+        - path: spec.eventSource
           name: WEBHOOK_EVENT_SOURCE
-
-      - path: spec.basicAuthUsername
-        toEnv:
+        - path: spec.basicAuthUsername
           name: WEBHOOK_BASICAUTH_USERNAME
-
-      - path: spec.eventExtensionAttributes.from
-        toEnv:
+        - path: spec.eventExtensionAttributes.from
           name: WEBHOOK_EVENT_EXTENSION_ATTRIBUTES_FROM
-
-      - path: spec.corsAllowOrigin
-        toEnv:
+        - path: spec.corsAllowOrigin
           name: WEBHOOK_CORS_ALLOW_ORIGIN
-
-      - path: spec.basicAuthPassword
-        toEnv:
+        - path: spec.basicAuthPassword
           name: WEBHOOK_BASICAUTH_PASSWORD
-          valueFromSecret:
-            name: spec.basicAuthPassword.valueFromSecret.name
-            key: spec.basicAuthPassword.valueFromSecret.key
-
-      - path: spec.sink
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.basicAuthPassword.valueFromSecret.name
+              key: spec.basicAuthPassword.valueFromSecret.key
+        - path: spec.sink
           name: K_SINK
-          valueFromBuiltInFunc:
-            name: resolveAddress
+          valueFrom:
+            builtInFunc:
+              name: resolveAddress
 ```
 
 Bundle all those snippets at a YAML file and apply the registration:
@@ -208,72 +199,52 @@ Given the CRD element to environment variables table above, add this workload pa
     parameterConfiguration:
 
       fromSpec:
-      - path: spec.bootstrapServers
         toEnv:
+        - path: spec.bootstrapServers
           name: BOOTSTRAP_SERVERS
-
-      - path: spec.topic
-        toEnv:
+        - path: spec.topic
           name: TOPIC
-
-      - path: spec.groupID
-        toEnv:
+        - path: spec.groupID
           name: GROUP_ID
-
-      - path: spec.auth.saslEnable
-        toEnv:
+        - path: spec.auth.saslEnable
           name: SASL_ENABLE
-
-      - path: spec.auth.securityMechanism
-        toEnv:
+        - path: spec.auth.securityMechanism
           name: SECURITY_MECHANISMS
-
-      - path: spec.auth.tlsEnable
-        toEnv:
+        - path: spec.auth.tlsEnable
           name: TLS_ENABLE
-
-      - path: spec.auth.tls.skipVerify
-        toEnv:
+        - path: spec.auth.tls.skipVerify
           name: SKIP_VERIFY
-
-      - path: spec.auth.tls.ca
-        toEnv:
+        - path: spec.auth.tls.ca
           name: CA
-          valueFromSecret:
-            name: spec.auth.tls.ca.valueFromSecret.name
-            key: spec.auth.tls.ca.valueFromSecret.key
-
-      - path: spec.auth.tls.clientCert
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.auth.tls.ca.valueFromSecret.name
+              key: spec.auth.tls.ca.valueFromSecret.key
+        - path: spec.auth.tls.clientCert
           name: CLIENT_CERT
-          valueFromSecret:
-            name: spec.auth.tls.clientCert.valueFromSecret.name
-            key: spec.auth.tls.clientCert.valueFromSecret.key
-
-      - path: spec.auth.tls.clientKey
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.auth.tls.clientCert.valueFromSecret.name
+              key: spec.auth.tls.clientCert.valueFromSecret.key
+        - path: spec.auth.tls.clientKey
           name: CLIENT_KEY
-          valueFromSecret:
-            name: spec.auth.tls.clientKey.valueFromSecret.name
-            key: spec.auth.tls.clientKey.valueFromSecret.key
-
-      - path: spec.auth.username
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.auth.tls.clientKey.valueFromSecret.name
+              key: spec.auth.tls.clientKey.valueFromSecret.key
+        - path: spec.auth.username
           name: USERNAME
-
-      - path: spec.auth.password
-        toEnv:
+        - path: spec.auth.password
           name: PASSWORD
-          valueFromSecret:
-            name: spec.auth.password.valueFromSecret.name
-            key: spec.auth.password.valueFromSecret.key
-
-      - path: spec.sink
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.auth.password.valueFromSecret.name
+              key: spec.auth.password.valueFromSecret.key
+        - path: spec.sink
           name: K_SINK
-          valueFromBuiltInFunc:
-            name: resolveAddress
-
+          valueFrom:
+            builtInFunc:
+              name: resolveAddress
 ```
 
 Bundle all those snippets at a YAML file and apply the registration:
@@ -334,63 +305,41 @@ Given the CRD element to environment variables table above, add this workload pa
     parameterConfiguration:
 
       fromSpec:
-      - path: spec.response.eventType
         toEnv:
+        - path: spec.response.eventType
           name: HTTP_EVENT_TYPE
-
-      - path: spec.response.eventSource
-        toEnv:
+        - path: spec.response.eventSource
           name: HTTP_EVENT_SOURCE
           defaultValue: httptarget
-
-      - path: spec.endpoint
-        toEnv:
+        - path: spec.endpoint
           name: HTTP_URL
-
-      - path: spec.method
-        toEnv:
+        - path: spec.method
           name: HTTP_METHOD
-
-      - path: spec.skipVerify
-        toEnv:
+        - path: spec.skipVerify
           name: HTTP_SKIP_VERIFY
-
-      - path: spec.caCertificate
-        toEnv:
+        - path: spec.caCertificate
           name: HTTP_CA_CERTIFICATE
-
-      - path: spec.basicAuthUsername
-        toEnv:
+        - path: spec.basicAuthUsername
           name: HTTP_BASICAUTH_USERNAME
-
-      - path: spec.basicAuthPassword
-        toEnv:
+        - path: spec.basicAuthPassword
           name: HTTP_BASICAUTH_PASSWORD
-          valueFromSecret:
-            name: spec.credentials.name
-            key: spec.preferences.key
-
-      - path: spec.oauthClientID
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.credentials.name
+              key: spec.preferences.key
+        - path: spec.oauthClientID
           name: HTTP_OAUTH_CLIENT_ID
-
-      - path: spec.oauthClientSecret
-        toEnv:
+  q     - path: spec.oauthClientSecret
           name: HTTP_OAUTH_CLIENT_SECRET
-          valueFromSecret:
-            name: spec.credentials.name
-            key: spec.preferences.key
-
-      - path: spec.oauthTokenURL
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.credentials.name
+              key: spec.preferences.key
+        - path: spec.oauthTokenURL
           name: HTTP_OAUTH_TOKEN_URL
-
-      - path: spec.oauthScopes
-        toEnv:
+        - path: spec.oauthScopes
           name: HTTP_OAUTH_SCOPE
-
-      - path: spec.headers
-        toEnv:
+        - path: spec.headers
           name: HTTP_HEADERS
 ```
 
@@ -453,73 +402,51 @@ Given the CRD element to environment variables table above, add this workload pa
     parameterConfiguration:
 
       fromSpec:
-      - path: spec.bootstrapServers
         toEnv:
+        - path: spec.bootstrapServers
           name: BOOTSTRAP_SERVERS
-
-      - path: spec.topic
-        toEnv:
+        - path: spec.topic
           name: TOPIC
-
-      - path: spec.topicReplicationFactor
-        toEnv:
+        - path: spec.topicReplicationFactor
           name: TOPIC_REPLICATION_FACTOR
-
-      - path: spec.topicPartitions
-        toEnv:
+        - path: spec.topicPartitions
           name: TOPIC_PARTITIONS
-
-      - path: spec.discardCloudEventContext
-        toEnv:
+        - path: spec.discardCloudEventContext
           name: DISCARD_CE_CONTEXT
-
-      - path: spec.auth.saslEnable
-        toEnv:
+        - path: spec.auth.saslEnable
           name: SASL_ENABLE
-
-      - path: spec.auth.securityMechanism
-        toEnv:
+        - path: spec.auth.securityMechanism
           name: SECURITY_MECHANISMS
-
-      - path: spec.auth.tlsEnable
-        toEnv:
+        - path: spec.auth.tlsEnable
           name: TLS_ENABLE
-
-      - path: spec.auth.tls.skipVerify
-        toEnv:
+        - path: spec.auth.tls.skipVerify
           name: SKIP_VERIFY
-
-      - path: spec.auth.tls.ca
-        toEnv:
+        - path: spec.auth.tls.ca
           name: CA
-          valueFromSecret:
-            name: spec.auth.tls.ca.valueFromSecret.name
-            key: spec.auth.tls.ca.valueFromSecret.key
-
-      - path: spec.auth.tls.clientCert
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.auth.tls.ca.valueFromSecret.name
+              key: spec.auth.tls.ca.valueFromSecret.key
+        - path: spec.auth.tls.clientCert
           name: CLIENT_CERT
-          valueFromSecret:
-            name: spec.auth.tls.clientCert.valueFromSecret.name
-            key: spec.auth.tls.clientCert.valueFromSecret.key
-
-      - path: spec.auth.tls.clientKey
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.auth.tls.clientCert.valueFromSecret.name
+              key: spec.auth.tls.clientCert.valueFromSecret.key
+        - path: spec.auth.tls.clientKey
           name: CLIENT_KEY
-          valueFromSecret:
-            name: spec.auth.tls.clientKey.valueFromSecret.name
-            key: spec.auth.tls.clientKey.valueFromSecret.key
-
-      - path: spec.auth.username
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.auth.tls.clientKey.valueFromSecret.name
+              key: spec.auth.tls.clientKey.valueFromSecret.key
+        - path: spec.auth.username
           name: USERNAME
-
-      - path: spec.auth.password
-        toEnv:
+        - path: spec.auth.password
           name: PASSWORD
-          valueFromSecret:
-            name: spec.auth.password.valueFromSecret.name
-            key: spec.auth.password.valueFromSecret.key
+          valueFrom:
+            secret:
+              name: spec.auth.password.valueFromSecret.name
+              key: spec.auth.password.valueFromSecret.key
 ```
 
 Bundle all those snippets at a YAML file and apply the registration:

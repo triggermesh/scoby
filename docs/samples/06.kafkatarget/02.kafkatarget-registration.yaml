@@ -15,86 +15,65 @@ spec:
           targetPort: 8080
     parameterConfiguration:
 
-      addEnvs:
-      - name: METRICS_DOMAIN
-        value: triggermesh.io/targets
-      - name: NAMESPACE
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.namespace
-      - name: K_METRICS_CONFIG
-        value: "{}"
-      - name: K_LOGGING_CONFIG
-        value: "{}"
+      add:
+        toEnv:
+        - name: METRICS_DOMAIN
+          value: triggermesh.io/targets
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K_METRICS_CONFIG
+          value: "{}"
+        - name: K_LOGGING_CONFIG
+          value: "{}"
 
       fromSpec:
-      - path: spec.bootstrapServers
         toEnv:
+        - path: spec.bootstrapServers
           name: BOOTSTRAP_SERVERS
-
-      - path: spec.topic
-        toEnv:
+        - path: spec.topic
           name: TOPIC
-
-      - path: spec.topicReplicationFactor
-        toEnv:
+        - path: spec.topicReplicationFactor
           name: TOPIC_REPLICATION_FACTOR
-
-      - path: spec.topicPartitions
-        toEnv:
+        - path: spec.topicPartitions
           name: TOPIC_PARTITIONS
-
-      - path: spec.discardCloudEventContext
-        toEnv:
+        - path: spec.discardCloudEventContext
           name: DISCARD_CE_CONTEXT
-
-      - path: spec.auth.saslEnable
-        toEnv:
+        - path: spec.auth.saslEnable
           name: SASL_ENABLE
-
-      - path: spec.auth.securityMechanism
-        toEnv:
+        - path: spec.auth.securityMechanism
           name: SECURITY_MECHANISMS
-
-      - path: spec.auth.tlsEnable
-        toEnv:
+        - path: spec.auth.tlsEnable
           name: TLS_ENABLE
-
-      - path: spec.auth.tls.skipVerify
-        toEnv:
+        - path: spec.auth.tls.skipVerify
           name: SKIP_VERIFY
-
-      - path: spec.auth.tls.ca
-        toEnv:
+        - path: spec.auth.tls.ca
           name: CA
-          valueFromSecret:
-            name: spec.auth.tls.ca.valueFromSecret.name
-            key: spec.auth.tls.ca.valueFromSecret.key
-
-      - path: spec.auth.tls.clientCert
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.auth.tls.ca.valueFromSecret.name
+              key: spec.auth.tls.ca.valueFromSecret.key
+        - path: spec.auth.tls.clientCert
           name: CLIENT_CERT
-          valueFromSecret:
-            name: spec.auth.tls.clientCert.valueFromSecret.name
-            key: spec.auth.tls.clientCert.valueFromSecret.key
-
-      - path: spec.auth.tls.clientKey
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.auth.tls.clientCert.valueFromSecret.name
+              key: spec.auth.tls.clientCert.valueFromSecret.key
+        - path: spec.auth.tls.clientKey
           name: CLIENT_KEY
-          valueFromSecret:
-            name: spec.auth.tls.clientKey.valueFromSecret.name
-            key: spec.auth.tls.clientKey.valueFromSecret.key
-
-      - path: spec.auth.username
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.auth.tls.clientKey.valueFromSecret.name
+              key: spec.auth.tls.clientKey.valueFromSecret.key
+        - path: spec.auth.username
           name: USERNAME
-
-      - path: spec.auth.password
-        toEnv:
+        - path: spec.auth.password
           name: PASSWORD
-          valueFromSecret:
-            name: spec.auth.password.valueFromSecret.name
-            key: spec.auth.password.valueFromSecret.key
+          valueFrom:
+            secret:
+              name: spec.auth.password.valueFromSecret.name
+              key: spec.auth.password.valueFromSecret.key
 
 
 # MISSING

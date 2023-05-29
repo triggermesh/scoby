@@ -17,11 +17,12 @@ spec:
 
     parameterConfiguration:
       fromSpec:
-      # Reference a secret
-      - path: spec.refToSecret
         toEnv:
+        # Reference a secret
+        - path: spec.refToSecret
           name: FOO_CREDENTIALS
-          valueFromSecret:
-            name: spec.refToSecret.secretName
-            key: spec.refToSecret.secretKey
+          valueFrom:
+            secret:
+              name: spec.refToSecret.secretName
+              key: spec.refToSecret.secretKey
 
