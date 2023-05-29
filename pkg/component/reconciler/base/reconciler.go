@@ -47,7 +47,7 @@ func NewController(
 	}
 
 	obj := om.NewObject()
-	if err := c.Watch(&source.Kind{Type: obj.AsKubeObject()}, &handler.EnqueueRequestForObject{}); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), obj.AsKubeObject()), &handler.EnqueueRequestForObject{}); err != nil {
 		return nil, fmt.Errorf("could not set watcher on registered object %q: %w", reg.GetName(), err)
 	}
 

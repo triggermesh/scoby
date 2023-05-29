@@ -107,10 +107,7 @@ func main() {
 	cl := log.WithName("component")
 	reg := registry.New(ctx, crb, &cl)
 
-	r := &crd.Reconciler{
-		Registry: reg,
-		Resolver: reslv,
-	}
+	r := crd.New(mgr.GetClient(), reg, reslv, cl.WithName("crdregistration"))
 
 	if err := builder.ControllerManagedBy(mgr).
 		For(&scobyv1alpha1.CRDRegistration{}).

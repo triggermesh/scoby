@@ -38,7 +38,6 @@ type builder struct {
 
 func (b *builder) StartNewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg commonv1alpha1.Registration) (chan error, error) {
 	log := b.mgr.GetLogger()
-	client := b.mgr.GetClient()
 
 	crdv := basecrd.CRDPrioritizedVersion(crd)
 	if crdv == nil {
@@ -56,11 +55,11 @@ func (b *builder) StartNewReconciler(ctx context.Context, crd *apiextensionsv1.C
 	var ffr reconciler.FormFactorReconciler
 	switch {
 	case wkl.FormFactor.KnativeService != nil:
-		ffr = knservice.New(reg.GetName(), wkl, client, log)
+		ffr = knservice.New(reg.GetName(), wkl, b.mgr)
 
 	default:
 		// Defaults to deployment
-		ffr = deployment.New(reg.GetName(), wkl, client, log)
+		ffr = deployment.New(reg.GetName(), wkl, b.mgr)
 	}
 
 	// The status factory is created using the form factor's conditions

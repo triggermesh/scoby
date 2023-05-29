@@ -36,18 +36,27 @@ const (
 
 // CRD registration reconciler is a simple ControllerManagedBy example implementation.
 type Reconciler struct {
-	log logr.Logger
-	client.Client
+	registry registry.ComponentRegistry
+	resolver resolver.Resolver
 
-	Registry registry.ComponentRegistry
-	Resolver resolver.Resolver
+	log    logr.Logger
+	client client.Client
+}
+
+func New(client client.Client, registry registry.ComponentRegistry, resolver resolver.Resolver, log logr.Logger) *Reconciler {
+	return &Reconciler{
+		log:      log,
+		client:   client,
+		registry: registry,
+		resolver: resolver,
+	}
 }
 
 func (r *Reconciler) On(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.log.V(1).Info("reconciling CRD registration", "request", req)
 
 	existing := &scobyv1alpha1.CRDRegistration{}
-	if err := r.Get(ctx, req.NamespacedName, existing); err != nil {
+	if err := r.client.Get(ctx, req.NamespacedName, existing); err != nil {
 		// Return error (unless resource was deleted).
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -71,7 +80,7 @@ func (r *Reconciler) On(ctx context.Context, req reconcile.Request) (ctrl.Result
 	if !semantic.Semantic.DeepEqual(&cr.Status.Status, &existing.Status.Status) {
 		// The err variable is newly defined, if the update is unsuccessful
 		// the error returned will be the update operation error.
-		if err := r.Status().Update(ctx, cr); err != nil {
+		if err := r.client.Status().Update(ctx, cr); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -83,7 +92,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl
 	r.log.V(1).Info("reconciling CRD registration", "request", req)
 
 	existing := &scobyv1alpha1.CRDRegistration{}
-	if err := r.Get(ctx, req.NamespacedName, existing); err != nil {
+	if err := r.client.Get(ctx, req.NamespacedName, existing); err != nil {
 		// Return error (unless resource was deleted).
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -107,7 +116,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl
 	if !semantic.Semantic.DeepEqual(&cr.Status.Status, &existing.Status.Status) {
 		// The err variable is newly defined, if the update is unsuccessful
 		// the error returned will be the update operation error.
-		if err := r.Status().Update(ctx, cr); err != nil {
+		if err := r.client.Status().Update(ctx, cr); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -117,7 +126,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl
 
 func (r *Reconciler) reconcileDeletion(ctx context.Context, cr *scobyv1alpha1.CRDRegistration) (ctrl.Result, error) {
 	// clean resources
-	r.Registry.RemoveComponentController(cr)
+	r.registry.RemoveComponentController(cr)
 
 	if !controllerutil.ContainsFinalizer(cr, crdFinalizer) {
 		return ctrl.Result{}, nil
@@ -126,14 +135,14 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, cr *scobyv1alpha1.CR
 	// Removing the finalizer must succeed so that
 	// the registration is deleted.
 	controllerutil.RemoveFinalizer(cr, crdFinalizer)
-	return ctrl.Result{}, r.Update(ctx, cr)
+	return ctrl.Result{}, r.client.Update(ctx, cr)
 }
 
 func (r *Reconciler) reconcileRegistration(ctx context.Context, cr *scobyv1alpha1.CRDRegistration) (ctrl.Result, error) {
 	// Set the finalizer if it is not present
 	if !controllerutil.ContainsFinalizer(cr, crdFinalizer) {
 		controllerutil.AddFinalizer(cr, crdFinalizer)
-		if err := r.Update(ctx, cr); err != nil {
+		if err := r.client.Update(ctx, cr); err != nil {
 			return ctrl.Result{}, err
 		}
 
@@ -148,7 +157,7 @@ func (r *Reconciler) reconcileRegistration(ctx context.Context, cr *scobyv1alpha
 	// Lookup the CRD for the registration.
 	key := types.NamespacedName{Name: cr.Spec.CRD}
 	crd := &apiextensionsv1.CustomResourceDefinition{}
-	if err := r.Client.Get(ctx, key, crd, &client.GetOptions{}); err != nil {
+	if err := r.client.Get(ctx, key, crd, &client.GetOptions{}); err != nil {
 		sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionCRDExists, "CRDERROR", err.Error())
 		// TODO replace requeueAfter with a watch
 		// TODO if the component controller is running, stop it.
@@ -162,7 +171,7 @@ func (r *Reconciler) reconcileRegistration(ctx context.Context, cr *scobyv1alpha
 		switch {
 		case cr.Spec.Hook.Address.Ref != nil:
 			var err error
-			hu, err = r.Resolver.Resolve(ctx, cr.Spec.Hook.Address.Ref)
+			hu, err = r.resolver.Resolve(ctx, cr.Spec.Hook.Address.Ref)
 			if err != nil {
 				sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionControllerReady,
 					"HOOKFAILED", err.Error())
@@ -198,7 +207,7 @@ func (r *Reconciler) reconcileRegistration(ctx context.Context, cr *scobyv1alpha
 	}
 
 	// Make sure the CRD controller is running
-	err := r.Registry.EnsureComponentController(cr, crd)
+	err := r.registry.EnsureComponentController(cr, crd)
 	if err != nil {
 		sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionControllerReady,
 			"CONTROLLERFAILED", err.Error())
@@ -207,15 +216,4 @@ func (r *Reconciler) reconcileRegistration(ctx context.Context, cr *scobyv1alpha
 	sm.MarkConditionTrue(scobyv1alpha1.CRDRegistrationConditionControllerReady, "CONTROLLERSTARTED")
 
 	return ctrl.Result{}, err
-}
-
-func (r *Reconciler) InjectClient(c client.Client) error {
-	r.Client = c
-	return nil
-}
-
-func (r *Reconciler) InjectLogger(l logr.Logger) error {
-	r.log = l.WithName("crdregistration")
-	l.V(2).Info("logger injected into CRD reconciler")
-	return nil
 }
