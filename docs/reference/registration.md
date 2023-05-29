@@ -110,20 +110,22 @@ Customization for generated parameters is possible through the `spec.workload.pa
 
 ```yaml
     parameterConfiguration:
-      addEnvs:
-      - name: FOO_NEW_VAR
-        value: 42
+      add:
+        toEnv:
+        - name: FOO_NEW_VAR
+          value: 42
 ```
 
 - [x] Create new parameter with downward api value
 
 ```yaml
     parameterConfiguration:
-      addEnvs:
-      - name: FOO_NEW_VAR
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.name
+      add:
+        toEnv:
+        - name: FOO_NEW_VAR
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
 ```
 
 - [x] Create new parameter with secret
@@ -131,11 +133,12 @@ Customization for generated parameters is possible through the `spec.workload.pa
 ```yaml
     parameterConfiguration:
       add:
-      - name: FOO_MY_CREDS
-        valueFrom:
-          secretKeyRef:
-            name: mycreds
-            key: token
+        toEnv:
+        - name: FOO_MY_CREDS
+          valueFrom:
+            secretKeyRef:
+              name: mycreds
+              key: token
 ```
 
 - [x] Create new parameter with configmap
@@ -143,11 +146,12 @@ Customization for generated parameters is possible through the `spec.workload.pa
 ```yaml
     parameterConfiguration:
       add:
-      - name: FOO_MY_BACKGROUND
-        valueFrom:
-          configMapKeyRef:
-            name: mypreferences
-            key: background
+        toEnv:
+        - name: FOO_MY_BACKGROUND
+          valueFrom:
+            configMapKeyRef:
+              name: mypreferences
+              key: background
 ```
 
 ### Customize Parameters From Spec
@@ -159,8 +163,8 @@ The default behavior is to create parameters from each spec element (arrays will
 ```yaml
     parameterConfiguration:
       fromSpec:
-      - path: spec.bar
-        skip: true
+        skip:
+        - path: spec.bar
 ```
 
 - [x] Change key for generated param. Can be combined.
@@ -168,8 +172,8 @@ The default behavior is to create parameters from each spec element (arrays will
 ```yaml
     parameterConfiguration:
       fromSpec:
-      - path: spec.bar
         toEnv:
+        - path: spec.bar
           name: FOO_BAR
 ```
 
@@ -178,8 +182,8 @@ The default behavior is to create parameters from each spec element (arrays will
 ```yaml
     parameterConfiguration:
       fromSpec:
-      - path: spec.bar
         toEnv:
+        - path: spec.bar
           defaultValue: hello scoby
 ```
 
@@ -188,12 +192,13 @@ The default behavior is to create parameters from each spec element (arrays will
 ```yaml
     parameterConfiguration:
       fromSpec:
-      - path: spec.credentials
         toEnv:
+        - path: spec.credentials
           name: FOO_CREDENTIALS
-          valueFromSecret:
-            name: spec.credentials.name
-            key: spec.credentials.key
+          valueFrom:
+            secret:
+              name: spec.credentials.name
+              key: spec.credentials.key
 ```
 
 - [x] Generate configmap parameter from element.
@@ -201,11 +206,12 @@ The default behavior is to create parameters from each spec element (arrays will
 ```yaml
     parameterConfiguration:
       fromSpec:
-      - path: spec.preferences
         toEnv:
-          valueFromConfigmap:
-            name: spec.preferences.name
-            key: spec.preferences.key
+        - path: spec.preferences
+          valueFrom:
+            configmap:
+              name: spec.preferences.name
+              key: spec.preferences.key
 ```
 
 - [x] Function: resolve object to internal URL
@@ -213,11 +219,12 @@ The default behavior is to create parameters from each spec element (arrays will
 ```yaml
     parameterConfiguration:
       fromSpec:
-      - path: spec.destination
         toEnv:
+        - path: spec.destination
           name: K_SINK
-          valueFromBuiltInFunc:
-            name: resolveAddress
+          valueFrom:
+            builtInFunc:
+              name: resolveAddress
 ```
 
 ### Generate Volumes From Spec
@@ -229,13 +236,14 @@ Secrets and ConfigMaps can be mounted as a volume inside the workload. The regis
 ```yaml
     parameterConfiguration:
       fromSpec:
-      - path: spec.userList
         toVolume:
+        - path: spec.userList
           name: userfile
           mountPath: /opt/user.lst
-          valueFromConfigMap:
-            name: spec.userList.name
-            key: spec.userList.key
+          mountFrom:
+            configMap:
+              name: spec.userList.name
+              key: spec.userList.key
 ```
 
 ## Workload Status
@@ -245,11 +253,12 @@ Secrets and ConfigMaps can be mounted as a volume inside the workload. The regis
 ```yaml
     parameterConfiguration:
       fromSpec:
-      - path: spec.destination
         toEnv:
+        - path: spec.destination
           name: K_SINK
-          valueFromBuiltInFunc:
-            name: resolveAddress
+          valueFrom:
+            builtInFunc:
+              name: resolveAddress
     statusConfiguration:
       addElements:
       - path: status.sinkUri

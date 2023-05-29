@@ -208,6 +208,9 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 			}
 
 			obj.AddVolumeMount(path, v)
+
+			// Do not parse any internal elements at next iterations.
+			avoidFieldPrefixes = append(avoidFieldPrefixes, k)
 			continue
 		}
 
@@ -414,25 +417,10 @@ func (pfs parseFields) secretReferenceToEnvVarSource(ss *corev1.SecretKeySelecto
 }
 
 func (pfs parseFields) volumeReferenceToVolume(v *commonv1alpha1.FromSpecToVolume) (*commonv1alpha1.FromSpecToVolume, error) {
-	name, err := pfs.elementToString(v.Name)
-	if err != nil {
-		return nil, fmt.Errorf("could not get reference to Volume name: %v", err)
-	}
-
-	path, err := pfs.elementToString(v.Path)
-	if err != nil {
-		return nil, fmt.Errorf("could not get reference to Volume path: %v", err)
-	}
-
-	mountPath, err := pfs.elementToString(v.MountPath)
-	if err != nil {
-		return nil, fmt.Errorf("could not get reference to Volume mount path: %v", err)
-	}
-
 	fsv := &commonv1alpha1.FromSpecToVolume{
-		Name:      name,
-		Path:      path,
-		MountPath: mountPath,
+		Name:      v.Name,
+		Path:      v.Path,
+		MountPath: v.MountPath,
 	}
 
 	switch {

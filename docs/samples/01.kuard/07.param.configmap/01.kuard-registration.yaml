@@ -17,10 +17,11 @@ spec:
 
     parameterConfiguration:
       fromSpec:
-      # Reference a ConfigMap
-      - path: spec.refToConfigMap
         toEnv:
-          valueFromConfigMap:
-            name: spec.refToConfigMap.configName
-            key: spec.refToConfigMap.configKey
+        # Reference a ConfigMap
+        - path: spec.refToConfigMap
+          valueFrom:
+            configMap:
+              name: spec.refToConfigMap.configName
+              key: spec.refToConfigMap.configKey
 

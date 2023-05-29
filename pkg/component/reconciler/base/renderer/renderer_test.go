@@ -259,6 +259,10 @@ func TestRenderedContainer(t *testing.T) {
 
 		// Environment variables for the rendered container.
 		expectedEnvs []corev1.EnvVar
+
+		// Volumes mounted on rendered pod.
+		expectedVolMount []corev1.VolumeMount
+		expectedVolumes  []corev1.Volume
 	}{
 		"no parameter policies": {
 			kuardInstance: kuardInstance,
@@ -382,7 +386,7 @@ fromSpec:
   - path: spec.refToConfigMap
     name: FOO_CONFIG
     valueFrom:
-      ConfigMap:
+      configMap:
         name: spec.refToConfigMap.configMapName
         key: spec.refToConfigMap.configMapKey
 `,
@@ -429,6 +433,100 @@ add:
 				}},
 				{Name: "VARIABLE1", Value: "value 1"},
 				{Name: "VARIABLE2", Value: "value 2"},
+			},
+		},
+		"mount configmap from spec": {
+			// add ConfigMap reference to kuard base instance.
+			kuardInstance: kuardInstance + `
+  refToConfigMap:
+    configMapName: kuard-cm
+    configMapKey: kuard-cm-key
+`,
+			parameterConfig: `
+fromSpec:
+  toVolume:
+  - path: spec.refToConfigMap
+    mountPath: /opt/config
+    name: config
+    mountFrom:
+      configMap:
+        name: spec.refToConfigMap.configMapName
+        key: spec.refToConfigMap.configMapKey
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "VARIABLE1", Value: "value 1"},
+				{Name: "VARIABLE2", Value: "value 2"},
+			},
+			expectedVolMount: []corev1.VolumeMount{
+				{
+					Name:      "config",
+					MountPath: "/opt/config",
+				},
+			},
+			expectedVolumes: []corev1.Volume{
+				{
+					Name: "config",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "kuard-cm",
+							},
+							Items: []corev1.KeyToPath{{
+								Key:  "kuard-cm-key",
+								Path: "/opt/config",
+							}},
+						},
+					},
+				},
+			},
+		},
+		"mount secret from spec": {
+			// add Secret reference to kuard base instance.
+			kuardInstance: kuardInstance + `
+  refToSecret:
+    secretName: kuard-sec
+    secretKey: kuard-sec-key
+`,
+			parameterConfig: `
+fromSpec:
+  toVolume:
+  - path: spec.refToSecret
+    mountPath: /opt/creds
+    name: creds
+    mountFrom:
+      secret:
+        name: spec.refToSecret.secretName
+        key: spec.refToSecret.secretKey
+`,
+			expectedEnvs: []corev1.EnvVar{
+				{Name: "ARRAY", Value: "alpha,beta,gamma"},
+				{Name: "GROUP_VARIABLE3", Value: "false"},
+				{Name: "GROUP_VARIABLE4", Value: "42"},
+				{Name: "VARIABLE1", Value: "value 1"},
+				{Name: "VARIABLE2", Value: "value 2"},
+			},
+			expectedVolMount: []corev1.VolumeMount{
+				{
+					Name:      "creds",
+					MountPath: "/opt/creds",
+				},
+			},
+			expectedVolumes: []corev1.Volume{
+				{
+					Name: "creds",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "kuard-sec",
+							Items: []corev1.KeyToPath{{
+								Key:  "kuard-sec-key",
+								Path: "/opt/creds",
+							}},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -485,6 +583,11 @@ add:
 			)
 
 			assert.Equal(t, tc.expectedEnvs, c.Env)
+			assert.Equal(t, tc.expectedVolMount, c.VolumeMounts)
+
+			ps := resources.NewPodSpec(obj.AsPodSpecOptions()...)
+
+			assert.Equal(t, tc.expectedVolumes, ps.Volumes)
 		})
 	}
 }

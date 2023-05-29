@@ -18,49 +18,40 @@ spec:
       global:
         defaultPrefix: WEBHOOK_
 
-      addEnvs:
-      - name: NAMESPACE
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.namespace
-      - name: K_METRICS_CONFIG
-        value: "{}"
-      - name: K_LOGGING_CONFIG
-        value: "{}"
+      add:
+        toEnv:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K_METRICS_CONFIG
+          value: "{}"
+        - name: K_LOGGING_CONFIG
+          value: "{}"
 
       fromSpec:
-      - path: spec.eventType
         toEnv:
+        - path: spec.eventType
           name: WEBHOOK_EVENT_TYPE
-
-      - path: spec.eventSource
-        toEnv:
+        - path: spec.eventSource
           name: WEBHOOK_EVENT_SOURCE
-
-      - path: spec.basicAuthUsername
-        toEnv:
+        - path: spec.basicAuthUsername
           name: WEBHOOK_BASICAUTH_USERNAME
-
-      - path: spec.basicAuthPassword
-        toEnv:
+        - path: spec.basicAuthPassword
           name: WEBHOOK_BASICAUTH_PASSWORD
-          valueFromSecret:
-            name: spec.basicAuthPassword.valueFromSecret.name
-            key: spec.basicAuthPassword.valueFromSecret.key
-
-      - path: spec.eventExtensionAttributes.from
-        toEnv:
+          valueFrom:
+            secret:
+              name: spec.basicAuthPassword.valueFromSecret.name
+              key: spec.basicAuthPassword.valueFromSecret.key
+        - path: spec.eventExtensionAttributes.from
           name: WEBHOOK_EVENT_EXTENSION_ATTRIBUTES_FROM
-
-      - path: spec.corsAllowOrigin
-        toEnv:
+        - path: spec.corsAllowOrigin
           name: WEBHOOK_CORS_ALLOW_ORIGIN
-
-      - path: spec.sink
-        toEnv:
+        - path: spec.sink
           name: K_SINK
-          valueFromBuiltInFunc:
-            name: resolveAddress
+          valueFrom:
+            builtInFunc:
+              name: resolveAddress
 
     statusConfiguration:
       addElements:
