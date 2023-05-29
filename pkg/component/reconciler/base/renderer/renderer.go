@@ -70,23 +70,19 @@ func NewRenderer(wkl *commonv1alpha1.Workload, resolver resolver.Resolver, cmr c
 		r.global = *pcfg.Global
 	}
 
-	// if !pcfg.Add.IsEmpty() {
 	add, err := newAddRenderer(pcfg.Add, cmr)
 	if err != nil {
 		return nil, err
 	}
 
 	r.add = add
-	// }
 
-	// if !pcfg.FromSpec.IsEmpty() {
 	spec, err := newSpecRenderer(pcfg.FromSpec, cmr)
 	if err != nil {
 		return nil, err
 	}
 
 	r.spec = spec
-	// }
 
 	return r, nil
 }
@@ -125,7 +121,7 @@ func (r *renderer) Render(ctx context.Context, obj reconciler.Object) error {
 	return nil
 }
 
-func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object, pfs map[string]parsedField) error {
+func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object, pfs parseFields) error {
 
 	// Iterate default environment variables defined at the registration, if they are not
 	// present at the object's parsed fields, add them now with the defaulted value.
@@ -160,18 +156,6 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 
 	// Keep field name prefixes that should be avoided in this array.
 	avoidFieldPrefixes := []string{}
-
-	// Generated environment variables are stored in the renderedObject.ev map,
-	// indexed by JSONPath and environment variable name.
-	// This structure will be kept at the rendered object to be used when a
-	// calculation cross references a value from other element
-	// rendered := &renderedObject{
-	// 	evsByPath: map[string]*corev1.EnvVar{},
-	// 	evsByName: map[string]*corev1.EnvVar{},
-	// }
-
-	// Keep each environment variable key to be able to sort.
-	// envNames := []string{}
 
 	evs, err := r.add.renderEnvVars(ctx)
 	if err != nil {
@@ -217,8 +201,13 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 			}
 		}
 
-		if v, ok := r.spec.volumeByPath[path]; ok {
-			obj.AddVolumeMount(path, &v)
+		if refV, ok := r.spec.volumeByPath[path]; ok {
+			v, err := pfs.volumeReferenceToVolume(&refV)
+			if err != nil {
+				return err
+			}
+
+			obj.AddVolumeMount(path, v)
 			continue
 		}
 
@@ -251,34 +240,15 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 		}
 
 		if v, ok := r.spec.evConfigMapByPath[path]; ok {
-			refName, ok := pfs[v.Name]
-			if !ok {
-				return fmt.Errorf("could not find reference to ConfigMap at %q", v.Name)
-			}
-			name, ok := refName.value.(string)
-			if !ok {
-				return fmt.Errorf("reference to ConfigMap at %q is not a string: %v", v.Name, refName)
-			}
-			refKey, ok := pfs[v.Key]
-			if !ok {
-				return fmt.Errorf("could not find reference to ConfigMap key at %q", v.Key)
-			}
-			key, ok := refKey.value.(string)
-			if !ok {
-				return fmt.Errorf("reference to ConfigMap key at %q is not a string: %v", v.Name, refKey)
+			evs, err := pfs.configMapReferenceToEnvVarSource(&v)
+			if err != nil {
+				return err
 			}
 
 			obj.AddEnvVar(path,
 				&corev1.EnvVar{
-					Name: evName,
-					ValueFrom: &corev1.EnvVarSource{
-						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: name,
-							},
-							Key: key,
-						},
-					},
+					Name:      evName,
+					ValueFrom: evs,
 				},
 			)
 
@@ -288,34 +258,15 @@ func (r *renderer) renderParsedFields(ctx context.Context, obj reconciler.Object
 		}
 
 		if v, ok := r.spec.evSecretByPath[path]; ok {
-			refName, ok := pfs[v.Name]
-			if !ok {
-				return fmt.Errorf("could not find reference to Secret at %q", v.Name)
-			}
-			name, ok := refName.value.(string)
-			if !ok {
-				return fmt.Errorf("reference to Secret at %q is not a string: %v", v.Name, refName)
-			}
-			refKey, ok := pfs[v.Key]
-			if !ok {
-				return fmt.Errorf("could not find reference to Secret key at %q", v.Key)
-			}
-			key, ok := refKey.value.(string)
-			if !ok {
-				return fmt.Errorf("reference to Secret key at %q is not a string: %v", v.Name, refKey)
+			evs, err := pfs.secretReferenceToEnvVarSource(&v)
+			if err != nil {
+				return err
 			}
 
 			obj.AddEnvVar(path,
 				&corev1.EnvVar{
-					Name: evName,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: name,
-							},
-							Key: key,
-						},
-					},
+					Name:      evName,
+					ValueFrom: evs,
 				},
 			)
 
@@ -381,6 +332,140 @@ type parsedField struct {
 // toJSONPath is a JSON
 func (v *parsedField) toJSONPath() string {
 	return strings.Join(v.branch, ".")
+}
+
+type parseFields map[string]parsedField
+
+func (pfs parseFields) elementToString(path string) (string, error) {
+	refKey, ok := pfs[path]
+	if !ok {
+		return "", fmt.Errorf("could not find element at %q", path)
+	}
+	key, ok := refKey.value.(string)
+	if !ok {
+		return "", fmt.Errorf("element at %q is not a string: %v", path, refKey)
+	}
+
+	return key, nil
+}
+
+// configMapReferenceResolve resolves a ConfigMap reference returning
+// name, key strings and an error.
+func (pfs parseFields) configMapReferenceResolve(cms *corev1.ConfigMapKeySelector) (string, string, error) {
+	name, err := pfs.elementToString(cms.Name)
+	if err != nil {
+		return "", "", fmt.Errorf("could not get reference to ConfigMap name: %v", err)
+	}
+
+	key, err := pfs.elementToString(cms.Key)
+	if err != nil {
+		return "", "", fmt.Errorf("could not get reference to ConfigMap key: %v", err)
+	}
+
+	return name, key, nil
+}
+
+func (pfs parseFields) configMapReferenceToEnvVarSource(cms *corev1.ConfigMapKeySelector) (*corev1.EnvVarSource, error) {
+	n, k, err := pfs.configMapReferenceResolve(cms)
+	if err != nil {
+		return nil, err
+	}
+
+	return &corev1.EnvVarSource{
+		ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: n,
+			},
+			Key: k,
+		},
+	}, nil
+}
+
+// secretReferenceResolve resolves a Secret reference returning
+// name, key strings and an error.
+func (pfs parseFields) secretReferenceResolve(ss *corev1.SecretKeySelector) (string, string, error) {
+	name, err := pfs.elementToString(ss.Name)
+	if err != nil {
+		return "", "", fmt.Errorf("could not get reference to Secret name: %v", err)
+	}
+
+	key, err := pfs.elementToString(ss.Key)
+	if err != nil {
+		return "", "", fmt.Errorf("could not get reference to Secret key: %v", err)
+	}
+
+	return name, key, nil
+}
+
+func (pfs parseFields) secretReferenceToEnvVarSource(ss *corev1.SecretKeySelector) (*corev1.EnvVarSource, error) {
+	n, k, err := pfs.secretReferenceResolve(ss)
+	if err != nil {
+		return nil, err
+	}
+
+	return &corev1.EnvVarSource{
+		SecretKeyRef: &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: n,
+			},
+			Key: k,
+		},
+	}, nil
+}
+
+func (pfs parseFields) volumeReferenceToVolume(v *commonv1alpha1.FromSpecToVolume) (*commonv1alpha1.FromSpecToVolume, error) {
+	name, err := pfs.elementToString(v.Name)
+	if err != nil {
+		return nil, fmt.Errorf("could not get reference to Volume name: %v", err)
+	}
+
+	path, err := pfs.elementToString(v.Path)
+	if err != nil {
+		return nil, fmt.Errorf("could not get reference to Volume path: %v", err)
+	}
+
+	mountPath, err := pfs.elementToString(v.MountPath)
+	if err != nil {
+		return nil, fmt.Errorf("could not get reference to Volume mount path: %v", err)
+	}
+
+	fsv := &commonv1alpha1.FromSpecToVolume{
+		Name:      name,
+		Path:      path,
+		MountPath: mountPath,
+	}
+
+	switch {
+	case v.MountFrom.ConfigMap != nil:
+		n, k, err := pfs.configMapReferenceResolve(v.MountFrom.ConfigMap)
+		if err != nil {
+			return nil, err
+		}
+		fsv.MountFrom.ConfigMap = &corev1.ConfigMapKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: n,
+			},
+			Key: k,
+		}
+
+	case v.MountFrom.Secret != nil:
+		n, k, err := pfs.secretReferenceResolve(v.MountFrom.Secret)
+		if err != nil {
+			return nil, err
+		}
+		fsv.MountFrom.Secret = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: n,
+			},
+			Key: k,
+		}
+
+	default:
+		return nil, errors.New("volume reference needs to be a Secret or ConfigMap")
+	}
+
+	return fsv, nil
+
 }
 
 // restructure incoming object into a parsing friendly structure that

@@ -62,6 +62,10 @@ type ObjectRender interface {
 	// Once rendered an object can be queried about the container options
 	// that they resulting worload must include.
 	AsContainerOptions() []resources.ContainerOption
+
+	// Once rendered an object can be queried about the pod spec options
+	// that they resulting worload must include.
+	AsPodSpecOptions() []resources.PodSpecOption
 }
 
 type StatusManager interface {
