@@ -13,7 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,15 +38,16 @@ const (
 	ConditionReasonKnativeServiceUnknown = "KNSERVICEUNKOWN"
 )
 
-func New(name string, wkl *commonv1alpha1.Workload, client client.Client, log logr.Logger) reconciler.FormFactorReconciler {
+func New(name string, wkl *commonv1alpha1.Workload, mgr ctrl.Manager) reconciler.FormFactorReconciler {
 
 	sr := &knserviceReconciler{
 		name:       name,
 		formFactor: wkl.FormFactor.KnativeService,
 		fromImage:  &wkl.FromImage,
 
-		client: client,
-		log:    log,
+		mgr:    mgr,
+		client: mgr.GetClient(),
+		log:    mgr.GetLogger(),
 	}
 
 	return sr
@@ -58,6 +58,7 @@ type knserviceReconciler struct {
 	formFactor *commonv1alpha1.KnativeServiceFormFactor
 	fromImage  *commonv1alpha1.RegistrationFromImage
 
+	mgr    ctrl.Manager
 	client client.Client
 	log    logr.Logger
 }
@@ -71,10 +72,13 @@ func (sr *knserviceReconciler) GetStatusConditions() (happy string, all []string
 	return
 }
 
-func (sr *knserviceReconciler) SetupController(name string, c controller.Controller, owner runtime.Object) error {
-	if err := c.Watch(&source.Kind{Type: resources.NewKnativeService("", "")}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    owner}); err != nil {
+func (sr *knserviceReconciler) SetupController(name string, c controller.Controller, owner client.Object) error {
+	if err := c.Watch(source.Kind(sr.mgr.GetCache(), resources.NewKnativeService("", "")),
+		handler.EnqueueRequestForOwner(
+			sr.mgr.GetScheme(),
+			sr.mgr.GetRESTMapper(),
+			owner,
+			handler.OnlyControllerOwner())); err != nil {
 		return fmt.Errorf("could not set watcher on knative services owned by registered object %q: %w", name, err)
 	}
 

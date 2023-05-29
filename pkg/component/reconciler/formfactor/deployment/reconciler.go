@@ -13,7 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,14 +35,15 @@ const (
 	ConditionTypeServiceReady    = "ServiceReady"
 )
 
-func New(name string, wkl *commonv1alpha1.Workload, client client.Client, log logr.Logger) reconciler.FormFactorReconciler {
+func New(name string, wkl *commonv1alpha1.Workload, mgr ctrl.Manager) reconciler.FormFactorReconciler {
 	dr := &deploymentReconciler{
 		name:       name,
 		formFactor: wkl.FormFactor.Deployment,
 		fromImage:  &wkl.FromImage,
 
-		client: client,
-		log:    log,
+		mgr:    mgr,
+		client: mgr.GetClient(),
+		log:    mgr.GetLogger(),
 	}
 
 	if dr.formFactor != nil && dr.formFactor.Service != nil {
@@ -59,6 +59,7 @@ type deploymentReconciler struct {
 	fromImage      *commonv1alpha1.RegistrationFromImage
 	serviceOptions *commonv1alpha1.DeploymentService
 
+	mgr    ctrl.Manager
 	client client.Client
 	log    logr.Logger
 }
@@ -78,17 +79,22 @@ func (dr *deploymentReconciler) GetStatusConditions() (happy string, all []strin
 	return
 }
 
-func (dr *deploymentReconciler) SetupController(name string, c controller.Controller, owner runtime.Object) error {
+func (dr *deploymentReconciler) SetupController(name string, c controller.Controller, owner client.Object) error {
 	dr.log.Info("Setting up deployment styled reconciler", "registration", name)
-	if err := c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    owner}); err != nil {
+	if err := c.Watch(source.Kind(dr.mgr.GetCache(), &appsv1.Deployment{}),
+		handler.EnqueueRequestForOwner(
+			dr.mgr.GetScheme(),
+			dr.mgr.GetRESTMapper(),
+			owner,
+			handler.OnlyControllerOwner())); err != nil {
 		return fmt.Errorf("could not set watcher on deployments owned by registered object %q: %w", name, err)
 	}
 
-	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    owner}); err != nil {
+	if err := c.Watch(source.Kind(dr.mgr.GetCache(), &corev1.Service{}), handler.EnqueueRequestForOwner(
+		dr.mgr.GetScheme(),
+		dr.mgr.GetRESTMapper(),
+		owner,
+		handler.OnlyControllerOwner())); err != nil {
 		return fmt.Errorf("could not set watcher on services owned by registered object %q: %w", name, err)
 	}
 

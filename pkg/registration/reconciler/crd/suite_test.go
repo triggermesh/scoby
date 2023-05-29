@@ -77,7 +77,9 @@ var _ = BeforeSuite(func() {
 	reg := registry.New(ctx, crb, &cl)
 
 	r := &Reconciler{
-		Registry: reg,
+		client:   k8sClient,
+		registry: reg,
+		log:      cl,
 	}
 
 	err = builder.ControllerManagedBy(k8sManager).

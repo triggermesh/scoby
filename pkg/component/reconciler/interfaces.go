@@ -8,7 +8,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -100,7 +99,7 @@ type ObjectManager interface {
 
 type FormFactorReconciler interface {
 	GetStatusConditions() (happy string, all []string)
-	SetupController(name string, c controller.Controller, owner runtime.Object) error
+	SetupController(name string, c controller.Controller, owner client.Object) error
 	Reconcile(context.Context, Object) (ctrl.Result, error)
 }
 
