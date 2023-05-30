@@ -24,7 +24,7 @@ Read the full story [here](docs/why.md).
 
 ## Install
 
-To install Scoby at a Kubernetes cluster apply manifests for both CRDs and Controller:
+To install latest Scoby at a Kubernetes cluster apply manifests for both CRDs and Controller:
 
 ```console
 # Install Scoby CRDs
@@ -34,15 +34,7 @@ kubectl apply -f https://github.com/triggermesh/scoby/releases/latest/download/s
 kubectl apply -f https://github.com/triggermesh/scoby/releases/latest/download/scoby.yaml
 ```
 
-Refer to [releases](https://github.com/triggermesh/scoby/releases) for further information.
-
-### Development Version
-
-Development version can be installed using [ko](https://github.com/ko-build/ko)
-
-```console
-ko apply -f ./config
-```
+For other installation options see [install](docs/install.md)
 
 ## Docs
 
