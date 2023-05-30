@@ -595,23 +595,21 @@ func (r *renderer) renderStatus(obj reconciler.Object) error {
 
 		path := strings.Split(sae.Path, ".")
 
-		switch {
-		case sae.Render.ValueFromParameter != nil:
-			ev := obj.GetEnvVarAtPath(sae.Render.ValueFromParameter.Path)
-			if ev == nil {
-				continue
-			}
-
-			if err := obj.GetStatusManager().SetValue(ev.Value, path...); err != nil {
-				// We lose stacktrace but process all status options.
-				errs = append(errs, err.Error())
-			}
+		// Only value from path is allowed for now.
+		ev := obj.GetEnvVarAtPath(sae.ValueFrom.Path)
+		if ev == nil {
+			continue
 		}
-	}
 
-	if len(errs) != 0 {
-		msg := strings.Join(errs, ". ")
-		return fmt.Errorf(msg[:len(msg)-2])
+		if err := obj.GetStatusManager().SetValue(ev.Value, path...); err != nil {
+			// We lose stacktrace but process all status options.
+			errs = append(errs, err.Error())
+		}
+
+		if len(errs) != 0 {
+			msg := strings.Join(errs, ". ")
+			return fmt.Errorf(msg[:len(msg)-2])
+		}
 	}
 
 	return nil

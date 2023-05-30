@@ -260,11 +260,10 @@ Secrets and ConfigMaps can be mounted as a volume inside the workload. The regis
             builtInFunc:
               name: resolveAddress
     statusConfiguration:
-      addElements:
+      add:
       - path: status.sinkUri
-        render:
-          valueFromParameter:
-            path: spec.destination
+        valueFrom:
+          path: spec.destination
 ```
 
 ## Examples

@@ -559,9 +559,9 @@ spec:
                     description: StatusConfiguration contains rules to populate a
                       controlled instance status.
                     properties:
-                      addElements:
-                        description: AddElements contains configurations for status
-                          elements to be added.
+                      add:
+                        description: Add contains configurations for status elements
+                          to be added.
                         items:
                           description: StatusAddElement is a customization option
                             that adds or fills an element at an object instance status
@@ -570,20 +570,16 @@ spec:
                             path:
                               description: JSON simplified path for the status element.
                               type: string
-                            render:
-                              description: Render options for the status.
+                            valueFrom:
+                              description: ValueFrom an object element and use its
+                                parameter to fill the status.
                               properties:
-                                valueFromParameter:
-                                  description: Reference an object element and use
-                                    its parameter to fill the status.
-                                  properties:
-                                    path:
-                                      description: JSON simplified path for the referenced
-                                        element.
-                                      type: string
-                                  required:
-                                  - path
-                                  type: object
+                                path:
+                                  description: JSON simplified path for the referenced
+                                    element.
+                                  type: string
+                              required:
+                              - path
                               type: object
                           required:
                           - path

@@ -63,15 +63,14 @@ spec:
 
 For non trivial transformations between the CRD elements and the environment variables we will refer to the reconciler's code where you should find an `adapter.go` file that shows how each element is being serialized. Also at the reconciler we need to make sure if the reconciliation process is executing some extra task like connecting an external API or provisioning resources, in which case we should rely on hooks.
 
-Sources contain an status element that must be informed the resolved URI for the target to which they produce events, that is something we can do with at the `statusConfiguration` using the `valueFromParameter` feature.
+Sources contain an status element that must be informed the resolved URI for the target to which they produce events, that is something we can do with at the `statusConfiguration` using the `valueFrom.path` feature.
 
 ```yaml
     statusConfiguration:
-      addElements:
+      add:
       - path: status.sinkUri
-        render:
-          valueFromParameter:
-            path: spec.sink
+        valueFrom:
+          path: spec.sink
 ```
 
 ## WebhookSource Registration
