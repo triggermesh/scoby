@@ -72,11 +72,10 @@ spec:
               name: resolveAddress
 
     statusConfiguration:
-      addElements:
+      add:
       - path: status.sinkUri
-        render:
-          valueFromParameter:
-            path: spec.sink
+        valueFrom:
+          path: spec.sink
 
 # MISSING:
 # KerberosConfigPath  string `envconfig:"KERBEROS_CONFIG_PATH" required:"false" `

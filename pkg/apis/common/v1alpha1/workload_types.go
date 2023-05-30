@@ -274,9 +274,9 @@ type BuiltInfunction struct {
 // StatusConfiguration contains instructions to modify status generation for
 // the controlled instance.
 type StatusConfiguration struct {
-	// AddElements contains configurations for status elements to be added.
+	// Add contains configurations for status elements to be added.
 	// +optional
-	AddElements []StatusAddElement `json:"addElements,omitempty"`
+	AddElements []StatusAddElement `json:"add,omitempty"`
 
 	// ConditionsFromHook contains conditions expected to be informed from the Hook.
 	// +optional
@@ -289,22 +289,14 @@ type StatusAddElement struct {
 	// JSON simplified path for the status element.
 	Path string `json:"path"`
 
-	// Render options for the status.
-	// +optional
-	Render *StatusRenderConfiguration `json:"render,omitempty"`
-}
-
-// StatusRenderConfiguration is a customization status option for the
-// status generation.
-type StatusRenderConfiguration struct {
-	// Reference an object element and use its parameter to
+	// ValueFrom an object element and use its parameter to
 	// fill the status.
-	ValueFromParameter *StatusValueFromParameter `json:"valueFromParameter,omitempty"`
+	ValueFrom StatusValueFrom `json:"valueFrom,omitempty"`
 }
 
-// StatusValueFromParameter contains a reference to an object element
-// that is used at the status.
-type StatusValueFromParameter struct {
+// StatusValueFrom contains references to elements that
+// can be used to fill the status.
+type StatusValueFrom struct {
 	// JSON simplified path for the referenced element.
 	Path string `json:"path"`
 }

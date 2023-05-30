@@ -772,12 +772,11 @@ spec:
             builtInFunc:
               name: resolveAddress
     statusConfiguration:
-      addElements:
+      add:
       # Add the result to an status element
       - path: status.sinkUri
-        render:
-          valueFromParameter:
-            path: spec.refToAddress
+        valueFrom:
+          path: spec.refToAddress
 ```
 
 Create the registration:
