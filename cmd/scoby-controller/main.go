@@ -68,7 +68,7 @@ func main() {
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme,
 		Cache: cache.Options{
-			Namespaces: []string{scobyconfig.Get().WorkingNamespace()},
+			Namespaces: scobyconfig.Get().WorkingNamespaces(),
 		},
 	})
 	if err != nil {
