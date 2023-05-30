@@ -63,6 +63,12 @@ func NewRenderer(wkl *commonv1alpha1.Workload, resolver resolver.Resolver, cmr c
 
 	pcfg := wkl.ParameterConfiguration
 	if pcfg == nil {
+		// Add empty structures.
+		// renderer access internal structures that need to be initialized,
+		// so this is sort of a hack to avoid creating methods to access them.
+		r.add, _ = newAddRenderer(nil, nil)
+		r.spec, _ = newSpecRenderer(nil)
+
 		return r, nil
 	}
 
@@ -77,7 +83,7 @@ func NewRenderer(wkl *commonv1alpha1.Workload, resolver resolver.Resolver, cmr c
 
 	r.add = add
 
-	spec, err := newSpecRenderer(pcfg.FromSpec, cmr)
+	spec, err := newSpecRenderer(pcfg.FromSpec)
 	if err != nil {
 		return nil, err
 	}

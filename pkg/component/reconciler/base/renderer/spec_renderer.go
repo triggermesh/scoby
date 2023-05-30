@@ -7,7 +7,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
-	"github.com/triggermesh/scoby/pkg/utils/configmap"
 )
 
 type specRenderer struct {
@@ -28,7 +27,7 @@ type specRenderer struct {
 	volumeByPath map[string]commonv1alpha1.FromSpecToVolume
 }
 
-func newSpecRenderer(speccfg *commonv1alpha1.FromSpecConfiguration, cmr configmap.Reader) (*specRenderer, error) {
+func newSpecRenderer(speccfg *commonv1alpha1.FromSpecConfiguration) (*specRenderer, error) {
 	sr := &specRenderer{
 		allByPath:   make(map[string]struct{}),
 		skipsByPath: make(map[string]struct{}),

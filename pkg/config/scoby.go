@@ -8,6 +8,7 @@ import (
 
 type ScobyConfig interface {
 	ScobyNamespace() string
+	WorkingNamespace() string
 }
 
 // ParseFromEnvironment loads the configuration into a singleton.
@@ -22,7 +23,8 @@ func ParseFromEnvironment() {
 }
 
 type scobyConfig struct {
-	Namespace string `envconfig:"SCOBY_NAMESPACE" required:"true"`
+	ScobyNs   string `envconfig:"SCOBY_NAMESPACE" required:"true"`
+	WorkingNs string `envconfig:"WORKING_NAMESPACE"`
 
 	m sync.RWMutex
 }
@@ -33,7 +35,14 @@ func (sc *scobyConfig) ScobyNamespace() string {
 	sc.m.RLock()
 	defer sc.m.RUnlock()
 
-	return sc.Namespace
+	return sc.ScobyNs
+}
+
+func (sc *scobyConfig) WorkingNamespace() string {
+	sc.m.RLock()
+	defer sc.m.RUnlock()
+
+	return sc.WorkingNs
 }
 
 // Get Scoby configuration

@@ -17,6 +17,7 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -66,6 +67,9 @@ func main() {
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme,
+		Cache: cache.Options{
+			Namespaces: []string{scobyconfig.Get().WorkingNamespace()},
+		},
 	})
 	if err != nil {
 		log.Error(err, "unable to create controller manager")
