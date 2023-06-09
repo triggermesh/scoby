@@ -13,6 +13,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -101,42 +103,95 @@ func (dr *deploymentReconciler) SetupController(name string, c controller.Contro
 	return nil
 }
 
-func (dr *deploymentReconciler) Reconcile(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
+func (dr *deploymentReconciler) PreRender(ctx context.Context, obj reconciler.Object) (map[string]*unstructured.Unstructured, error) {
+	dr.log.V(1).Info("pre-rendering object instance", "object", obj)
+
+	deployment, err := dr.createDeploymentFromRegistered(obj)
+	if err != nil {
+		return nil, fmt.Errorf("could not render deployment object: %w", err)
+	}
+
+	dr.log.V(5).Info("candidate deployment object", "object", *deployment)
+
+	ud, err := runtime.DefaultUnstructuredConverter.ToUnstructured(deployment)
+	if err != nil {
+		return nil, fmt.Errorf("deployment from rendered candidates cannot be converted into unstructured: %w", err)
+	}
+
+	pr := map[string]*unstructured.Unstructured{
+		"deployment": {Object: ud},
+	}
+
+	if dr.serviceOptions != nil {
+
+		service, err := dr.createServiceFromRegistered(obj)
+		if err != nil {
+			return nil, fmt.Errorf("could not render service object: %w", err)
+		}
+
+		dr.log.V(5).Info("candidate service object", "object", *service)
+
+		us, err := runtime.DefaultUnstructuredConverter.ToUnstructured(service)
+		if err != nil {
+			return nil, fmt.Errorf("service from rendered candidates cannot be converted into unstructured: %w", err)
+		}
+
+		pr["service"] = &unstructured.Unstructured{Object: us}
+	}
+
+	return pr, nil
+}
+
+func (dr *deploymentReconciler) Reconcile(ctx context.Context, obj reconciler.Object, objects map[string]*unstructured.Unstructured) (ctrl.Result, error) {
 	dr.log.V(1).Info("reconciling object instance", "object", obj)
 
-	d, err := dr.reconcileDeployment(ctx, obj)
+	od, ok := objects["deployment"]
+	if !ok {
+		return reconcile.Result{}, fmt.Errorf("could not get deployment from rendered candidates list: %+v", objects)
+	}
+
+	d := &appsv1.Deployment{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(od.Object, d); err != nil {
+		return reconcile.Result{}, fmt.Errorf("deployment from rendered candidates is not a deployment object: %w", err)
+	}
+
+	d, err := dr.reconcileDeployment(ctx, obj, d)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
+	dr.log.V(1).Info("updating deployment status", "object", obj)
 	dr.updateDeploymentStatus(obj, d)
 
 	if dr.serviceOptions != nil {
-		dr.log.V(1).Info("reconciling service", "object", obj)
-		s, err := dr.reconcileService(ctx, obj)
+
+		os, ok := objects["service"]
+		if !ok {
+			return reconcile.Result{}, fmt.Errorf("could not get service from rendered candidates list: %w", err)
+		}
+
+		s := &corev1.Service{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(os.Object, s); err != nil {
+			return reconcile.Result{}, fmt.Errorf("service from rendered candidates is not a service object: %w", err)
+		}
+
+		s, err := dr.reconcileService(ctx, obj, s)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		dr.log.V(1).Info("updating deployment status", "object", obj)
+		dr.log.V(1).Info("updating service status", "object", obj)
 		dr.updateServiceStatus(obj, s)
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func (dr *deploymentReconciler) reconcileDeployment(ctx context.Context, obj reconciler.Object) (*appsv1.Deployment, error) {
+func (dr *deploymentReconciler) reconcileDeployment(ctx context.Context, obj reconciler.Object, desired *appsv1.Deployment) (*appsv1.Deployment, error) {
 	dr.log.V(1).Info("reconciling deployment", "object", obj)
 
-	desired, err := dr.createDeploymentFromRegistered(obj)
-	if err != nil {
-		return nil, fmt.Errorf("could not render deployment object: %w", err)
-	}
-
-	dr.log.V(5).Info("desired deployment object", "object", *desired)
-
 	existing := &appsv1.Deployment{}
-	err = dr.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
+	err := dr.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
 	switch {
 	case err == nil:
 		if semantic.Semantic.DeepEqual(desired, existing) {
@@ -236,17 +291,17 @@ func (dr *deploymentReconciler) createDeploymentFromRegistered(obj reconciler.Ob
 			resources.PodTemplateSpecWithPodSpecOptions(pso...))), nil
 }
 
-func (dr *deploymentReconciler) reconcileService(ctx context.Context, obj reconciler.Object) (*corev1.Service, error) {
+func (dr *deploymentReconciler) reconcileService(ctx context.Context, obj reconciler.Object, desired *corev1.Service) (*corev1.Service, error) {
 	dr.log.V(1).Info("reconciling service", "object", obj)
-	desired, err := dr.createServiceFromRegistered(obj)
-	if err != nil {
-		return nil, fmt.Errorf("could not render service object: %w", err)
-	}
+	// desired, err := dr.createServiceFromRegistered(obj)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("could not render service object: %w", err)
+	// }
 
-	dr.log.V(5).Info("desired service object", "object", *desired)
+	// dr.log.V(5).Info("desired service object", "object", *desired)
 
 	existing := &corev1.Service{}
-	err = dr.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
+	err := dr.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
 	switch {
 	case err == nil:
 		if semantic.Semantic.DeepEqual(desired, existing) {

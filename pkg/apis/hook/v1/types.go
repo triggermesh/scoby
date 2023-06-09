@@ -1,7 +1,6 @@
 package v1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
@@ -10,24 +9,22 @@ import (
 // HookRequest sent to configured hooks.
 type HookRequest struct {
 	// Reference to the object that is being reconciled.
-	Object commonv1alpha1.Reference `json:"object"`
+	Object *unstructured.Unstructured `json:"object"`
+
+	// Candidates are generated kubernetes objects that are to be created,
+	// but are still in an early rendering stage.
+	// The hook has the chance of modifying them before creation.
+	Candidates map[string]*unstructured.Unstructured `json:"candidates,omitempty"`
+
 	// Reuse the hook capability name as the phase for the
 	// hook API.
-	Phase commonv1alpha1.HookCapability `json:"phase"`
+	Phase commonv1alpha1.HookPhase `json:"phase"`
 }
 
 // HookRequestPreReconcile sent to configured hooks
 // for the pre-reconcile phase.
 type HookRequestPreReconcile struct {
 	HookRequest `json:",inline"`
-}
-
-// HookRequestPostReconcile sent to configured hooks
-// for the post-reconcile phase.
-type HookRequestPostReconcile struct {
-	HookRequest `json:",inline"`
-	// Objects rendered so far at the reconciliation.
-	Rendered []unstructured.Unstructured `json:"rendered,omitempty"`
 }
 
 // HookRequestFinalize sent to configured hooks
@@ -40,8 +37,9 @@ type HookRequestFinalize struct {
 type HookResponse struct {
 	Error *HookResponseError `json:"error,omitempty"`
 
-	// Workload whose elements should be merged with those that Scoby creates.
-	Workload *HookResponseWorkload `json:"workload,omitempty"`
+	// Candidates are generated kubernetes objects that might have been modified
+	// by the hook processing.
+	Candidates map[string]*unstructured.Unstructured `json:"candidates,omitempty"`
 
 	// Status whose elements should be merged with those that Scoby creates.
 	Status *commonv1alpha1.Status `json:"status,omitempty"`
@@ -65,11 +63,4 @@ type HookResponseError struct {
 	// When true, informs Scoby that the reconciliation process
 	// should not stop after this error.
 	Continue *bool `json:"continue,omitempty"`
-}
-
-// HookResponseWorkload contains workload elements that the hook
-// sets on the generated elements.
-type HookResponseWorkload struct {
-	PodSpec        *corev1.PodSpec        `json:"podSpec,omitempty"`
-	ServiceAccount *corev1.ServiceAccount `json:"serviceAccount,omitempty"`
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/go-logr/logr"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
 	hookv1 "github.com/triggermesh/scoby/pkg/apis/hook/v1"
@@ -25,9 +26,8 @@ type hookReconciler struct {
 	url        string
 	conditions []commonv1alpha1.ConditionsFromHook
 
-	isPreReconciler  bool
-	isPostReconciler bool
-	isFinalizer      bool
+	isPreReconciler bool
+	isFinalizer     bool
 
 	log logr.Logger
 }
@@ -36,9 +36,8 @@ func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.Conditi
 	hr := &hookReconciler{
 		url: url,
 
-		isPreReconciler:  h.Capabilities.IsPreReconciler(),
-		isPostReconciler: h.Capabilities.IsPostReconciler(),
-		isFinalizer:      h.Capabilities.IsFinalizer(),
+		isPreReconciler: h.Capabilities.IsPreReconciler(),
+		isFinalizer:     h.Capabilities.IsFinalizer(),
 
 		conditions: conditions,
 
@@ -48,20 +47,27 @@ func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.Conditi
 	return hr
 }
 
-func (hr *hookReconciler) Reconcile(ctx context.Context, obj reconciler.Object) error {
-	hr.log.V(1).Info("Reconciling at hook", "obj", obj)
+func (hr *hookReconciler) PreReconcile(ctx context.Context, obj reconciler.Object, candidates map[string]*unstructured.Unstructured) error {
+	hr.log.V(1).Info("Pre-reconciling at hook", "obj", obj)
 
-	res, err := hr.requestHook(ctx, commonv1alpha1.HookCapabilityPreReconcile, obj)
+	// uobj, ok := obj.AsKubeObject().(*unstructured.Unstructured)
+	// if !ok {
+	// 	return fmt.Errorf("could not parse object into unstructured: %s", obj.GetName())
+	// }
+
+	res, err := hr.requestHook(ctx, commonv1alpha1.HookCapabilityPreReconcile, obj, candidates)
 	if err == nil {
 		hr.log.V(5).Info("Response received from hook", "response", *res)
 
-		if res.Workload != nil && res.Workload.PodSpec != nil &&
-			len(res.Workload.PodSpec.Containers) > 0 {
-			ev := res.Workload.PodSpec.Containers[0].Env
-			for i := range ev {
-				obj.AddEnvVar(addEnvsPrefix+ev[i].Name, &ev[i])
-			}
+		if res.Candidates != nil && len(res.Candidates) != 0 {
+			candidates = res.Candidates
 		}
+		// 	len(res.Workload.PodSpec.Containers) > 0 {
+		// 	ev := res.Workload.PodSpec.Containers[0].Env
+		// 	for i := range ev {
+		// 		obj.AddEnvVar(addEnvsPrefix+ev[i].Name, &ev[i])
+		// 	}
+		// }
 	}
 
 	if upErr := hr.updateStatus(obj, res, err); upErr != nil {
@@ -74,7 +80,7 @@ func (hr *hookReconciler) Reconcile(ctx context.Context, obj reconciler.Object) 
 func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) error {
 	hr.log.V(1).Info("Finalizing at hook", "obj", obj)
 
-	res, err := hr.requestHook(ctx, commonv1alpha1.HookCapabilityFinalize, obj)
+	res, err := hr.requestHook(ctx, commonv1alpha1.HookCapabilityFinalize, obj, nil)
 	if err == nil {
 		return nil
 	}
@@ -86,14 +92,20 @@ func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) e
 	return err
 }
 
-func (hr *hookReconciler) requestHook(ctx context.Context, phase commonv1alpha1.HookCapability, obj reconciler.Object) (*hookv1.HookResponse, error) {
+func (hr *hookReconciler) requestHook(ctx context.Context, phase commonv1alpha1.HookPhase, obj reconciler.Object, candidates map[string]*unstructured.Unstructured) (*hookv1.HookResponse, error) {
+	uobj, ok := obj.AsKubeObject().(*unstructured.Unstructured)
+	if !ok {
+		return nil, fmt.Errorf("could not parse object into unstructured: %s", obj.GetName())
+	}
 	r := &hookv1.HookRequest{
-		Object: commonv1alpha1.Reference{
-			APIVersion: obj.GetObjectKind().GroupVersionKind().GroupVersion().String(),
-			Kind:       obj.GetObjectKind().GroupVersionKind().Kind,
-			Namespace:  obj.GetNamespace(),
-			Name:       obj.GetName(),
-		},
+		Object:     uobj,
+		Candidates: candidates,
+		// Object: commonv1alpha1.Reference{
+		// 	APIVersion: obj.GetObjectKind().GroupVersionKind().GroupVersion().String(),
+		// 	Kind:       obj.GetObjectKind().GroupVersionKind().Kind,
+		// 	Namespace:  obj.GetNamespace(),
+		// 	Name:       obj.GetName(),
+		// },
 		Phase: phase,
 	}
 	b, err := json.Marshal(r)
@@ -143,10 +155,6 @@ func (hr *hookReconciler) requestHook(ctx context.Context, phase commonv1alpha1.
 
 func (hr *hookReconciler) IsPreReconciler() bool {
 	return hr.isPreReconciler
-}
-
-func (hr *hookReconciler) IsPostReconciler() bool {
-	return hr.isPostReconciler
 }
 
 func (hr *hookReconciler) IsFinalizer() bool {

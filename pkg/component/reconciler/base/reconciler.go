@@ -134,9 +134,19 @@ func (b *base) manageDeletion(ctx context.Context, obj reconciler.Object) (ctrl.
 }
 
 func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
+	// Render using the object data and configuration
+	if err := b.objectManager.GetRenderer().Render(ctx, obj); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	candidates, err := b.formFactorReconciler.PreRender(ctx, obj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("pre-rendering form factor candidates: %w", err)
+	}
+
 	if b.hookReconciler != nil {
 		if b.hookReconciler.IsPreReconciler() {
-			if err := b.hookReconciler.Reconcile(ctx, obj); err != nil {
+			if err := b.hookReconciler.PreReconcile(ctx, obj, candidates); err != nil {
 				return ctrl.Result{}, fmt.Errorf("reconciling hook: %w", err)
 			}
 		}
@@ -153,16 +163,12 @@ func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) 
 		}
 	}
 
-	// Render using the object data and configuration
-	if err := b.objectManager.GetRenderer().Render(ctx, obj); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// Update generation if needed
 	if g := obj.GetGeneration(); g != obj.GetStatusManager().GetObservedGeneration() {
 		b.log.V(1).Info("updating observed generation", "generation", g)
 		obj.GetStatusManager().SetObservedGeneration(g)
 	}
 
-	return b.formFactorReconciler.Reconcile(ctx, obj)
+	// pass the render candidate
+	return b.formFactorReconciler.Reconcile(ctx, obj, candidates)
 }

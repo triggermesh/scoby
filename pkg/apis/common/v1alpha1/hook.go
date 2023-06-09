@@ -5,18 +5,20 @@ package v1alpha1
 
 import "knative.dev/pkg/apis"
 
-type HookCapability string
-type HookCapabilities []HookCapability
+// HookPhase identifies the phases where hooks can
+// intercept the reconciliation process.
+type HookPhase string
+type HookCapabilities []HookPhase
 
 type HookAPIVersion string
 
 const (
-	CRDRegistrationAnnotationHookURL = "hookURL"
-
-	HookCapabilityPreReconcile HookCapability = "pre-reconcile"
-	HookCapabilityFinalize     HookCapability = "finalize"
+	HookCapabilityPreReconcile HookPhase = "pre-reconcile"
+	HookCapabilityFinalize     HookPhase = "finalize"
 
 	HookAPIVersionV1 HookAPIVersion = "v1"
+
+	CRDRegistrationAnnotationHookURL = "hookURL"
 )
 
 type Hook struct {
@@ -81,10 +83,5 @@ func (hc HookCapabilities) IsPreReconciler() bool {
 		}
 	}
 
-	return false
-}
-
-func (hc HookCapabilities) IsPostReconciler() bool {
-	// not implemented.
 	return false
 }

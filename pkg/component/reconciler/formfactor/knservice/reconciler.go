@@ -13,6 +13,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,10 +87,40 @@ func (sr *knserviceReconciler) SetupController(name string, c controller.Control
 	return nil
 }
 
-func (sr *knserviceReconciler) Reconcile(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
+func (sr *knserviceReconciler) PreRender(ctx context.Context, obj reconciler.Object) (map[string]*unstructured.Unstructured, error) {
+	sr.log.V(1).Info("pre-rendering object instance", "object", obj)
+
+	ksvc, err := sr.createKnServiceFromRegistered(obj)
+	if err != nil {
+		return nil, fmt.Errorf("could not render knative service object: %w", err)
+	}
+
+	sr.log.V(5).Info("candidate knative service object", "object", *ksvc)
+
+	uksvc, err := runtime.DefaultUnstructuredConverter.ToUnstructured(ksvc)
+	if err != nil {
+		return nil, fmt.Errorf("knative service from rendered candidates cannot be converted into unstructured: %w", err)
+	}
+
+	return map[string]*unstructured.Unstructured{
+		"ksvc": {Object: uksvc},
+	}, nil
+}
+
+func (sr *knserviceReconciler) Reconcile(ctx context.Context, obj reconciler.Object, objects map[string]*unstructured.Unstructured) (ctrl.Result, error) {
 	sr.log.V(1).Info("reconciling object instance", "object", obj)
 
-	ksvc, err := sr.reconcileKnativeService(ctx, obj)
+	oksvc, ok := objects["ksvc"]
+	if !ok {
+		return reconcile.Result{}, fmt.Errorf("could not get knative service from rendered candidates list: %+v", objects)
+	}
+
+	ksvc := &servingv1.Service{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(oksvc.Object, ksvc); err != nil {
+		return reconcile.Result{}, fmt.Errorf("knative service from rendered candidates is not a knative service object: %w", err)
+	}
+
+	ksvc, err := sr.reconcileKnativeService(ctx, obj, ksvc)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -98,19 +130,11 @@ func (sr *knserviceReconciler) Reconcile(ctx context.Context, obj reconciler.Obj
 	return reconcile.Result{}, nil
 }
 
-func (sr *knserviceReconciler) reconcileKnativeService(ctx context.Context, obj reconciler.Object) (*servingv1.Service, error) {
+func (sr *knserviceReconciler) reconcileKnativeService(ctx context.Context, obj reconciler.Object, desired *servingv1.Service) (*servingv1.Service, error) {
 	sr.log.V(1).Info("reconciling knative service", "object", obj)
 
-	// render service
-	desired, err := sr.createKnServiceFromRegistered(obj)
-	if err != nil {
-		return nil, fmt.Errorf("could not render knative service object: %w", err)
-	}
-
-	sr.log.V(5).Info("desired knative service object", "object", *desired)
-
 	existing := &servingv1.Service{}
-	err = sr.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
+	err := sr.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
 	switch {
 	case err == nil:
 		if semantic.Semantic.DeepEqual(desired, existing) {

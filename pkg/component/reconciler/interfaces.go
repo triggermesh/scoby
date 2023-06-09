@@ -100,13 +100,14 @@ type ObjectManager interface {
 type FormFactorReconciler interface {
 	GetStatusConditions() (happy string, all []string)
 	SetupController(name string, c controller.Controller, owner client.Object) error
-	Reconcile(context.Context, Object) (ctrl.Result, error)
+
+	PreRender(context.Context, Object) (map[string]*unstructured.Unstructured, error)
+	Reconcile(context.Context, Object, map[string]*unstructured.Unstructured) (ctrl.Result, error)
 }
 
 type HookReconciler interface {
-	Reconcile(context.Context, Object) error
-	Finalize(context.Context, Object) error
+	PreReconcile(ctx context.Context, object Object, candidates map[string]*unstructured.Unstructured) error
+	Finalize(ctx context.Context, object Object) error
 	IsPreReconciler() bool
-	IsPostReconciler() bool
 	IsFinalizer() bool
 }
