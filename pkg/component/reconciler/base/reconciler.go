@@ -146,7 +146,7 @@ func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) 
 
 	if b.hookReconciler != nil {
 		if b.hookReconciler.IsPreReconciler() {
-			if err := b.hookReconciler.PreReconcile(ctx, obj, candidates); err != nil {
+			if err := b.hookReconciler.PreReconcile(ctx, obj, &candidates); err != nil {
 				return ctrl.Result{}, fmt.Errorf("reconciling hook: %w", err)
 			}
 		}

@@ -106,7 +106,7 @@ type FormFactorReconciler interface {
 }
 
 type HookReconciler interface {
-	PreReconcile(ctx context.Context, object Object, candidates map[string]*unstructured.Unstructured) error
+	PreReconcile(ctx context.Context, object Object, candidates *map[string]*unstructured.Unstructured) error
 	Finalize(ctx context.Context, object Object) error
 	IsPreReconciler() bool
 	IsFinalizer() bool

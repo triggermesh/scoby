@@ -18,10 +18,6 @@ import (
 	"github.com/triggermesh/scoby/pkg/component/reconciler"
 )
 
-const (
-	addEnvsPrefix = "$hook."
-)
-
 type hookReconciler struct {
 	url        string
 	conditions []commonv1alpha1.ConditionsFromHook
@@ -47,7 +43,7 @@ func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.Conditi
 	return hr
 }
 
-func (hr *hookReconciler) PreReconcile(ctx context.Context, obj reconciler.Object, candidates map[string]*unstructured.Unstructured) error {
+func (hr *hookReconciler) PreReconcile(ctx context.Context, obj reconciler.Object, candidates *map[string]*unstructured.Unstructured) error {
 	hr.log.V(1).Info("Pre-reconciling at hook", "obj", obj)
 
 	// uobj, ok := obj.AsKubeObject().(*unstructured.Unstructured)
@@ -55,12 +51,12 @@ func (hr *hookReconciler) PreReconcile(ctx context.Context, obj reconciler.Objec
 	// 	return fmt.Errorf("could not parse object into unstructured: %s", obj.GetName())
 	// }
 
-	res, err := hr.requestHook(ctx, commonv1alpha1.HookCapabilityPreReconcile, obj, candidates)
+	res, err := hr.requestHook(ctx, commonv1alpha1.HookCapabilityPreReconcile, obj, *candidates)
 	if err == nil {
 		hr.log.V(5).Info("Response received from hook", "response", *res)
 
 		if res.Candidates != nil && len(res.Candidates) != 0 {
-			candidates = res.Candidates
+			*candidates = res.Candidates
 		}
 		// 	len(res.Workload.PodSpec.Containers) > 0 {
 		// 	ev := res.Workload.PodSpec.Containers[0].Env
