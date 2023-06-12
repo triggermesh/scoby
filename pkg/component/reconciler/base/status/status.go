@@ -623,7 +623,9 @@ func (sm *statusManager) Merge(status map[string]interface{}) error {
 
 		default:
 			// overwrite if existing
-			sm.SetValue(v, "status", k)
+			if err := sm.SetValue(v, "status", k); err != nil {
+				return err
+			}
 		}
 	}
 
