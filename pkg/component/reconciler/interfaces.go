@@ -77,6 +77,7 @@ type StatusManager interface {
 	SetAddressURL(string)
 	SetValue(value interface{}, path ...string) error
 	SetAnnotation(key, value string) error
+	Merge(map[string]interface{}) error
 }
 
 type StatusManagerFactory interface {
@@ -105,9 +106,22 @@ type FormFactorReconciler interface {
 	Reconcile(context.Context, Object, map[string]*unstructured.Unstructured) (ctrl.Result, error)
 }
 
+type HookError struct {
+	Permanent bool
+	Continue  bool
+	Err       error
+}
+
+func (he *HookError) Error() string {
+	if he.Err == nil {
+		return ""
+	}
+	return he.Err.Error()
+}
+
 type HookReconciler interface {
-	PreReconcile(ctx context.Context, object Object, candidates *map[string]*unstructured.Unstructured) error
-	Finalize(ctx context.Context, object Object) error
+	PreReconcile(ctx context.Context, object Object, candidates *map[string]*unstructured.Unstructured) *HookError
+	Finalize(ctx context.Context, object Object) *HookError
 	IsPreReconciler() bool
 	IsFinalizer() bool
 }

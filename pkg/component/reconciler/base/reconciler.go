@@ -121,7 +121,9 @@ func (b *base) manageDeletion(ctx context.Context, obj reconciler.Object) (ctrl.
 	// When hooks are configured we need to call Finalize on the hook and
 	// then remove the finalizer attribute at the object.
 	if err := b.hookReconciler.Finalize(ctx, obj); err != nil {
-		return ctrl.Result{}, err
+		if !err.Continue {
+			return ctrl.Result{Requeue: !err.Permanent}, err
+		}
 	}
 
 	if !controllerutil.ContainsFinalizer(obj, componentFinalizer) {
@@ -147,7 +149,9 @@ func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) 
 	if b.hookReconciler != nil {
 		if b.hookReconciler.IsPreReconciler() {
 			if err := b.hookReconciler.PreReconcile(ctx, obj, &candidates); err != nil {
-				return ctrl.Result{}, fmt.Errorf("reconciling hook: %w", err)
+				if !err.Continue {
+					return ctrl.Result{Requeue: !err.Permanent}, fmt.Errorf("reconciling hook: %w", err)
+				}
 			}
 		}
 		if b.hookReconciler.IsFinalizer() {

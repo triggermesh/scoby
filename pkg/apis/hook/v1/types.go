@@ -2,55 +2,29 @@ package v1
 
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
 
-	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
+// Phase identifies the phases where hooks can
+// intercept the reconciliation process.
+type Phase string
+
+const (
+	PhasePreReconcile Phase = "pre-reconcile"
+	PhaseFinalize     Phase = "finalize"
 )
 
 // HookRequest sent to configured hooks.
 type HookRequest struct {
 	// Reference to the object that is being reconciled.
-	Object *unstructured.Unstructured `json:"object"`
-
-	// Candidates are generated kubernetes objects that are to be created,
-	// but are still in an early rendering stage.
-	// The hook has the chance of modifying them before creation.
-	Candidates map[string]*unstructured.Unstructured `json:"candidates,omitempty"`
+	Object unstructured.Unstructured `json:"object"`
 
 	// Reuse the hook capability name as the phase for the
 	// hook API.
-	Phase commonv1alpha1.HookPhase `json:"phase"`
-}
+	Phase Phase `json:"phase"`
 
-// HookRequestPreReconcile sent to configured hooks
-// for the pre-reconcile phase.
-type HookRequestPreReconcile struct {
-	HookRequest `json:",inline"`
-}
-
-// HookRequestFinalize sent to configured hooks
-// for the finalize phase.
-type HookRequestFinalize struct {
-	HookRequest `json:",inline"`
-}
-
-// HookResponse is the expected reconcile reply from configured hooks.
-type HookResponse struct {
-	Error *HookResponseError `json:"error,omitempty"`
-
-	// Candidates are generated kubernetes objects that might have been modified
-	// by the hook processing.
-	Candidates map[string]*unstructured.Unstructured `json:"candidates,omitempty"`
-
-	// Status whose elements should be merged with those that Scoby creates.
-	Status *commonv1alpha1.Status `json:"status,omitempty"`
-}
-
-// HookResponseFinalize is the expected finalize reply from configured hooks.
-type HookResponseFinalize struct {
-	Error *HookResponseError `json:"error,omitempty"`
-
-	// Status whose elements should be merged with those that Scoby creates.
-	Status *commonv1alpha1.Status `json:"status,omitempty"`
+	// Children are generated kubernetes children objects that are to
+	// be controlled from the Scoby controller.
+	Children map[string]*unstructured.Unstructured `json:"children,omitempty"`
 }
 
 // HookResponseError contains the information that Scoby needs to
@@ -63,4 +37,17 @@ type HookResponseError struct {
 	// When true, informs Scoby that the reconciliation process
 	// should not stop after this error.
 	Continue *bool `json:"continue,omitempty"`
+}
+
+// HookResponse is the expected reconcile reply from configured hooks.
+type HookResponse struct {
+	Error *HookResponseError `json:"error,omitempty"`
+
+	// Children are generated kubernetes children objects that are to
+	// be controlled from the Scoby controller and that might have been
+	// modified from the hook.
+	Children map[string]*unstructured.Unstructured `json:"children,omitempty"`
+
+	// Object status to be merged with the one generated at Scoby.
+	Status map[string]interface{} `json:"status,omitempty"`
 }

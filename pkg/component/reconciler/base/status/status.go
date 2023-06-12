@@ -5,6 +5,7 @@ package status
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -304,6 +305,10 @@ func (sm *statusManager) SetCondition(condition *commonv1alpha1.Condition) {
 	// make sure conditions are available.
 	sm.sanitizeConditions()
 
+	sm.setCondition(condition)
+}
+
+func (sm *statusManager) setCondition(condition *commonv1alpha1.Condition) {
 	typedStatus := sm.object.Object["status"].(map[string]interface{})
 
 	ecs, ok := typedStatus["conditions"]
@@ -528,6 +533,11 @@ func (sm *statusManager) SetAnnotation(key, value string) error {
 	defer sm.m.Unlock()
 
 	sm.ensureStatusRoot()
+
+	return sm.setAnnotation(key, value)
+}
+
+func (sm *statusManager) setAnnotation(key, value string) error {
 	typedStatus := sm.object.Object["status"].(map[string]interface{})
 
 	annotations, ok := typedStatus["annotations"]
@@ -544,5 +554,78 @@ func (sm *statusManager) SetAnnotation(key, value string) error {
 	}
 
 	typedAnnotations[key] = value
+	return nil
+}
+
+// Merge an incoming unstructured into the existing status
+func (sm *statusManager) Merge(status map[string]interface{}) error {
+	sm.m.Lock()
+	defer sm.m.Unlock()
+
+	sm.ensureStatusRoot()
+
+	// incoming root element might be present or not.
+	ost, ok := status["status"]
+	if !ok {
+		ost = status
+	}
+
+	st, ok := ost.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("incoming status cannot be converted into map[string]interface{}: %+v", ost)
+	}
+
+	// Incoming status elements replace existing, but for conditions and annotations.
+	// Conditions will
+
+	for k, v := range st {
+
+		switch k {
+		case "conditions":
+			// iterate each condition and replace or add to existing.
+
+			varr, ok := v.([]interface{})
+			if !ok {
+				return fmt.Errorf("incoming status conditions cannot be converted to []interface{}: %+v", v)
+			}
+
+			for _, vitem := range varr {
+				c, ok := vitem.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("incoming status conditions cannot be converted to []interface{}: %+v", vitem)
+				}
+
+				sm.setCondition(&commonv1alpha1.Condition{
+					// Type:    c["type"],
+					// Status:  metav1.ConditionStatus(c["status"]),
+					// Reason:  c["reason"],
+					// Message: c["message"],
+
+					// TODO make sure types match
+					Type:    c["type"].(string),
+					Status:  metav1.ConditionStatus(c["status"].(string)),
+					Reason:  c["reason"].(string),
+					Message: c["message"].(string),
+				})
+			}
+
+		case "annotations":
+			annotations, ok := v.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("incoming status annotations cannot be converted into map[string]interface{}: %+v", v)
+			}
+
+			for k, v := range annotations {
+				if err := sm.setAnnotation(k, v.(string)); err != nil {
+					return err
+				}
+			}
+
+		default:
+			// overwrite if existing
+			sm.SetValue(v, "status", k)
+		}
+	}
+
 	return nil
 }

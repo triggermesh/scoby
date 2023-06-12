@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/go-logr/logr"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
@@ -43,82 +43,55 @@ func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.Conditi
 	return hr
 }
 
-func (hr *hookReconciler) PreReconcile(ctx context.Context, obj reconciler.Object, candidates *map[string]*unstructured.Unstructured) error {
+func (hr *hookReconciler) PreReconcile(ctx context.Context, obj reconciler.Object, candidates *map[string]*unstructured.Unstructured) *reconciler.HookError {
 	hr.log.V(1).Info("Pre-reconciling at hook", "obj", obj)
 
-	// uobj, ok := obj.AsKubeObject().(*unstructured.Unstructured)
-	// if !ok {
-	// 	return fmt.Errorf("could not parse object into unstructured: %s", obj.GetName())
-	// }
-
-	res, err := hr.requestHook(ctx, commonv1alpha1.HookCapabilityPreReconcile, obj, *candidates)
-	if err == nil {
-		hr.log.V(5).Info("Response received from hook", "response", *res)
-
-		if res.Candidates != nil && len(res.Candidates) != 0 {
-			*candidates = res.Candidates
-		}
-		// 	len(res.Workload.PodSpec.Containers) > 0 {
-		// 	ev := res.Workload.PodSpec.Containers[0].Env
-		// 	for i := range ev {
-		// 		obj.AddEnvVar(addEnvsPrefix+ev[i].Name, &ev[i])
-		// 	}
-		// }
-	}
-
-	if upErr := hr.updateStatus(obj, res, err); upErr != nil {
-		hr.log.Error(upErr, "could not update the object's status from the hook", "object", obj)
-	}
+	err := hr.preReconcileHTTPRequest(ctx, obj, candidates)
 
 	return err
 }
 
-func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) error {
-	hr.log.V(1).Info("Finalizing at hook", "obj", obj)
-
-	res, err := hr.requestHook(ctx, commonv1alpha1.HookCapabilityFinalize, obj, nil)
-	if err == nil {
-		return nil
-	}
-
-	if upErr := hr.updateStatus(obj, res, err); upErr != nil {
-		hr.log.Error(upErr, "could not update the object's status from the hook", "object", obj)
-	}
-
-	return err
-}
-
-func (hr *hookReconciler) requestHook(ctx context.Context, phase commonv1alpha1.HookPhase, obj reconciler.Object, candidates map[string]*unstructured.Unstructured) (*hookv1.HookResponse, error) {
+func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj reconciler.Object, candidates *map[string]*unstructured.Unstructured) *reconciler.HookError {
 	uobj, ok := obj.AsKubeObject().(*unstructured.Unstructured)
 	if !ok {
-		return nil, fmt.Errorf("could not parse object into unstructured: %s", obj.GetName())
+		return &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       fmt.Errorf("could not parse object into unstructured: %s", obj.GetName()),
+		}
 	}
-	r := &hookv1.HookRequest{
-		Object:     uobj,
-		Candidates: candidates,
-		// Object: commonv1alpha1.Reference{
-		// 	APIVersion: obj.GetObjectKind().GroupVersionKind().GroupVersion().String(),
-		// 	Kind:       obj.GetObjectKind().GroupVersionKind().Kind,
-		// 	Namespace:  obj.GetNamespace(),
-		// 	Name:       obj.GetName(),
-		// },
-		Phase: phase,
-	}
-	b, err := json.Marshal(r)
+
+	b, err := json.Marshal(&hookv1.HookRequest{
+		Object:   *uobj,
+		Phase:    hookv1.PhasePreReconcile,
+		Children: *candidates,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("could not marshal hook request: %w", err)
+		return &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       fmt.Errorf("could not marshal hook request: %w", err),
+		}
 	}
 
 	req, err := http.NewRequest("POST", hr.url, bytes.NewBuffer(b))
 	if err != nil {
-		return nil, fmt.Errorf("could create hook request: %w", err)
+		return &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       fmt.Errorf("could create hook request: %w", err),
+		}
 	}
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 
 	client := &http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("could not execute hook request to %s: %w", hr.url, err)
+		return &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       fmt.Errorf("could not execute hook request to %s: %w", hr.url, err),
+		}
 	}
 
 	defer res.Body.Close()
@@ -132,22 +105,137 @@ func (hr *hookReconciler) requestHook(ctx context.Context, phase commonv1alpha1.
 		} else {
 			reserr = string(b)
 		}
-		return nil, fmt.Errorf("hook request at %s returned %d: %s", hr.url, res.StatusCode, reserr)
-	}
-
-	// Finalize do not expect data returned
-	if phase == commonv1alpha1.HookCapabilityFinalize {
-		return nil, nil
+		return &reconciler.HookError{
+			// Do not mark as permanent to retry the hook
+			Permanent: false,
+			Continue:  false,
+			Err:       fmt.Errorf("hook request at %s returned %d: %s", hr.url, res.StatusCode, reserr),
+		}
 	}
 
 	hres := &hookv1.HookResponse{}
 	err = json.NewDecoder(res.Body).Decode(hres)
 	if err != nil {
-		return nil, fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err)
+		return &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err),
+		}
 	}
 
-	return hres, nil
+	hr.log.V(5).Info("Response received from hook", "response", *res)
+
+	if hres.Error != nil {
+		he := &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       errors.New(hres.Error.Message),
+		}
+
+		if hres.Error.Permanent != nil {
+			he.Permanent = *hres.Error.Permanent
+		}
+		if hres.Error.Continue != nil {
+			he.Continue = *hres.Error.Continue
+		}
+
+		return he
+	}
+
+	if hres.Children != nil && len(hres.Children) != 0 {
+		*candidates = hres.Children
+	}
+
+	if hres.Status == nil {
+		return nil
+	}
+
+	sm := obj.GetStatusManager()
+	err = sm.Merge(hres.Status)
+	if err != nil {
+		return &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       fmt.Errorf("hook response could not merge reconciled object status: %w", err),
+		}
+	}
+
+	return nil
+
+	// if upErr := hr.updateStatus(obj, hres.Status, err); upErr != nil {
+	// 	hr.log.Error(upErr, "could not update the object's status from the hook", "object", obj)
+	// }
+
+	// return err
 }
+
+// func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj reconciler.Object, candidates *map[string]unstructured.Unstructured) (*hookv1.HookResponsePreReconcile, error) {
+// 	uobj, ok := obj.AsKubeObject().(*unstructured.Unstructured)
+// 	if !ok {
+// 		return nil, fmt.Errorf("could not parse object into unstructured: %s", obj.GetName())
+// 	}
+
+// 	b, err := json.Marshal(&hookv1.HookRequestPreReconcile{
+// 		HookRequest: hookv1.HookRequest{
+// 			Object: *uobj,
+// 			Phase:  hookv1.PhasePreReconcile,
+// 		},
+// 		Candidates: *candidates,
+// 	})
+// 	if err != nil {
+// 		return nil, fmt.Errorf("could not marshal hook request: %w", err)
+// 	}
+
+// 	req, err := http.NewRequest("POST", hr.url, bytes.NewBuffer(b))
+// 	if err != nil {
+// 		return nil, fmt.Errorf("could create hook request: %w", err)
+// 	}
+// 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+
+// 	client := &http.Client{}
+// 	res, err := client.Do(req)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("could not execute hook request to %s: %w", hr.url, err)
+// 	}
+
+// 	defer res.Body.Close()
+
+// 	if res.StatusCode < 200 || res.StatusCode > 299 {
+// 		// Try to read any error message
+// 		b, err := io.ReadAll(res.Body)
+// 		reserr := ""
+// 		if err != nil {
+// 			reserr = "(could not read error response from hook)"
+// 		} else {
+// 			reserr = string(b)
+// 		}
+// 		return nil, fmt.Errorf("hook request at %s returned %d: %s", hr.url, res.StatusCode, reserr)
+// 	}
+
+// 	hres := &hookv1.HookResponsePreReconcile{}
+// 	err = json.NewDecoder(res.Body).Decode(hres)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err)
+// 	}
+
+// 	return hres, nil
+// }
+
+// func (hr *hookReconciler) requestHook(ctx context.Context, phase commonv1alpha1.HookPhase, obj reconciler.Object, candidates map[string]unstructured.Unstructured) (*hookv1.HookResponse, error) {
+
+// 	// Finalize do not expect data returned
+// 	if phase == commonv1alpha1.HookCapabilityFinalize {
+// 		return nil, nil
+// 	}
+
+// 	hres := &hookv1.HookResponse{}
+// 	err = json.NewDecoder(res.Body).Decode(hres)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err)
+// 	}
+
+// 	return hres, nil
+// }
 
 func (hr *hookReconciler) IsPreReconciler() bool {
 	return hr.isPreReconciler
@@ -157,53 +245,116 @@ func (hr *hookReconciler) IsFinalizer() bool {
 	return hr.isFinalizer
 }
 
-func (hr *hookReconciler) updateStatus(obj reconciler.Object, res *hookv1.HookResponse, hookErr error) error {
+func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) *reconciler.HookError {
+	hr.log.V(1).Info("Finalizing at hook", "obj", obj)
+
+	err := hr.finalizerHTTPRequest(ctx, obj)
+	// hr.hookDefaultStatus(obj, err)
+	return err
+}
+
+func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconciler.Object) *reconciler.HookError {
+	uobj, ok := obj.AsKubeObject().(*unstructured.Unstructured)
+	if !ok {
+		return &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       fmt.Errorf("could not parse object into unstructured: %s", obj.GetName()),
+		}
+	}
+
+	b, err := json.Marshal(&hookv1.HookRequest{
+		Object: *uobj,
+		Phase:  hookv1.PhaseFinalize,
+	})
+	if err != nil {
+		return &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       fmt.Errorf("could not marshal hook request: %w", err),
+		}
+	}
+
+	req, err := http.NewRequest("POST", hr.url, bytes.NewBuffer(b))
+	if err != nil {
+		return &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       fmt.Errorf("could create hook request: %w", err),
+		}
+	}
+	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       fmt.Errorf("could not execute hook request to %s: %w", hr.url, err),
+		}
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		// Try to read any error message
+		b, err := io.ReadAll(res.Body)
+		reserr := ""
+		if err != nil {
+			reserr = "(could not read error response from hook)"
+		} else {
+			reserr = string(b)
+		}
+		return &reconciler.HookError{
+			// Do not mark as permanent to retry the hook
+			Permanent: false,
+			Continue:  false,
+			Err:       fmt.Errorf("hook request at %s returned %d: %s", hr.url, res.StatusCode, reserr),
+		}
+	}
+
+	hres := &hookv1.HookResponse{}
+	err = json.NewDecoder(res.Body).Decode(hres)
+	if err != nil {
+		return &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err),
+		}
+	}
+
+	hr.log.V(5).Info("Response received from hook", "response", *res)
+
+	if hres.Error != nil {
+		he := &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       errors.New(hres.Error.Message),
+		}
+
+		if hres.Error.Permanent != nil {
+			he.Permanent = *hres.Error.Permanent
+		}
+		if hres.Error.Continue != nil {
+			he.Continue = *hres.Error.Continue
+		}
+
+		return he
+	}
+
+	if hres.Status == nil {
+		return nil
+	}
+
 	sm := obj.GetStatusManager()
-
-	// Informed types keep track of conditions informed from the hook, those
-	// not informed will be defaulted next.
-	informedTypes := []string{}
-
-	if res != nil {
-		for i := range res.Status.Conditions {
-			sm.SetCondition(&res.Status.Conditions[i])
-			informedTypes = append(informedTypes, res.Status.Conditions[i].Type)
+	err = sm.Merge(hres.Status)
+	if err != nil {
+		return &reconciler.HookError{
+			Permanent: true,
+			Continue:  false,
+			Err:       fmt.Errorf("hook response could not merge reconciled object status: %w", err),
 		}
-		for k, v := range res.Status.Annotations {
-			if err := sm.SetAnnotation(k, v); err != nil {
-				return err
-			}
-		}
-	}
-
-	condReason := "UNKNOWN"
-	condMessage := ""
-	if hookErr != nil {
-		condReason = "HOOKERROR"
-		condMessage = hookErr.Error()
-	}
-
-	// Fill missing statuses with unknown conditions.
-	for _, c := range hr.conditions {
-		informed := false
-		for _, it := range informedTypes {
-			if c.Type == it {
-				informed = true
-				break
-			}
-		}
-
-		if informed {
-			continue
-		}
-
-		sm.SetCondition(&commonv1alpha1.Condition{
-			Type:               c.Type,
-			Status:             metav1.ConditionUnknown,
-			LastTransitionTime: metav1.Now(),
-			Reason:             condReason,
-			Message:            condMessage,
-		})
 	}
 
 	return nil
