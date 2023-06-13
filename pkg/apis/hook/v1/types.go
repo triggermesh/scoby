@@ -5,7 +5,7 @@ import (
 )
 
 // Phase identifies the phases where hooks can
-// intercept the reconciliation process.
+// intercept the reconciliation process. Supported phases are `pre-reconcile` and `finalize`
 type Phase string
 
 const (

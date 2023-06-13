@@ -161,81 +161,7 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 	}
 
 	return nil
-
-	// if upErr := hr.updateStatus(obj, hres.Status, err); upErr != nil {
-	// 	hr.log.Error(upErr, "could not update the object's status from the hook", "object", obj)
-	// }
-
-	// return err
 }
-
-// func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj reconciler.Object, candidates *map[string]unstructured.Unstructured) (*hookv1.HookResponsePreReconcile, error) {
-// 	uobj, ok := obj.AsKubeObject().(*unstructured.Unstructured)
-// 	if !ok {
-// 		return nil, fmt.Errorf("could not parse object into unstructured: %s", obj.GetName())
-// 	}
-
-// 	b, err := json.Marshal(&hookv1.HookRequestPreReconcile{
-// 		HookRequest: hookv1.HookRequest{
-// 			Object: *uobj,
-// 			Phase:  hookv1.PhasePreReconcile,
-// 		},
-// 		Candidates: *candidates,
-// 	})
-// 	if err != nil {
-// 		return nil, fmt.Errorf("could not marshal hook request: %w", err)
-// 	}
-
-// 	req, err := http.NewRequest("POST", hr.url, bytes.NewBuffer(b))
-// 	if err != nil {
-// 		return nil, fmt.Errorf("could create hook request: %w", err)
-// 	}
-// 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-
-// 	client := &http.Client{}
-// 	res, err := client.Do(req)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("could not execute hook request to %s: %w", hr.url, err)
-// 	}
-
-// 	defer res.Body.Close()
-
-// 	if res.StatusCode < 200 || res.StatusCode > 299 {
-// 		// Try to read any error message
-// 		b, err := io.ReadAll(res.Body)
-// 		reserr := ""
-// 		if err != nil {
-// 			reserr = "(could not read error response from hook)"
-// 		} else {
-// 			reserr = string(b)
-// 		}
-// 		return nil, fmt.Errorf("hook request at %s returned %d: %s", hr.url, res.StatusCode, reserr)
-// 	}
-
-// 	hres := &hookv1.HookResponsePreReconcile{}
-// 	err = json.NewDecoder(res.Body).Decode(hres)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err)
-// 	}
-
-// 	return hres, nil
-// }
-
-// func (hr *hookReconciler) requestHook(ctx context.Context, phase commonv1alpha1.HookPhase, obj reconciler.Object, candidates map[string]unstructured.Unstructured) (*hookv1.HookResponse, error) {
-
-// 	// Finalize do not expect data returned
-// 	if phase == commonv1alpha1.HookCapabilityFinalize {
-// 		return nil, nil
-// 	}
-
-// 	hres := &hookv1.HookResponse{}
-// 	err = json.NewDecoder(res.Body).Decode(hres)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err)
-// 	}
-
-// 	return hres, nil
-// }
 
 func (hr *hookReconciler) IsPreReconciler() bool {
 	return hr.isPreReconciler
@@ -249,7 +175,6 @@ func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) *
 	hr.log.V(1).Info("Finalizing at hook", "obj", obj)
 
 	err := hr.finalizerHTTPRequest(ctx, obj)
-	// hr.hookDefaultStatus(obj, err)
 	return err
 }
 

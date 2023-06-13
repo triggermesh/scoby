@@ -293,12 +293,6 @@ func (dr *deploymentReconciler) createDeploymentFromRegistered(obj reconciler.Ob
 
 func (dr *deploymentReconciler) reconcileService(ctx context.Context, obj reconciler.Object, desired *corev1.Service) (*corev1.Service, error) {
 	dr.log.V(1).Info("reconciling service", "object", obj)
-	// desired, err := dr.createServiceFromRegistered(obj)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("could not render service object: %w", err)
-	// }
-
-	// dr.log.V(5).Info("desired service object", "object", *desired)
 
 	existing := &corev1.Service{}
 	err := dr.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)

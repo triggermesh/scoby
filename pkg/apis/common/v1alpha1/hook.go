@@ -14,8 +14,7 @@ type HookCapabilities []hookv1.Phase
 type HookAPIVersion string
 
 const (
-	HookAPIVersionV1 HookAPIVersion = "v1"
-
+	// Status annotation name for the resolved Hook URL
 	CRDRegistrationAnnotationHookURL = "hookURL"
 )
 

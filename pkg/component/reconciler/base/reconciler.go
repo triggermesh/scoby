@@ -120,6 +120,7 @@ func (b *base) manageDeletion(ctx context.Context, obj reconciler.Object) (ctrl.
 
 	// When hooks are configured we need to call Finalize on the hook and
 	// then remove the finalizer attribute at the object.
+
 	if err := b.hookReconciler.Finalize(ctx, obj); err != nil {
 		if !err.Continue {
 			return ctrl.Result{Requeue: !err.Permanent}, err
@@ -143,7 +144,7 @@ func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) 
 
 	candidates, err := b.formFactorReconciler.PreRender(ctx, obj)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("pre-rendering form factor candidates: %w", err)
+		return ctrl.Result{}, fmt.Errorf("pre-rendering form factor children candidates: %w", err)
 	}
 
 	if b.hookReconciler != nil {
@@ -173,6 +174,6 @@ func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) 
 		obj.GetStatusManager().SetObservedGeneration(g)
 	}
 
-	// pass the render candidate
+	// Pass the children candidates to the form factor for the reconcile routine.
 	return b.formFactorReconciler.Reconcile(ctx, obj, candidates)
 }

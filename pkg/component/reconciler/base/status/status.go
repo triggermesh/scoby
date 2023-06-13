@@ -557,7 +557,7 @@ func (sm *statusManager) setAnnotation(key, value string) error {
 	return nil
 }
 
-// Merge an incoming unstructured into the existing status
+// Merge an incoming unstructured into the existing status, taking care of
 func (sm *statusManager) Merge(status map[string]interface{}) error {
 	sm.m.Lock()
 	defer sm.m.Unlock()
@@ -582,7 +582,7 @@ func (sm *statusManager) Merge(status map[string]interface{}) error {
 
 		switch k {
 		case "conditions":
-			// iterate each condition and replace or add to existing.
+			// iterate each condition and set individually.
 
 			varr, ok := v.([]interface{})
 			if !ok {
@@ -595,18 +595,23 @@ func (sm *statusManager) Merge(status map[string]interface{}) error {
 					return fmt.Errorf("incoming status conditions cannot be converted to []interface{}: %+v", vitem)
 				}
 
-				sm.setCondition(&commonv1alpha1.Condition{
-					// Type:    c["type"],
-					// Status:  metav1.ConditionStatus(c["status"]),
-					// Reason:  c["reason"],
-					// Message: c["message"],
+				condition := &commonv1alpha1.Condition{}
 
-					// TODO make sure types match
-					Type:    c["type"].(string),
-					Status:  metav1.ConditionStatus(c["status"].(string)),
-					Reason:  c["reason"].(string),
-					Message: c["message"].(string),
-				})
+				condition.Type, ok = c["type"].(string)
+				if !ok {
+					return fmt.Errorf("incoming condition type as string not found: %+v", c["type"])
+				}
+
+				cstatus, ok := c["status"].(string)
+				if !ok {
+					return fmt.Errorf("incoming condition status as string not found: %+v", c["status"])
+				}
+				condition.Status = metav1.ConditionStatus(cstatus)
+
+				condition.Reason, _ = c["reason"].(string)
+				condition.Message, _ = c["message"].(string)
+
+				sm.setCondition(condition)
 			}
 
 		case "annotations":
