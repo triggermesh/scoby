@@ -120,8 +120,11 @@ func (b *base) manageDeletion(ctx context.Context, obj reconciler.Object) (ctrl.
 
 	// When hooks are configured we need to call Finalize on the hook and
 	// then remove the finalizer attribute at the object.
+
 	if err := b.hookReconciler.Finalize(ctx, obj); err != nil {
-		return ctrl.Result{}, err
+		if !err.Continue {
+			return ctrl.Result{Requeue: !err.Permanent}, err
+		}
 	}
 
 	if !controllerutil.ContainsFinalizer(obj, componentFinalizer) {
@@ -134,10 +137,22 @@ func (b *base) manageDeletion(ctx context.Context, obj reconciler.Object) (ctrl.
 }
 
 func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
+	// Render using the object data and configuration
+	if err := b.objectManager.GetRenderer().Render(ctx, obj); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	candidates, err := b.formFactorReconciler.PreRender(ctx, obj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("pre-rendering form factor children candidates: %w", err)
+	}
+
 	if b.hookReconciler != nil {
 		if b.hookReconciler.IsPreReconciler() {
-			if err := b.hookReconciler.Reconcile(ctx, obj); err != nil {
-				return ctrl.Result{}, fmt.Errorf("reconciling hook: %w", err)
+			if err := b.hookReconciler.PreReconcile(ctx, obj, &candidates); err != nil {
+				if !err.Continue {
+					return ctrl.Result{Requeue: !err.Permanent}, fmt.Errorf("reconciling hook: %w", err)
+				}
 			}
 		}
 		if b.hookReconciler.IsFinalizer() {
@@ -153,16 +168,12 @@ func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) 
 		}
 	}
 
-	// Render using the object data and configuration
-	if err := b.objectManager.GetRenderer().Render(ctx, obj); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// Update generation if needed
 	if g := obj.GetGeneration(); g != obj.GetStatusManager().GetObservedGeneration() {
 		b.log.V(1).Info("updating observed generation", "generation", g)
 		obj.GetStatusManager().SetObservedGeneration(g)
 	}
 
-	return b.formFactorReconciler.Reconcile(ctx, obj)
+	// Pass the children candidates to the form factor for the reconcile routine.
+	return b.formFactorReconciler.Reconcile(ctx, obj, candidates)
 }

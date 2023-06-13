@@ -77,6 +77,7 @@ type StatusManager interface {
 	SetAddressURL(string)
 	SetValue(value interface{}, path ...string) error
 	SetAnnotation(key, value string) error
+	Merge(map[string]interface{}) error
 }
 
 type StatusManagerFactory interface {
@@ -100,13 +101,27 @@ type ObjectManager interface {
 type FormFactorReconciler interface {
 	GetStatusConditions() (happy string, all []string)
 	SetupController(name string, c controller.Controller, owner client.Object) error
-	Reconcile(context.Context, Object) (ctrl.Result, error)
+
+	PreRender(context.Context, Object) (map[string]*unstructured.Unstructured, error)
+	Reconcile(context.Context, Object, map[string]*unstructured.Unstructured) (ctrl.Result, error)
+}
+
+type HookError struct {
+	Permanent bool
+	Continue  bool
+	Err       error
+}
+
+func (he *HookError) Error() string {
+	if he.Err == nil {
+		return ""
+	}
+	return he.Err.Error()
 }
 
 type HookReconciler interface {
-	Reconcile(context.Context, Object) error
-	Finalize(context.Context, Object) error
+	PreReconcile(ctx context.Context, object Object, candidates *map[string]*unstructured.Unstructured) *HookError
+	Finalize(ctx context.Context, object Object) *HookError
 	IsPreReconciler() bool
-	IsPostReconciler() bool
 	IsFinalizer() bool
 }

@@ -38,6 +38,7 @@ type builder struct {
 
 func (b *builder) StartNewReconciler(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, reg commonv1alpha1.Registration) (chan error, error) {
 	log := b.mgr.GetLogger()
+	log.V(1).Info("Starting new reconciler for registration", "registration", reg.GetName())
 
 	crdv := basecrd.CRDPrioritizedVersion(crd)
 	if crdv == nil {

@@ -3,20 +3,19 @@
 
 package v1alpha1
 
-import "knative.dev/pkg/apis"
+import (
+	"knative.dev/pkg/apis"
 
-type HookCapability string
-type HookCapabilities []HookCapability
+	hookv1 "github.com/triggermesh/scoby/pkg/apis/hook/v1"
+)
+
+type HookCapabilities []hookv1.Phase
 
 type HookAPIVersion string
 
 const (
+	// Status annotation name for the resolved Hook URL
 	CRDRegistrationAnnotationHookURL = "hookURL"
-
-	HookCapabilityPreReconcile HookCapability = "pre-reconcile"
-	HookCapabilityFinalize     HookCapability = "finalize"
-
-	HookAPIVersionV1 HookAPIVersion = "v1"
 )
 
 type Hook struct {
@@ -66,7 +65,7 @@ type Reference struct {
 
 func (hc HookCapabilities) IsFinalizer() bool {
 	for i := range hc {
-		if hc[i] == HookCapabilityFinalize {
+		if hc[i] == hookv1.PhaseFinalize {
 			return true
 		}
 	}
@@ -76,15 +75,10 @@ func (hc HookCapabilities) IsFinalizer() bool {
 
 func (hc HookCapabilities) IsPreReconciler() bool {
 	for i := range hc {
-		if hc[i] == HookCapabilityPreReconcile {
+		if hc[i] == hookv1.PhasePreReconcile {
 			return true
 		}
 	}
 
-	return false
-}
-
-func (hc HookCapabilities) IsPostReconciler() bool {
-	// not implemented.
 	return false
 }
