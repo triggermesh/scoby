@@ -50,6 +50,9 @@ func New(name string, wkl *commonv1alpha1.Workload, mgr ctrl.Manager) reconciler
 		mgr:    mgr,
 		client: mgr.GetClient(),
 		log:    mgr.GetLogger(),
+		info: &reconciler.FormFactorInfo{
+			Name: "ksvc",
+		},
 	}
 
 	return sr
@@ -63,6 +66,7 @@ type knserviceReconciler struct {
 	mgr    ctrl.Manager
 	client client.Client
 	log    logr.Logger
+	info   *reconciler.FormFactorInfo
 }
 
 var _ reconciler.FormFactorReconciler = (*knserviceReconciler)(nil)
@@ -72,6 +76,10 @@ func (sr *knserviceReconciler) GetStatusConditions() (happy string, all []string
 	all = []string{ConditionTypeKnativeServiceReady}
 
 	return
+}
+
+func (sr *knserviceReconciler) GetInfo() *reconciler.FormFactorInfo {
+	return sr.info
 }
 
 func (sr *knserviceReconciler) SetupController(name string, c controller.Controller, owner client.Object) error {

@@ -1,3 +1,6 @@
+// Copyright 2023 TriggerMesh Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 package v1
 
 import (
@@ -43,11 +46,15 @@ type HookResponseError struct {
 type HookResponse struct {
 	Error *HookResponseError `json:"error,omitempty"`
 
+	// Object that triggered the reconciliation and whose status might
+	// have been modified from the hook.
+	//
+	// An empty object at the hook response means no changes to the
+	// reconciling object.
+	Object *unstructured.Unstructured `json:"object,omitempty"`
+
 	// Children are generated kubernetes children objects that are to
 	// be controlled from the Scoby controller and that might have been
 	// modified from the hook.
 	Children map[string]*unstructured.Unstructured `json:"children,omitempty"`
-
-	// Object status to be merged with the one generated at Scoby.
-	Status map[string]interface{} `json:"status,omitempty"`
 }

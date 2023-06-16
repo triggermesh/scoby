@@ -46,6 +46,9 @@ func New(name string, wkl *commonv1alpha1.Workload, mgr ctrl.Manager) reconciler
 		mgr:    mgr,
 		client: mgr.GetClient(),
 		log:    mgr.GetLogger(),
+		info: &reconciler.FormFactorInfo{
+			Name: "deployment",
+		},
 	}
 
 	if dr.formFactor != nil && dr.formFactor.Service != nil {
@@ -64,6 +67,7 @@ type deploymentReconciler struct {
 	mgr    ctrl.Manager
 	client client.Client
 	log    logr.Logger
+	info   *reconciler.FormFactorInfo
 }
 
 var _ reconciler.FormFactorReconciler = (*deploymentReconciler)(nil)
@@ -79,6 +83,10 @@ func (dr *deploymentReconciler) GetStatusConditions() (happy string, all []strin
 	}
 
 	return
+}
+
+func (dr *deploymentReconciler) GetInfo() *reconciler.FormFactorInfo {
+	return dr.info
 }
 
 func (dr *deploymentReconciler) SetupController(name string, c controller.Controller, owner client.Object) error {

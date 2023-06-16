@@ -5,7 +5,6 @@ package status
 
 import (
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -554,85 +553,5 @@ func (sm *statusManager) setAnnotation(key, value string) error {
 	}
 
 	typedAnnotations[key] = value
-	return nil
-}
-
-// Merge an incoming unstructured into the existing status, taking care of
-func (sm *statusManager) Merge(status map[string]interface{}) error {
-	sm.m.Lock()
-	defer sm.m.Unlock()
-
-	sm.ensureStatusRoot()
-
-	// incoming root element might be present or not.
-	ost, ok := status["status"]
-	if !ok {
-		ost = status
-	}
-
-	st, ok := ost.(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("incoming status cannot be converted into map[string]interface{}: %+v", ost)
-	}
-
-	// Incoming status elements replace existing, but for conditions and annotations.
-	// Conditions will
-
-	for k, v := range st {
-
-		switch k {
-		case "conditions":
-			// iterate each condition and set individually.
-
-			varr, ok := v.([]interface{})
-			if !ok {
-				return fmt.Errorf("incoming status conditions cannot be converted to []interface{}: %+v", v)
-			}
-
-			for _, vitem := range varr {
-				c, ok := vitem.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("incoming status conditions cannot be converted to []interface{}: %+v", vitem)
-				}
-
-				condition := &commonv1alpha1.Condition{}
-
-				condition.Type, ok = c["type"].(string)
-				if !ok {
-					return fmt.Errorf("incoming condition type as string not found: %+v", c["type"])
-				}
-
-				cstatus, ok := c["status"].(string)
-				if !ok {
-					return fmt.Errorf("incoming condition status as string not found: %+v", c["status"])
-				}
-				condition.Status = metav1.ConditionStatus(cstatus)
-
-				condition.Reason, _ = c["reason"].(string)
-				condition.Message, _ = c["message"].(string)
-
-				sm.setCondition(condition)
-			}
-
-		case "annotations":
-			annotations, ok := v.(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("incoming status annotations cannot be converted into map[string]interface{}: %+v", v)
-			}
-
-			for k, v := range annotations {
-				if err := sm.setAnnotation(k, v.(string)); err != nil {
-					return err
-				}
-			}
-
-		default:
-			// overwrite if existing
-			if err := sm.SetValue(v, "status", k); err != nil {
-				return err
-			}
-		}
-	}
-
 	return nil
 }

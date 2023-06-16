@@ -1,3 +1,6 @@
+// Copyright 2023 TriggerMesh Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 package hook
 
 import (
@@ -90,7 +93,7 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 		return &reconciler.HookError{
 			Permanent: true,
 			Continue:  false,
-			Err:       fmt.Errorf("could not execute hook request to %s: %w", hr.url, err),
+			Err:       fmt.Errorf("executing hook request to %s: %w", hr.url, err),
 		}
 	}
 
@@ -146,19 +149,11 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 		*candidates = hres.Children
 	}
 
-	if hres.Status == nil {
+	if hres.Object == nil {
 		return nil
 	}
 
-	sm := obj.GetStatusManager()
-	err = sm.Merge(hres.Status)
-	if err != nil {
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
-			Err:       fmt.Errorf("hook response could not merge reconciled object status: %w", err),
-		}
-	}
+	*uobj = *hres.Object
 
 	return nil
 }
@@ -216,7 +211,7 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 		return &reconciler.HookError{
 			Permanent: true,
 			Continue:  false,
-			Err:       fmt.Errorf("could not execute hook request to %s: %w", hr.url, err),
+			Err:       fmt.Errorf("executing hook request to %s: %w", hr.url, err),
 		}
 	}
 
@@ -268,19 +263,11 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 		return he
 	}
 
-	if hres.Status == nil {
+	if hres.Object == nil {
 		return nil
 	}
 
-	sm := obj.GetStatusManager()
-	err = sm.Merge(hres.Status)
-	if err != nil {
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
-			Err:       fmt.Errorf("hook response could not merge reconciled object status: %w", err),
-		}
-	}
+	*uobj = *hres.Object
 
 	return nil
 }

@@ -77,7 +77,6 @@ type StatusManager interface {
 	SetAddressURL(string)
 	SetValue(value interface{}, path ...string) error
 	SetAnnotation(key, value string) error
-	Merge(map[string]interface{}) error
 }
 
 type StatusManagerFactory interface {
@@ -98,7 +97,12 @@ type ObjectManager interface {
 	GetRenderer() ObjectRenderer
 }
 
+type FormFactorInfo struct {
+	Name string
+}
+
 type FormFactorReconciler interface {
+	GetInfo() *FormFactorInfo
 	GetStatusConditions() (happy string, all []string)
 	SetupController(name string, c controller.Controller, owner client.Object) error
 
