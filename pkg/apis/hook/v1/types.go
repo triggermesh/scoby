@@ -16,8 +16,16 @@ const (
 	PhaseFinalize     Phase = "finalize"
 )
 
+// FormFactorInfo for the configured renderer.
+type FormFactorInfo struct {
+	Name string `json:"name"`
+}
+
 // HookRequest sent to configured hooks.
 type HookRequest struct {
+	// Information about the Scoby configured renderer.
+	FormFactor FormFactorInfo `json:"formFactor"`
+
 	// Reference to the object that is being reconciled.
 	Object unstructured.Unstructured `json:"object"`
 

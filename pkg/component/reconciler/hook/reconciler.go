@@ -29,9 +29,10 @@ type hookReconciler struct {
 	isFinalizer     bool
 
 	log logr.Logger
+	ffi *hookv1.FormFactorInfo
 }
 
-func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.ConditionsFromHook, log logr.Logger) reconciler.HookReconciler {
+func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.ConditionsFromHook, ffi *hookv1.FormFactorInfo, log logr.Logger) reconciler.HookReconciler {
 	hr := &hookReconciler{
 		url: url,
 
@@ -40,6 +41,7 @@ func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.Conditi
 
 		conditions: conditions,
 
+		ffi: ffi,
 		log: log,
 	}
 
@@ -65,9 +67,10 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 	}
 
 	b, err := json.Marshal(&hookv1.HookRequest{
-		Object:   *uobj,
-		Phase:    hookv1.PhasePreReconcile,
-		Children: *candidates,
+		FormFactor: *hr.ffi,
+		Object:     *uobj,
+		Phase:      hookv1.PhasePreReconcile,
+		Children:   *candidates,
 	})
 	if err != nil {
 		return &reconciler.HookError{
@@ -184,8 +187,9 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 	}
 
 	b, err := json.Marshal(&hookv1.HookRequest{
-		Object: *uobj,
-		Phase:  hookv1.PhaseFinalize,
+		FormFactor: *hr.ffi,
+		Object:     *uobj,
+		Phase:      hookv1.PhaseFinalize,
 	})
 	if err != nil {
 		return &reconciler.HookError{

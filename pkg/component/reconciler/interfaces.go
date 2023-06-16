@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
+	hookv1 "github.com/triggermesh/scoby/pkg/apis/hook/v1"
 	"github.com/triggermesh/scoby/pkg/utils/resources"
 )
 
@@ -97,12 +98,8 @@ type ObjectManager interface {
 	GetRenderer() ObjectRenderer
 }
 
-type FormFactorInfo struct {
-	Name string
-}
-
 type FormFactorReconciler interface {
-	GetInfo() *FormFactorInfo
+	GetInfo() *hookv1.FormFactorInfo
 	GetStatusConditions() (happy string, all []string)
 	SetupController(name string, c controller.Controller, owner client.Object) error
 

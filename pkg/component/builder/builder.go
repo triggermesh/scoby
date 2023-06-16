@@ -84,7 +84,7 @@ func (b *builder) StartNewReconciler(ctx context.Context, crd *apiextensionsv1.C
 		}
 
 		log.Info("Configuring hook", "url", *url)
-		hr = hook.New(h, *url, cfh, log)
+		hr = hook.New(h, *url, cfh, ffr.GetInfo(), log)
 	}
 
 	renderer, err := baserenderer.NewRenderer(wkl, b.reslv, b.cmr)

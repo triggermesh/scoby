@@ -28,6 +28,7 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
+	hookv1 "github.com/triggermesh/scoby/pkg/apis/hook/v1"
 	"github.com/triggermesh/scoby/pkg/component/reconciler"
 	"github.com/triggermesh/scoby/pkg/utils/resources"
 	"github.com/triggermesh/scoby/pkg/utils/semantic"
@@ -50,7 +51,7 @@ func New(name string, wkl *commonv1alpha1.Workload, mgr ctrl.Manager) reconciler
 		mgr:    mgr,
 		client: mgr.GetClient(),
 		log:    mgr.GetLogger(),
-		info: &reconciler.FormFactorInfo{
+		info: &hookv1.FormFactorInfo{
 			Name: "ksvc",
 		},
 	}
@@ -66,7 +67,7 @@ type knserviceReconciler struct {
 	mgr    ctrl.Manager
 	client client.Client
 	log    logr.Logger
-	info   *reconciler.FormFactorInfo
+	info   *hookv1.FormFactorInfo
 }
 
 var _ reconciler.FormFactorReconciler = (*knserviceReconciler)(nil)
@@ -78,7 +79,7 @@ func (sr *knserviceReconciler) GetStatusConditions() (happy string, all []string
 	return
 }
 
-func (sr *knserviceReconciler) GetInfo() *reconciler.FormFactorInfo {
+func (sr *knserviceReconciler) GetInfo() *hookv1.FormFactorInfo {
 	return sr.info
 }
 
