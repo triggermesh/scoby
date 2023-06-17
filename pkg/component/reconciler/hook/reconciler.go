@@ -121,12 +121,19 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 
 	hres := &hookv1.HookResponse{}
 	err = json.NewDecoder(res.Body).Decode(hres)
-	if err != nil {
+	switch {
+	case err == io.EOF:
+		// an empty response that does not mean error, but
+		// noop from the hook, just return
+		return nil
+
+	case err != nil:
 		return &reconciler.HookError{
 			Permanent: true,
 			Continue:  false,
 			Err:       fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err),
 		}
+
 	}
 
 	hr.log.V(5).Info("Response received from hook", "response", *res)
@@ -240,7 +247,13 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 
 	hres := &hookv1.HookResponse{}
 	err = json.NewDecoder(res.Body).Decode(hres)
-	if err != nil {
+	switch {
+	case err == io.EOF:
+		// an empty response that does not mean error, but
+		// noop from the hook, just return
+		return nil
+
+	case err != nil:
 		return &reconciler.HookError{
 			Permanent: true,
 			Continue:  false,

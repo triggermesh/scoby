@@ -1,0 +1,63 @@
+# Copyright 2022 TriggerMesh Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scoby-hook-kuard
+  namespace: triggermesh
+  labels:
+    app.kubernetes.io/part-of: triggermesh
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/component: scoby-hook-kuard
+    app.kubernetes.io/name: triggermesh-eventing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scoby-hook-kuard
+  template:
+    metadata:
+      labels:
+        app: scoby-hook-kuard
+        app.kubernetes.io/part-of: triggermesh
+        app.kubernetes.io/version: devel
+        app.kubernetes.io/component: scoby-hook-kuard
+        app.kubernetes.io/name: triggermesh-eventing
+
+    spec:
+
+      # serviceAccountName: scoby-hook-kuard
+      enableServiceLinks: false
+
+      containers:
+      - name: scoby-hook-kuard
+        terminationMessagePolicy: FallbackToLogsOnError
+        image: ko://github.com/triggermesh/scoby/cmd/kuard-hook-sample
+
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [all]
+
+        ports:
+        - name: api
+          containerPort: 8080
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: scoby-hook-kuard
+  namespace: triggermesh
+spec:
+  selector:
+    app.kubernetes.io/component: scoby-hook-kuard
+    app.kubernetes.io/name: triggermesh-eventing
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
