@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonv1alpha1 "github.com/triggermesh/scoby/pkg/apis/common/v1alpha1"
+	hookv1 "github.com/triggermesh/scoby/pkg/apis/hook/v1"
 	"github.com/triggermesh/scoby/pkg/utils/resources"
 )
 
@@ -77,7 +78,6 @@ type StatusManager interface {
 	SetAddressURL(string)
 	SetValue(value interface{}, path ...string) error
 	SetAnnotation(key, value string) error
-	Merge(map[string]interface{}) error
 }
 
 type StatusManagerFactory interface {
@@ -99,6 +99,7 @@ type ObjectManager interface {
 }
 
 type FormFactorReconciler interface {
+	GetInfo() *hookv1.FormFactorInfo
 	GetStatusConditions() (happy string, all []string)
 	SetupController(name string, c controller.Controller, owner client.Object) error
 

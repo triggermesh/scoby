@@ -1,0 +1,34 @@
+apiVersion: scoby.triggermesh.io/v1alpha1
+kind: CRDRegistration
+metadata:
+  name: kuard
+spec:
+  crd: kuards.extensions.triggermesh.io
+  hook:
+    version: v1
+    address:
+      uri: "http://:8080/v1"
+      ref:
+        apiVersion: v1
+        kind: Service
+        name: scoby-hook-kuard
+        namespace: triggermesh
+
+    capabilities:
+    - pre-reconcile
+    - finalize
+
+
+  workload:
+    formFactor:
+      deployment:
+        replicas: 1
+        service:
+          port: 80
+          targetPort: 8080
+    fromImage:
+      repo: gcr.io/kuar-demo/kuard-amd64:blue
+
+    statusConfiguration:
+      conditionsFromHook:
+      - type: HookReportedStatus

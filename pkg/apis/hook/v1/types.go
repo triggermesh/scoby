@@ -1,3 +1,6 @@
+// Copyright 2023 TriggerMesh Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 package v1
 
 import (
@@ -13,8 +16,16 @@ const (
 	PhaseFinalize     Phase = "finalize"
 )
 
+// FormFactorInfo for the configured renderer.
+type FormFactorInfo struct {
+	Name string `json:"name"`
+}
+
 // HookRequest sent to configured hooks.
 type HookRequest struct {
+	// Information about the Scoby configured renderer.
+	FormFactor FormFactorInfo `json:"formFactor"`
+
 	// Reference to the object that is being reconciled.
 	Object unstructured.Unstructured `json:"object"`
 
@@ -43,11 +54,15 @@ type HookResponseError struct {
 type HookResponse struct {
 	Error *HookResponseError `json:"error,omitempty"`
 
+	// Object that triggered the reconciliation and whose status might
+	// have been modified from the hook.
+	//
+	// An empty object at the hook response means no changes to the
+	// reconciling object.
+	Object *unstructured.Unstructured `json:"object,omitempty"`
+
 	// Children are generated kubernetes children objects that are to
 	// be controlled from the Scoby controller and that might have been
 	// modified from the hook.
 	Children map[string]*unstructured.Unstructured `json:"children,omitempty"`
-
-	// Object status to be merged with the one generated at Scoby.
-	Status map[string]interface{} `json:"status,omitempty"`
 }

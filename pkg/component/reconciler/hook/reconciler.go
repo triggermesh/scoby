@@ -1,3 +1,6 @@
+// Copyright 2023 TriggerMesh Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 package hook
 
 import (
@@ -26,9 +29,10 @@ type hookReconciler struct {
 	isFinalizer     bool
 
 	log logr.Logger
+	ffi *hookv1.FormFactorInfo
 }
 
-func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.ConditionsFromHook, log logr.Logger) reconciler.HookReconciler {
+func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.ConditionsFromHook, ffi *hookv1.FormFactorInfo, log logr.Logger) reconciler.HookReconciler {
 	hr := &hookReconciler{
 		url: url,
 
@@ -37,6 +41,7 @@ func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.Conditi
 
 		conditions: conditions,
 
+		ffi: ffi,
 		log: log,
 	}
 
@@ -62,9 +67,10 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 	}
 
 	b, err := json.Marshal(&hookv1.HookRequest{
-		Object:   *uobj,
-		Phase:    hookv1.PhasePreReconcile,
-		Children: *candidates,
+		FormFactor: *hr.ffi,
+		Object:     *uobj,
+		Phase:      hookv1.PhasePreReconcile,
+		Children:   *candidates,
 	})
 	if err != nil {
 		return &reconciler.HookError{
@@ -90,7 +96,7 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 		return &reconciler.HookError{
 			Permanent: true,
 			Continue:  false,
-			Err:       fmt.Errorf("could not execute hook request to %s: %w", hr.url, err),
+			Err:       fmt.Errorf("executing hook request to %s: %w", hr.url, err),
 		}
 	}
 
@@ -115,12 +121,19 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 
 	hres := &hookv1.HookResponse{}
 	err = json.NewDecoder(res.Body).Decode(hres)
-	if err != nil {
+	switch {
+	case err == io.EOF:
+		// an empty response that does not mean error, but
+		// noop from the hook, just return
+		return nil
+
+	case err != nil:
 		return &reconciler.HookError{
 			Permanent: true,
 			Continue:  false,
 			Err:       fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err),
 		}
+
 	}
 
 	hr.log.V(5).Info("Response received from hook", "response", *res)
@@ -146,19 +159,11 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 		*candidates = hres.Children
 	}
 
-	if hres.Status == nil {
+	if hres.Object == nil {
 		return nil
 	}
 
-	sm := obj.GetStatusManager()
-	err = sm.Merge(hres.Status)
-	if err != nil {
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
-			Err:       fmt.Errorf("hook response could not merge reconciled object status: %w", err),
-		}
-	}
+	*uobj = *hres.Object
 
 	return nil
 }
@@ -189,8 +194,9 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 	}
 
 	b, err := json.Marshal(&hookv1.HookRequest{
-		Object: *uobj,
-		Phase:  hookv1.PhaseFinalize,
+		FormFactor: *hr.ffi,
+		Object:     *uobj,
+		Phase:      hookv1.PhaseFinalize,
 	})
 	if err != nil {
 		return &reconciler.HookError{
@@ -216,7 +222,7 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 		return &reconciler.HookError{
 			Permanent: true,
 			Continue:  false,
-			Err:       fmt.Errorf("could not execute hook request to %s: %w", hr.url, err),
+			Err:       fmt.Errorf("executing hook request to %s: %w", hr.url, err),
 		}
 	}
 
@@ -241,7 +247,13 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 
 	hres := &hookv1.HookResponse{}
 	err = json.NewDecoder(res.Body).Decode(hres)
-	if err != nil {
+	switch {
+	case err == io.EOF:
+		// an empty response that does not mean error, but
+		// noop from the hook, just return
+		return nil
+
+	case err != nil:
 		return &reconciler.HookError{
 			Permanent: true,
 			Continue:  false,
@@ -268,19 +280,11 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 		return he
 	}
 
-	if hres.Status == nil {
+	if hres.Object == nil {
 		return nil
 	}
 
-	sm := obj.GetStatusManager()
-	err = sm.Merge(hres.Status)
-	if err != nil {
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
-			Err:       fmt.Errorf("hook response could not merge reconciled object status: %w", err),
-		}
-	}
+	*uobj = *hres.Object
 
 	return nil
 }
