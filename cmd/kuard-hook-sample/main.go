@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"log"
 	"net/http"
 	"time"
@@ -33,7 +34,7 @@ func main() {
 	mux.Handle("/v1/", h)
 	mux.Handle("/v1", h)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, fmt.Sprintf("no resource at path %q", r.URL.String()), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("no resource at path %q", html.EscapeString(r.URL.String())), http.StatusNotFound)
 	})
 
 	srv := http.Server{
