@@ -33,7 +33,7 @@ func main() {
 	mux.Handle("/v1/", h)
 	mux.Handle("/v1", h)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "no resource at path"+r.URL.String(), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("no resource at path %q", r.URL.String()), http.StatusNotFound)
 	})
 
 	srv := http.Server{
@@ -49,7 +49,9 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	srv.Shutdown(ctx)
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // HandlerV1 is an example hooks server.
@@ -141,7 +143,7 @@ func (h *HandlerV1) deploymentPreReconcile(w http.ResponseWriter, r *hookv1.Hook
 
 	r.Children["deployment"] = &unstructured.Unstructured{Object: u}
 
-	if err := h.setHookConditionPreReconcile(w, &r.Object, string(corev1.ConditionTrue), ConditionReasonOK); err != nil {
+	if err := h.setHookStatusPreReconcile(w, &r.Object, string(corev1.ConditionTrue), ConditionReasonOK); err != nil {
 		emsg := fmt.Errorf("error setting object status: %w", err)
 		logError(emsg)
 		http.Error(w, emsg.Error(), http.StatusInternalServerError)
@@ -226,7 +228,7 @@ func (h *HandlerV1) ksvcPreReconcile(w http.ResponseWriter, r *hookv1.HookReques
 
 	r.Children["ksvc"] = &unstructured.Unstructured{Object: u}
 
-	if err := h.setHookConditionPreReconcile(w, &r.Object, string(corev1.ConditionTrue), ConditionReasonOK); err != nil {
+	if err := h.setHookStatusPreReconcile(w, &r.Object, string(corev1.ConditionTrue), ConditionReasonOK); err != nil {
 		emsg := fmt.Errorf("error setting object status: %w", err)
 		logError(emsg)
 		http.Error(w, emsg.Error(), http.StatusInternalServerError)
@@ -252,7 +254,7 @@ func (h *HandlerV1) ksvcFinalize(w http.ResponseWriter, r *hookv1.HookRequest) {
 	// No action, let Scoby  remove children
 }
 
-func (h *HandlerV1) setHookConditionPreReconcile(w http.ResponseWriter, u *unstructured.Unstructured, status, reason string) error {
+func (h *HandlerV1) setHookStatusPreReconcile(w http.ResponseWriter, u *unstructured.Unstructured, status, reason string) error {
 	if conditions, ok, _ := unstructured.NestedSlice(u.Object, "status", "conditions"); ok {
 		var hookCondition map[string]interface{}
 
@@ -285,10 +287,19 @@ func (h *HandlerV1) setHookConditionPreReconcile(w http.ResponseWriter, u *unstr
 		hookCondition["status"] = status
 		hookCondition["reason"] = reason
 
-		unstructured.SetNestedSlice(u.Object, conditions, "status", "conditions")
+		if err := unstructured.SetNestedSlice(u.Object, conditions, "status", "conditions"); err != nil {
+			return err
+		}
 	}
 
-	return nil
+	annotations, ok, _ := unstructured.NestedStringMap(u.Object, "status", "annotations")
+	if !ok {
+		annotations = map[string]string{}
+	}
+
+	annotations["greetings"] = "from hook"
+
+	return unstructured.SetNestedStringMap(u.Object, annotations, "status", "annotations")
 }
 
 func logError(err error) {
