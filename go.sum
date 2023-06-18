@@ -135,6 +135,10 @@ github.com/prometheus/common v0.42.0/go.mod h1:xBwqVerjNdUDjgODMpudtOMwlOwf2SaTr
 github.com/prometheus/procfs v0.9.0 h1:wzCHvIvM5SxWqYvwgVL7yJY8Lz3PKn49KQtpgMYJfhI=
 github.com/prometheus/procfs v0.9.0/go.mod h1:+pB4zwohETzFnmlpe6yd2lSc+0/46IYZRB/chUwxUZY=
 github.com/prometheus/statsd_exporter v0.21.0 h1:hA05Q5RFeIjgwKIYEdFd59xu5Wwaznf33yKI+pyX6T8=
+github.com/rickb777/date v1.20.1 h1:7MzSOc42Hbr5UXiQOihAAXoYDoeyzr0Hwvt+hCjBDV4=
+github.com/rickb777/date v1.20.1/go.mod h1:9MqjVxT6a/AQTA4nxj9E6G3ksQiMESTn9/9kfE+CvwU=
+github.com/rickb777/plural v1.4.1 h1:5MMLcbIaapLFmvDGRT5iPk8877hpTPt8Y9cdSKRw9sU=
+github.com/rickb777/plural v1.4.1/go.mod h1:kdmXUpmKBJTS0FtG/TFumd//VBWsNTD7zOw7x4umxNw=
 github.com/rogpeppe/go-internal v1.10.0 h1:TMyTOH3F/DB16zRVcYyreMH6GnZZrwQVAoYjRBZyWFQ=
 github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=
 github.com/spf13/pflag v1.0.5/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=

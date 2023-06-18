@@ -11,8 +11,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/rickb777/date/period"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -21,8 +23,11 @@ import (
 	"github.com/triggermesh/scoby/pkg/component/reconciler"
 )
 
+const defaultTimeout = time.Second * 15
+
 type hookReconciler struct {
 	url        string
+	timeout    time.Duration
 	conditions []commonv1alpha1.ConditionsFromHook
 
 	isPreReconciler bool
@@ -34,7 +39,8 @@ type hookReconciler struct {
 
 func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.ConditionsFromHook, ffi *hookv1.FormFactorInfo, log logr.Logger) reconciler.HookReconciler {
 	hr := &hookReconciler{
-		url: url,
+		url:     url,
+		timeout: defaultTimeout,
 
 		isPreReconciler: h.Capabilities.IsPreReconciler(),
 		isFinalizer:     h.Capabilities.IsFinalizer(),
@@ -43,6 +49,15 @@ func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.Conditi
 
 		ffi: ffi,
 		log: log,
+	}
+
+	if h.Timeout != nil {
+		p, err := period.Parse(*h.Timeout)
+		if err != nil {
+			log.Error(err, "hook timeout is not an ISO 8601 duration", "timeout", h.Timeout)
+		} else {
+			hr.timeout = p.DurationApprox()
+		}
 	}
 
 	return hr
@@ -90,7 +105,10 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 	}
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: hr.timeout,
+	}
+
 	res, err := client.Do(req)
 	if err != nil {
 		return &reconciler.HookError{
@@ -216,7 +234,10 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 	}
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: hr.timeout,
+	}
+
 	res, err := client.Do(req)
 	if err != nil {
 		return &reconciler.HookError{
