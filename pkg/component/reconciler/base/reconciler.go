@@ -122,8 +122,8 @@ func (b *base) manageDeletion(ctx context.Context, obj reconciler.Object) (ctrl.
 	// then remove the finalizer attribute at the object.
 
 	if err := b.hookReconciler.Finalize(ctx, obj); err != nil {
-		if !err.Continue {
-			return ctrl.Result{Requeue: !err.Permanent}, err
+		if !err.IsContinue() {
+			return ctrl.Result{Requeue: !err.IsPermanent()}, err
 		}
 	}
 
@@ -150,8 +150,8 @@ func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) 
 	if b.hookReconciler != nil {
 		if b.hookReconciler.IsPreReconciler() {
 			if err := b.hookReconciler.PreReconcile(ctx, obj, &candidates); err != nil {
-				if !err.Continue {
-					return ctrl.Result{Requeue: !err.Permanent}, fmt.Errorf("reconciling hook: %w", err)
+				if !err.IsContinue() {
+					return ctrl.Result{Requeue: !err.IsPermanent()}, fmt.Errorf("reconciling hook: %w", err)
 				}
 			}
 		}

@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,6 +23,13 @@ import (
 )
 
 const defaultTimeout = time.Second * 15
+
+var (
+	_true    = true
+	_false   = false
+	ptrTrue  = &_true
+	ptrFalse = &_false
+)
 
 type hookReconciler struct {
 	url        string
@@ -63,20 +69,18 @@ func New(h *commonv1alpha1.Hook, url string, conditions []commonv1alpha1.Conditi
 	return hr
 }
 
-func (hr *hookReconciler) PreReconcile(ctx context.Context, obj reconciler.Object, candidates *map[string]*unstructured.Unstructured) *reconciler.HookError {
+func (hr *hookReconciler) PreReconcile(ctx context.Context, obj reconciler.Object, candidates *map[string]*unstructured.Unstructured) *hookv1.HookResponseError {
 	hr.log.V(1).Info("Pre-reconciling at hook", "obj", obj)
 
-	err := hr.preReconcileHTTPRequest(ctx, obj, candidates)
-
-	return err
+	return hr.preReconcileHTTPRequest(ctx, obj, candidates)
 }
 
-func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj reconciler.Object, candidates *map[string]*unstructured.Unstructured) *reconciler.HookError {
+func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj reconciler.Object, candidates *map[string]*unstructured.Unstructured) *hookv1.HookResponseError {
 	uobj, ok := obj.AsKubeObject().(*unstructured.Unstructured)
 	if !ok {
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
+		return &hookv1.HookResponseError{
+			Permanent: ptrTrue,
+			Continue:  ptrFalse,
 			Err:       fmt.Errorf("could not parse object into unstructured: %s", obj.GetName()),
 		}
 	}
@@ -88,18 +92,18 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 		Children:   *candidates,
 	})
 	if err != nil {
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
+		return &hookv1.HookResponseError{
+			Permanent: ptrTrue,
+			Continue:  ptrFalse,
 			Err:       fmt.Errorf("could not marshal hook request: %w", err),
 		}
 	}
 
 	req, err := http.NewRequest("POST", hr.url, bytes.NewBuffer(b))
 	if err != nil {
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
+		return &hookv1.HookResponseError{
+			Permanent: ptrTrue,
+			Continue:  ptrFalse,
 			Err:       fmt.Errorf("could create hook request: %w", err),
 		}
 	}
@@ -111,9 +115,9 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 
 	res, err := client.Do(req)
 	if err != nil {
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
+		return &hookv1.HookResponseError{
+			Permanent: ptrTrue,
+			Continue:  ptrFalse,
 			Err:       fmt.Errorf("executing hook request to %s: %w", hr.url, err),
 		}
 	}
@@ -123,18 +127,29 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		// Try to read any error message
 		b, err := io.ReadAll(res.Body)
-		reserr := ""
 		if err != nil {
-			reserr = "(could not read error response from hook)"
-		} else {
-			reserr = string(b)
+			return &hookv1.HookResponseError{
+				Permanent: ptrFalse,
+				Continue:  ptrFalse,
+				Err:       fmt.Errorf("hook response from %s returning %d could not be read: %w", hr.url, res.StatusCode, err),
+			}
 		}
-		return &reconciler.HookError{
-			// Do not mark as permanent to retry the hook
-			Permanent: false,
-			Continue:  false,
-			Err:       fmt.Errorf("hook request at %s returned %d: %s", hr.url, res.StatusCode, reserr),
+
+		// Try to convert to an structured error.
+		he := &hookv1.HookResponseError{}
+		err = json.Unmarshal(b, he)
+
+		// If the response does not contain an structured error treat it as a string.
+		if err != nil {
+			return &hookv1.HookResponseError{
+				// Do not mark as permanent to retry the hook
+				Permanent: ptrFalse,
+				Continue:  ptrFalse,
+				Err:       fmt.Errorf("hook request at %s returned %d: %s", hr.url, res.StatusCode, string(b)),
+			}
 		}
+
+		return he
 	}
 
 	hres := &hookv1.HookResponse{}
@@ -146,32 +161,14 @@ func (hr *hookReconciler) preReconcileHTTPRequest(ctx context.Context, obj recon
 		return nil
 
 	case err != nil:
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
+		return &hookv1.HookResponseError{
+			Permanent: ptrTrue,
+			Continue:  ptrFalse,
 			Err:       fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err),
 		}
-
 	}
 
 	hr.log.V(5).Info("Response received from hook", "response", *res)
-
-	if hres.Error != nil {
-		he := &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
-			Err:       errors.New(hres.Error.Message),
-		}
-
-		if hres.Error.Permanent != nil {
-			he.Permanent = *hres.Error.Permanent
-		}
-		if hres.Error.Continue != nil {
-			he.Continue = *hres.Error.Continue
-		}
-
-		return he
-	}
 
 	if hres.Children != nil && len(hres.Children) != 0 {
 		*candidates = hres.Children
@@ -194,19 +191,19 @@ func (hr *hookReconciler) IsFinalizer() bool {
 	return hr.isFinalizer
 }
 
-func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) *reconciler.HookError {
+func (hr *hookReconciler) Finalize(ctx context.Context, obj reconciler.Object) *hookv1.HookResponseError {
 	hr.log.V(1).Info("Finalizing at hook", "obj", obj)
 
 	err := hr.finalizerHTTPRequest(ctx, obj)
 	return err
 }
 
-func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconciler.Object) *reconciler.HookError {
+func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconciler.Object) *hookv1.HookResponseError {
 	uobj, ok := obj.AsKubeObject().(*unstructured.Unstructured)
 	if !ok {
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
+		return &hookv1.HookResponseError{
+			Permanent: ptrTrue,
+			Continue:  ptrFalse,
 			Err:       fmt.Errorf("could not parse object into unstructured: %s", obj.GetName()),
 		}
 	}
@@ -217,19 +214,19 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 		Phase:      hookv1.PhaseFinalize,
 	})
 	if err != nil {
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
+		return &hookv1.HookResponseError{
+			Permanent: ptrTrue,
+			Continue:  ptrFalse,
 			Err:       fmt.Errorf("could not marshal hook request: %w", err),
 		}
 	}
 
 	req, err := http.NewRequest("POST", hr.url, bytes.NewBuffer(b))
 	if err != nil {
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
-			Err:       fmt.Errorf("could create hook request: %w", err),
+		return &hookv1.HookResponseError{
+			Permanent: ptrTrue,
+			Continue:  ptrFalse,
+			Err:       fmt.Errorf("could not create hook request: %w", err),
 		}
 	}
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
@@ -240,9 +237,9 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 
 	res, err := client.Do(req)
 	if err != nil {
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
+		return &hookv1.HookResponseError{
+			Permanent: ptrTrue,
+			Continue:  ptrFalse,
 			Err:       fmt.Errorf("executing hook request to %s: %w", hr.url, err),
 		}
 	}
@@ -252,18 +249,29 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		// Try to read any error message
 		b, err := io.ReadAll(res.Body)
-		reserr := ""
 		if err != nil {
-			reserr = "(could not read error response from hook)"
-		} else {
-			reserr = string(b)
+			return &hookv1.HookResponseError{
+				Permanent: ptrFalse,
+				Continue:  ptrFalse,
+				Err:       fmt.Errorf("hook response from %s returning %d could not be read: %w", hr.url, res.StatusCode, err),
+			}
 		}
-		return &reconciler.HookError{
-			// Do not mark as permanent to retry the hook
-			Permanent: false,
-			Continue:  false,
-			Err:       fmt.Errorf("hook request at %s returned %d: %s", hr.url, res.StatusCode, reserr),
+
+		// Try to convert to an structured error.
+		he := &hookv1.HookResponseError{}
+		err = json.Unmarshal(b, he)
+
+		// If the response does not contain an structured error treat it as a string.
+		if err != nil {
+			return &hookv1.HookResponseError{
+				// Do not mark as permanent to retry the hook
+				Permanent: ptrFalse,
+				Continue:  ptrFalse,
+				Err:       fmt.Errorf("hook request at %s returned %d: %s", hr.url, res.StatusCode, string(b)),
+			}
 		}
+
+		return he
 	}
 
 	hres := &hookv1.HookResponse{}
@@ -275,31 +283,14 @@ func (hr *hookReconciler) finalizerHTTPRequest(ctx context.Context, obj reconcil
 		return nil
 
 	case err != nil:
-		return &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
+		return &hookv1.HookResponseError{
+			Permanent: ptrTrue,
+			Continue:  ptrFalse,
 			Err:       fmt.Errorf("hook response from %s could not be parsed: %w", hr.url, err),
 		}
 	}
 
 	hr.log.V(5).Info("Response received from hook", "response", *res)
-
-	if hres.Error != nil {
-		he := &reconciler.HookError{
-			Permanent: true,
-			Continue:  false,
-			Err:       errors.New(hres.Error.Message),
-		}
-
-		if hres.Error.Permanent != nil {
-			he.Permanent = *hres.Error.Permanent
-		}
-		if hres.Error.Continue != nil {
-			he.Continue = *hres.Error.Continue
-		}
-
-		return he
-	}
 
 	if hres.Object == nil {
 		return nil

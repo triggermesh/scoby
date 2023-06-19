@@ -107,22 +107,9 @@ type FormFactorReconciler interface {
 	Reconcile(context.Context, Object, map[string]*unstructured.Unstructured) (ctrl.Result, error)
 }
 
-type HookError struct {
-	Permanent bool
-	Continue  bool
-	Err       error
-}
-
-func (he *HookError) Error() string {
-	if he.Err == nil {
-		return ""
-	}
-	return he.Err.Error()
-}
-
 type HookReconciler interface {
-	PreReconcile(ctx context.Context, object Object, candidates *map[string]*unstructured.Unstructured) *HookError
-	Finalize(ctx context.Context, object Object) *HookError
+	PreReconcile(ctx context.Context, object Object, candidates *map[string]*unstructured.Unstructured) *hookv1.HookResponseError
+	Finalize(ctx context.Context, object Object) *hookv1.HookResponseError
 	IsPreReconciler() bool
 	IsFinalizer() bool
 }

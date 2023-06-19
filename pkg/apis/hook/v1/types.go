@@ -48,12 +48,42 @@ type HookResponseError struct {
 	// When true, informs Scoby that the reconciliation process
 	// should not stop after this error.
 	Continue *bool `json:"continue,omitempty"`
+
+	// Wrapper for internal error at Scoby, do not use it when
+	// implementing hooks since it will not be serialized.
+	Err error `json:"-"`
+}
+
+func (hre *HookResponseError) Error() string {
+	if hre.Err != nil {
+		return hre.Err.Error()
+	}
+	return hre.Message
+}
+
+func (hre *HookResponseError) IsContinue() bool {
+	if hre.Continue == nil {
+		return false
+	}
+	return *hre.Continue
+}
+
+func (hre *HookResponseError) IsPermanent() bool {
+	if hre.Permanent == nil {
+		return false
+	}
+	return *hre.Permanent
+}
+
+func (hre *HookResponseError) Unwrap() error {
+	if hre == nil {
+		return nil
+	}
+	return hre.Err
 }
 
 // HookResponse is the expected reconcile reply from configured hooks.
 type HookResponse struct {
-	Error *HookResponseError `json:"error,omitempty"`
-
 	// Object that triggered the reconciliation and whose status might
 	// have been modified from the hook.
 	//
