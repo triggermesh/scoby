@@ -309,7 +309,7 @@ Scoby registration will need to be informed the address of the hook. We will use
 To deploy a pre-compiled image launc this command.
 
 ```console
-ko apply -f docs/samples/07.kuard-hook/00.hook.yaml
+kubectl apply -f https://raw.githubusercontent.com/triggermesh/scoby/main/docs/samples/07.kuard-hook/00.hook.yaml
 ```
 
 To deploy from code using [ko](https://github.com/ko-build/ko), checkout this repo and run:
@@ -495,7 +495,6 @@ On a different shell delete the instance.
 
 ```console
 kubectl delete kuard my-kuard-extension
-kuard.extensions.triggermesh.io "my-kuard-extension" deleted
 ```
 
 The hook might randomly cancel finalization. You can try to create and delete kuard instances a number of times and see how the hook logs its behavior. At the logs below you can see that it canceled the first finalization cycle and allowed the second.
@@ -515,6 +514,6 @@ Remove the registered CRD and ClusterRole.
 ```console
 kubectl delete clusterrole crd-registrations-scoby-kuard
 kubectl delete crd kuards.extensions.triggermesh.io
-kubectl delete deployment scoby-hook-kuard
-kubectl delete service scoby-hook-kuard
+kubectl delete deployment -n triggermesh scoby-hook-kuard
+kubectl delete service -n triggermesh scoby-hook-kuard
 ```
