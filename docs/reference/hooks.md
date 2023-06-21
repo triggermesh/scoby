@@ -4,194 +4,111 @@ Scoby reconciliation process is limited to the form factor and environment varia
 
 For cases where further control is needed hooks can be used at reconciliation cycles. Hooks are user provided services that are called at each reconciliation cycle, and whose reply can shape the produced workload and the object's status.
 
+:warning: Scoby Hooks are experimental, and although we use them to create TriggerMesh components and will try to keep backsward compatibility and a reliable versioning policy, it is in early stages of development and might change in the near future.
+
 ## Registering the Hook
 
-A Hook is defined within a registration, and points to either an URI or a reference to an addressable object or a service. When a reconciliation cycle occurs Scoby identifies if the objject is being deleted or not, and sends a reconciliation request to the Hook address that includes:
-
-- a reference to the object (namespace, name, apiVersion, kind)
-- hook's capabilities, that is, what operations it supports
-
-To register a hook, use the `spec.hook` element in the registration.
+A Hook is defined within a registration, and points to either an URI or a reference to an addressable object or a service. Registrations that include hooks might contain these `spec` fields:
 
 ```yaml
-apiVersion: scoby.triggermesh.io/v1alpha1
-kind: CRDRegistration
-metadata:
-  name: kuard
 spec:
-  crd: kuards.extensions.triggermesh.io
   hook:
     # Hook API implemented version.
     version: 1
 
     address:
-      # URI
-      uri: http://my-hook-service
-      # Object reference
-      #
-      # When informing the object and URI at the same time, URI will provide
-      # scheme, path and port information while object will be used to identify
-      # the host.
+      # URI/Object reference
+      uri: <HOOK URI>
       ref:
-        apiVersion: v1
-        kind: Service
-        name: my-service
+        apiVersion: <HOOK OBJECT API VERSION>
+        kind: <HOOK OBJECT KIND>
+        name: <HOOK OBJECT NAME>
 
-    # ISO 8601 duration
-    timeout: PT10S
+    # Optional HTTP timeout
+    timeout: <ISO 8601 DURATION>
 
-    # Capabilities that the hook implement.
+    # Array of Capabilities that the hook implement.
     #
-    # "pre-reconcile" is called before Scoby executes the generated object rendering from the reconiler.
-    # "post-reconcile" (Not implemented) is called at reconciliation after Scoby has rendered.
+    # "pre-reconcile" is called before Scoby executes the generated object rendering from the reconCiler.
     # "finalization" is called when an object has been deleted.
     capabilities:
-    - pre-reconcile
-    - post-reconcile
-    - finalize
-
-  workload:
-    formFactor:
-      deployment:
-        replicas: 1
-        service:
-          port: 80
-          targetPort: 8080
-    fromImage:
-      repo: gcr.io/kuar-demo/kuard-amd64:blue
-
-    parameterConfiguration:
-      addEnvsFromHook:
-      # All environment variables received as a response will be used
-      # as workload env vars.
-      - '*'
-
-    statusConfiguration:
-      # Look for this condition at response from webhook
-      conditionsFromHook:
-      - type: KuardReady
+    - <HOOK PHASE>
 ```
 
-The Hook is called at each reconciliation.
+- `spec.hook.version` is the Hooks API version that the configured endpoint implements. Must be set to `v1`.
+- `spec.hook.address` contains sub elements `uri` and `ref`. When `ref` is informed it should contain an addressable object or a kubernetes service, Scoby will resolve it to an URL and will use it as the hook endpoint. When `uri` is informed it should contain the hook endpoint. If `ref` and `uri` are informed, the kubernetes addressable will be resolved and combined with the scheme, port and path of the `uri`.
+- `timeout` is the ISO 8601 duration timeout that the Scoby HTTP client will set when requesting the hook endpoint.
+- `capabilities` is an array of the hook implemented capabilities, possible values are `pre-reconcile`, that will be called before Scoby updates any kubernetes object, and `finalize` which would be called before deleting a controlled object.
 
-## Hook API
+Upon configured capabilities the hook endpoint will receive requests according to the Hooks API.
 
-Hooks use JSON payloads at both request and response.
+## Hooks API v1
 
-Request contains the object reference and phase, which can be `pre-reconcile`, `post-reconcile` or `finalize`.
+At this moment there is only one version of the Hooks API, which must be set at the registration as `v1`. The API supports 2 phases/capabilities, `pre-reconcile` and `finalize`, both using JSON payloads.
 
-### Phase: pre-reconcile
+### Request and Response
 
-`pre-reconcile` phase request includes a reference to the object that is being reconciled.
+Request and response for both supported phases share the same JSON schema.
+
+A request contains these elements:
 
 ```json
 {
-    "object": {
-        "apiVersion": "v1alpha1",
-        "kind": "Kuard",
-        "namespace": "my-namespace",
-        "name": "my-kuard"
+    "formFactor": "<EITHER deployment OR ksvc>",
+    "phase": "<EITHER pre-reconcile OR finalize>",
+    "object": "<JSON REPRESENTATION OF RECONCILED OBJECT>",
+    "children": {
+      "OBJECT1": "<JSON REPRESENTATION OF DESIRED OBJECT>",
+      "OBJECT2": "<JSON REPRESENTATION OF DESIRED OBJECT>"
+    }
+}
+```
+
+- `formFactor` identifies the form factor configured at registration. Can be `deployment` or `ksvc`.
+- `phase` will be set to `pre-reconcile`.
+- `object` is the reconciled object formatted as JSON (including status).
+- `children` is the map of the desired kubernetes objects that the form factor generates.
+
+Responses for successful hook scenarios should adhere to this schema:
+
+```json
+{
+    "object": "<JSON REPRESENTATION OF RECONCILED OBJECT>",
+    "children": {
+      "OBJECT1": "<JSON REPRESENTATION OF DESIRED OBJECT>",
+      "OBJECT2": "<JSON REPRESENTATION OF DESIRED OBJECT>"
     },
-    "phase": "pre-reconcile"
 }
 ```
 
-The response from the hook might include information about:
+- `object` is the modified reconciled object formatted as JSON (including status).
+- `children` is the map of the modified desired kubernetes objects that the form factor generates.
 
-- `error`: to be filled if a processing error occurs. `permanent` subfield might be added to specify if the error should trigger a new reconciliation. `halt` is used to indicate if the reconciliation logic should stop after this error.
+Both elements could be ommited, in which case Scoby will understand that processing can proceed with no changes on kubernetes objects.
+
+Responses for error hook scenarios should return a non 2xx response along with this JSON body:
 
 ```json
 {
-  "error": {
-    "message": "some error",
-    "permantent": "true|false",
-    "halt": "true|false"
-  },
-  "patches": [
-    {"main":"object"},
-    {"service":"account"}
-  ]
+    "message": <ERROR MESSAGE>,
+    "permanent": <SHOULD THE ERROR BE RETRIED>,
+    "continue": <SHOULD RECONCILE CONTINUE AFTER THIS ERROR>
 }
 ```
 
-### Phase: post-reconcile
+- `message` is the error message from the hook.
+- `permanent` is an optional boolean value that indicates if the reconciliation should be re-queued. Default value is false.
+- `continue` is an optional boolean value that indicates if the current reconciliation cycle should continue. Default value is false.
 
-`post-reconcile` phase request includes a reference to the object that is being reconciled plus a list of the rendered objects that Scoby produces.
+### Pre-reconcile Phase
 
-Note: `post-reconcile`  IS NOT IMPLEMENTED YET.
+At the pre-reconcile phase the hook can implement their own reconciliation logic based on the received object and desired children. If the incoming object needs to be modified, the hook implementation will need to modify the incoming object and return it at the response.
+Same goes with the children object, that can be modified and sent back with the response.
 
-```json
-{
-    "object": {
-        "apiVersion": "v1alpha1",
-        "kind": "Kuard",
-        "namespace": "my-namespace",
-        "name": "my-kuard"
-    },
-    "rendered": [...],
-    "phase": "post-reconcile"
-}
-```
+- The `object` at the response will only apply changes to the `.status` element.
+- The `children` elements will be applied as is, make sure that the hook returns valid objects.
+- Not existing or empty `object`/`children` elements will be interpreted as no changes needed from Scoby.
 
-### Reconcile response
+### Finalize phase
 
-The response from the reconcile hook might include information about:
-
-- `error`: to be filled if a processing error occurs. `permanent` subfield might be added to specify if the error should trigger a new reconciliation. `continue` is used to indicate if the reconciliation logic should continue after this error.
-- `workload`: contains a `podSpec` and `serviceAccount` object that will be merged with those generated at Scoby.
-- `status`: constains `conditions` and `annotations` that can be added from the hook to the reconciled object.
-
-```json
-{
-  "error": {
-    "message": "some error",
-    "permantent": "true|false",
-    "continue": "true|false"
-  },
-  "workload ": {
-    "podSpec": {...},
-    "serviceAccount": {...}
-  },
-  "status": {
-
-  }
-}
-```
-
-- A hook reconciliation that succeeds won't return an error.
-- If the hook is responsible for a status condition, it must be present in every response.
-- Any extra status reported from the hook should be informed in the `status.annotation` map.
-- An empty response is valid in the case that no error occurs, the generated workload does not need to be added any element, and the hook does not take care of any status condition.
-
-### Phase: finalize
-
-`finalize` phase request includes a reference to the object that is being reconciled.
-
-```json
-{
-    "object": {
-        "apiVersion": "v1alpha1",
-        "kind": "Kuard",
-        "namespace": "my-namespace",
-        "name": "my-kuard"
-    },
-    "phase": "finalize"
-}
-```
-
-### Finalize response
-
-The response from the finalize hook call might include the same information as the reconcile response but the workload.
-
-```json
-{
-  "error": {
-    "message": "some error",
-    "permantent": "true|false",
-    "continue": "true|false"
-  },
-  "status": {
-
-  }
-}
-```
+When the finalize capatibiliy is declared at the registration, the object will be set a finalizer and on deletion, the finalizer and Scoby created resources will only be removed when the hook's finalize call is successful. There is no use at the finalize phase of the response's `object` and `children` objects.

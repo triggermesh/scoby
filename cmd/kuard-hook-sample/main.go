@@ -10,11 +10,13 @@ import (
 	"fmt"
 	"html"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -28,7 +30,10 @@ const (
 )
 
 func main() {
-	h := &HandlerV1{}
+	h := &HandlerV1{
+		// initialize random generator for the finalizer.
+		rnd: rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/v1/", h)
@@ -57,6 +62,7 @@ func main() {
 
 // HandlerV1 is an example hooks server.
 type HandlerV1 struct {
+	rnd *rand.Rand
 }
 
 func (h *HandlerV1) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -99,6 +105,8 @@ func (h *HandlerV1) ServeDeploymentHook(w http.ResponseWriter, r *hookv1.HookReq
 }
 
 func (h *HandlerV1) deploymentPreReconcile(w http.ResponseWriter, r *hookv1.HookRequest) {
+	log.Printf("pre-reconcile deployment")
+
 	// deployment form factor creates a "deployment" children entry
 	ch, ok := r.Children["deployment"]
 	if !ok {
@@ -127,9 +135,19 @@ func (h *HandlerV1) deploymentPreReconcile(w http.ResponseWriter, r *hookv1.Hook
 
 	cs[0].Env = append(cs[0].Env,
 		corev1.EnvVar{
-			Name:  "FROM_HOOK",
-			Value: "value set from hook",
+			Name:  "FROM_HOOK_VAR",
+			Value: "this value is set from the hook",
 		})
+
+	cs[0].Resources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
+			corev1.ResourceMemory: *resource.NewQuantity(1024*1024*100, resource.BinarySI),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU: *resource.NewMilliQuantity(250, resource.DecimalSI),
+		},
+	}
 
 	// Write the new object back to the children element and use it
 	// at the hook's reply.
@@ -167,7 +185,9 @@ func (h *HandlerV1) deploymentPreReconcile(w http.ResponseWriter, r *hookv1.Hook
 }
 
 func (h *HandlerV1) deploymentFinalize(w http.ResponseWriter, r *hookv1.HookRequest) {
-	// No action, let Scoby remove children
+	log.Printf("finalize deployment")
+
+	h.randomFinalize(w)
 }
 
 func (h *HandlerV1) ServeKsvcHook(w http.ResponseWriter, r *hookv1.HookRequest) {
@@ -184,6 +204,8 @@ func (h *HandlerV1) ServeKsvcHook(w http.ResponseWriter, r *hookv1.HookRequest) 
 }
 
 func (h *HandlerV1) ksvcPreReconcile(w http.ResponseWriter, r *hookv1.HookRequest) {
+	log.Printf("pre-reconcile ksvc")
+
 	// knative service form factor creates a "ksvc" children entry
 	ch, ok := r.Children["ksvc"]
 	if !ok {
@@ -215,6 +237,16 @@ func (h *HandlerV1) ksvcPreReconcile(w http.ResponseWriter, r *hookv1.HookReques
 			Name:  "FROM_HOOK",
 			Value: "value set from hook",
 		})
+
+	cs[0].Resources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
+			corev1.ResourceMemory: *resource.NewQuantity(1024*1024*100, resource.BinarySI),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU: *resource.NewMilliQuantity(250, resource.DecimalSI),
+		},
+	}
 
 	// Write the new object back to the children element and use it
 	// at the hook's reply.
@@ -252,7 +284,9 @@ func (h *HandlerV1) ksvcPreReconcile(w http.ResponseWriter, r *hookv1.HookReques
 }
 
 func (h *HandlerV1) ksvcFinalize(w http.ResponseWriter, r *hookv1.HookRequest) {
-	// No action, let Scoby  remove children
+	log.Printf("finalize ksvc")
+
+	h.randomFinalize(w)
 }
 
 func (h *HandlerV1) setHookStatusPreReconcile(w http.ResponseWriter, u *unstructured.Unstructured, status, reason string) error {
@@ -301,6 +335,30 @@ func (h *HandlerV1) setHookStatusPreReconcile(w http.ResponseWriter, u *unstruct
 	annotations["greetings"] = "from hook"
 
 	return unstructured.SetNestedStringMap(u.Object, annotations, "status", "annotations")
+}
+
+func (h *HandlerV1) randomFinalize(w http.ResponseWriter) {
+	// If 0 cancel  finalization, if 1 let it happen
+	if h.rnd.Intn(2) == 0 {
+		log.Printf("canceling finalization ...")
+
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+
+		_false := false
+		herr := &hookv1.HookResponseError{
+			Message:   "finalization denied from hook",
+			Permanent: &_false,
+		}
+
+		if err := json.NewEncoder(w).Encode(herr); err != nil {
+			emsg := fmt.Errorf("error encoding response: %w", err)
+			logError(emsg)
+			http.Error(w, emsg.Error(), http.StatusInternalServerError)
+		}
+	} else {
+		log.Printf("hook says yes to finalization")
+	}
 }
 
 func logError(err error) {
