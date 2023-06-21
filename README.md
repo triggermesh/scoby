@@ -41,10 +41,11 @@ For other installation options see [install](docs/install.md)
 - [Primer: learn Scoby](docs/primer.md).
 - [Tutorial: get the most out of Scoby](docs/tutorial.md).
 - [Examples: migrating TriggerMesh controllers](docs/triggermesh/README.md)
+- [Tutorial: Scoby Hooks](docs/hooks-tutorial.md)
 - Reference:
   - [Registration](docs/reference/registration.md).
   - [Status](docs/reference/status.md).
-  - [Hooks](docs/reference/hooks.md) (:warning: preview :warning:)
+  - [Hooks](docs/reference/hooks.md) (:warning: experimental :warning:)
 
 ## Contributing
 

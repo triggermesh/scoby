@@ -45,6 +45,231 @@ Our web server will be listening at port 8080 and path `v1`. You are free to cho
 
 You can see that paths that are not `v1` return a `NotFound` error. It is important that error path return an error code to let Scoby know that the reconciliation did not succeed.
 
+All `v1` API requests are JSON `HookRequests`, inside it we can find the phase the request belongs to and the form factor information.
+
+Form factor information might be important if you want to perform customization on the rendered object. Deployments and knative services have different structures and properties, and when using the deployment form factor it is possible to also render a kubernetes service.
+
+In our handler we first decode the incoming request into a `HookRequest` and redirect to the supported `deployment` and `ksvc` handlers. You only need to implement the form factors that you expect to use.
+
+```go
+func (h *HandlerV1) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    hreq := &hookv1.HookRequest{}
+    if err := json.NewDecoder(r.Body).Decode(hreq); err != nil {
+        emsg := fmt.Errorf("cannot decode request into HookRequest: %v", err)
+        logError(emsg)
+        http.Error(w, emsg.Error(), http.StatusBadRequest)
+        return
+    }
+
+
+    switch hreq.FormFactor.Name {
+    case "deployment":
+        h.ServeDeploymentHook(w, hreq)
+
+    case "ksvc":
+        h.ServeKsvcHook(w, hreq)
+
+    default:
+        emsg := fmt.Errorf("request for formfactor %q not supported", hreq.FormFactor.Name)
+        logError(emsg)
+        http.Error(w, emsg.Error(), http.StatusBadRequest)
+    }
+}
+```
+
+Focusing on the deployment form factor, there are 2 handlers targeting each phase.
+
+```go
+func (h *HandlerV1) ServeDeploymentHook(w http.ResponseWriter, r *hookv1.HookRequest) {
+    switch r.Phase {
+    case hookv1.PhasePreReconcile:
+        h.deploymentPreReconcile(w, r)
+
+    case hookv1.PhaseFinalize:
+        h.deploymentFinalize(w, r)
+
+    default:
+        emsg := fmt.Errorf("request for phase %q not supported", r.Phase)
+        logError(emsg)
+        http.Error(w, emsg.Error(), http.StatusBadRequest)
+    }
+}
+```
+
+### Handling Children Objects
+
+At the `pre-reconcile` handler you can navigate the expected children and modify those that you would like to customize. In `go` the simplest way to code this is by converting the incoming children's map into the Kubernetes object.
+
+```go
+    ch, ok := r.Children["deployment"]
+    if !ok {
+        emsg := errors.New("children deployment element not found")
+        logError(emsg)
+        http.Error(w, emsg.Error(), http.StatusBadRequest)
+        return
+    }
+
+    d := &appsv1.Deployment{}
+    if err := runtime.DefaultUnstructuredConverter.FromUnstructured(ch.Object, d); err != nil {
+        emsg := fmt.Errorf("malformed deployment at children element: %w", err)
+        logError(emsg)
+        http.Error(w, emsg.Error(), http.StatusBadRequest)
+        return
+    }
+```
+
+In the case above we explored the request's children map looking for the `deployment` object rendered from Scoby, and converted it into a Kubernetes object.
+
+Let's start setting an environment variable from our hook.
+
+```go
+    cs := d.Spec.Template.Spec.Containers
+    if len(cs) == 0 {
+        emsg := errors.New("children deployment has no containers")
+        logError(emsg)
+        http.Error(w, emsg.Error(), http.StatusBadRequest)
+        return
+    }
+
+    cs[0].Env = append(cs[0].Env,
+        corev1.EnvVar{
+            Name:  "FROM_HOOK_VAR",
+            Value: "this value is set from the hook",
+        })
+```
+
+Just like we did above with the environment variable, we can manage any Deployment property. Let's add some resource request and limits to the container.
+
+```go
+    cs[0].Resources = corev1.ResourceRequirements{
+        Requests: corev1.ResourceList{
+            corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
+            corev1.ResourceMemory: *resource.NewQuantity(1024*1024*100, resource.BinarySI),
+        },
+        Limits: corev1.ResourceList{
+            corev1.ResourceCPU: *resource.NewMilliQuantity(250, resource.DecimalSI),
+        },
+    }
+```
+
+:warning: It is important that when the Hook reconciles and object it always renders the same output for the children objects.
+
+Now we serialize the new deployment object and add it to the hook response structure. Scoby will use the returned deployment with our changes.
+
+```go
+    u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(d)
+    if err != nil {
+        emsg := fmt.Errorf("could not convert modified deployment into unstructured: %w", err)
+        logError(emsg)
+        http.Error(w, emsg.Error(), http.StatusBadRequest)
+        return
+    }
+
+    r.Children["deployment"] = &unstructured.Unstructured{Object: u}
+
+    hres := &hookv1.HookResponse{
+        Children: r.Children,
+    }
+
+    if err := json.NewEncoder(w).Encode(hres); err != nil {
+        emsg := fmt.Errorf("error encoding response: %w", err)
+        logError(emsg)
+        http.Error(w, emsg.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+```
+
+### Handling Object Status
+
+If the hook fails ro succeeds to reconcile an object, its status should reflect this condition. Hooks allow you to declare and manage status conditions at will. In our scenario we will have only a status being managed by the hook but you can declare as many as you might need.
+
+To manage the reconciled object's status we need to use the hook request's object.
+
+Continuing with the code for customizing the deployment's container, we can update the status before serializing the hook response.
+
+```go
+    if err := h.setHookStatusPreReconcile(w, &r.Object, string(corev1.ConditionTrue), ConditionReasonOK); err != nil {
+        emsg := fmt.Errorf("error setting object status: %w", err)
+        logError(emsg)
+        http.Error(w, emsg.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    hres := &hookv1.HookResponse{
+        Object:   &r.Object,
+        Children: r.Children,
+    }
+```
+
+Notice the incoming Object element being re-used for the hook response. We pass a reference to that Object at the  `setHookStatusPreReconcile` method, that will modify its status element. In our case, we use the [go apimachinery's unstructured](https://pkg.go.dev/k8s.io/apimachinery/pkg/apis/meta/v1/unstructured) package to navigate the status and set a `HookReportedStatus` condition that we will declare when registering at Scoby.
+
+```go
+const (
+    ConditionType     = "HookReportedStatus"
+    ConditionReasonOK = "HOOKREPORTSOK"
+)
+
+...
+
+    if conditions, ok, _ := unstructured.NestedSlice(u.Object, "status", "conditions"); ok {
+        var hookCondition map[string]interface{}
+
+        // Look for existing condition
+        for i := range conditions {
+            c, ok := conditions[i].(map[string]interface{})
+            if !ok {
+                return fmt.Errorf("wrong condition format: %+v", conditions[i])
+            }
+
+            t, ok := c["type"].(string)
+            if !ok {
+                return fmt.Errorf("wrong condition type: %+v", c["type"])
+            }
+
+            if ok && t == ConditionType {
+                hookCondition = conditions[i].(map[string]interface{})
+                break
+            }
+        }
+
+        // If the condition does not exist, create it.
+        if hookCondition == nil {
+            hookCondition = map[string]interface{}{
+                "type": ConditionType,
+            }
+            conditions = append(conditions, hookCondition)
+        }
+
+        hookCondition["status"] = status
+        hookCondition["reason"] = reason
+
+        if err := unstructured.SetNestedSlice(u.Object, conditions, "status", "conditions"); err != nil {
+            return err
+        }
+    }
+```
+
+In the code abover we look for the hook condition and set it to the desired values, then add it to the object.
+
+If there are custom fields at the status of your CRD you can also manage them just as we did for the status condition.
+
+```go
+    annotations, ok, _ := unstructured.NestedStringMap(u.Object, "status", "annotations")
+    if !ok {
+        annotations = map[string]string{}
+    }
+
+    annotations["greetings"] = "from hook"
+
+    return unstructured.SetNestedStringMap(u.Object, annotations, "status", "annotations")
+```
+
+### Handling Finalization
+
+When a Scoby `CRDRegistration` contains a hook that declares the `finalize` capability, the hook will be contacted before deleting the object and children, and if an error response is returned, finalization will not occur.
+
 ## Deployment
 
 Our hook will be created as a Deployment and a Service, the latest being configured as the endpoint at the CRD Registration. The
