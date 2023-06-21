@@ -14,7 +14,7 @@ Refer to [releases](https://github.com/triggermesh/scoby/releases) for previous 
 
 ## Development Version
 
-Development version can be installed using [ko](https://github.com/ko-build/ko)
+Development version can be installed using [ko](https://github.com/ko-build/ko). Make sure that `triggermesh` namespace exists before running this command.
 
 ```console
 ko apply -f ./config
