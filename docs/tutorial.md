@@ -564,7 +564,7 @@ spec:
           - path: spec.refToSecret
           name: FOO_CREDENTIALS
           valueFrom:
-            secret:
+            secretPath:
               name: spec.refToSecret.secretName
               key: spec.refToSecret.secretKey
 ```
@@ -635,7 +635,7 @@ kubectl delete secret kuard-secret
 
 ### Parameter Value From ConfigMap
 
-The value for an environment variable can reference a ConfigMap through the `spec.workload.parameterConfiguration.fromSpec[].toEnv.valueFromConfigMap` customization option, that needs the `name` and `key` subelements to be set.
+The value for an environment variable can reference a ConfigMap through the `spec.workload.parameterConfiguration.fromSpec[].toEnv.valueFrom.configMapPath` customization option, that needs the `name` and `key` subelements to be set.
 
 ```yaml
 apiVersion: scoby.triggermesh.io/v1alpha1
@@ -659,7 +659,7 @@ spec:
         # Reference a ConfigMap
         - path: spec.refToConfigMap
           valueFrom:
-            configMap:
+            configMapPath:
               name: spec.refToConfigMap.configName
               key: spec.refToConfigMap.configKey
 ```
@@ -744,7 +744,7 @@ A destination duck type informs either an URI, a Kubernetes service, or a Kubern
     uri: <uri>
 ```
 
-Use the built-in function `spec.workload.parameterConfiguration.fromSpec[].toEnv.valueFromBuiltInFunc.resolveAddress` on the element that contains the Destination type. As an added feature this example also updates an status element with the resolved address.
+Use the built-in function `spec.workload.parameterConfiguration.fromSpec[].toEnv.valueFrom.builtInFunc.resolveAddress` on the element that contains the Destination type. As an added feature this example also updates an status element with the resolved address.
 
 ```yaml
 apiVersion: scoby.triggermesh.io/v1alpha1

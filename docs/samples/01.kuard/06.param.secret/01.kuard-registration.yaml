@@ -22,7 +22,7 @@ spec:
         - path: spec.refToSecret
           name: FOO_CREDENTIALS
           valueFrom:
-            secret:
+            secretPath:
               name: spec.refToSecret.secretName
               key: spec.refToSecret.secretKey
 

@@ -21,7 +21,7 @@ spec:
         # Reference a ConfigMap
         - path: spec.refToConfigMap
           valueFrom:
-            configMap:
+            configMapPath:
               name: spec.refToConfigMap.configName
               key: spec.refToConfigMap.configKey
 

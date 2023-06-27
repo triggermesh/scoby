@@ -40,7 +40,7 @@ spec:
         - path: spec.basicAuthPassword
           name: WEBHOOK_BASICAUTH_PASSWORD
           valueFrom:
-            secret:
+            secretPath:
               name: spec.basicAuthPassword.valueFromSecret.name
               key: spec.basicAuthPassword.valueFromSecret.key
         - path: spec.eventExtensionAttributes.from

@@ -433,7 +433,7 @@ spec:
                                       required:
                                       - name
                                       type: object
-                                    configMap:
+                                    configMapPath:
                                       description: Selects a key of a ConfigMap.
                                       properties:
                                         key:
@@ -453,7 +453,7 @@ spec:
                                       - key
                                       type: object
                                       x-kubernetes-map-type: atomic
-                                    secret:
+                                    secretPath:
                                       description: Selects a key of a secret in the
                                         pod's namespace
                                       properties:

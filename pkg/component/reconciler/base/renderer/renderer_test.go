@@ -356,7 +356,7 @@ fromSpec:
   - path: spec.refToSecret
     name: FOO_CREDENTIALS
     valueFrom:
-      secret:
+      secretPath:
         name: spec.refToSecret.secretName
         key: spec.refToSecret.secretKey
 `,
@@ -389,7 +389,7 @@ fromSpec:
   - path: spec.refToConfigMap
     name: FOO_CONFIG
     valueFrom:
-      configMap:
+      configMapPath:
         name: spec.refToConfigMap.configMapName
         key: spec.refToConfigMap.configMapKey
 `,
@@ -452,7 +452,7 @@ fromSpec:
     mountPath: /opt/config
     name: config
     mountFrom:
-      configMap:
+      configMapPath:
         name: spec.refToConfigMap.configMapName
         key: spec.refToConfigMap.configMapKey
 `,
@@ -500,7 +500,7 @@ fromSpec:
     mountPath: /opt/creds
     name: creds
     mountFrom:
-      secret:
+      secretPath:
         name: spec.refToSecret.secretName
         key: spec.refToSecret.secretKey
 `,

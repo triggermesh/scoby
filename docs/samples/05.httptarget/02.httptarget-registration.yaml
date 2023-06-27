@@ -48,7 +48,7 @@ spec:
         - path: spec.basicAuthPassword
           name: HTTP_BASICAUTH_PASSWORD
           valueFrom:
-            secret:
+            secretPath:
               name: spec.credentials.name
               key: spec.preferences.key
         - path: spec.oauthClientID
@@ -56,7 +56,7 @@ spec:
         - path: spec.oauthClientSecret
           name: HTTP_OAUTH_CLIENT_SECRET
           valueFrom:
-            secret:
+            secretPath:
               name: spec.credentials.name
               key: spec.preferences.key
         - path: spec.oauthTokenURL
