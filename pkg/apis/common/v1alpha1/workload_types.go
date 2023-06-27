@@ -250,11 +250,11 @@ type SpecToEnvDefaultValue struct {
 type SpecToEnvValueFrom struct {
 	// Selects a key of a ConfigMap.
 	// +optional
-	ConfigMap *corev1.ConfigMapKeySelector `json:"configMap,omitempty"`
+	ConfigMap *corev1.ConfigMapKeySelector `json:"configMapPath,omitempty"`
 
 	// Selects a key of a secret in the pod's namespace
 	// +optional
-	Secret *corev1.SecretKeySelector `json:"secret,omitempty"`
+	Secret *corev1.SecretKeySelector `json:"secretPath,omitempty"`
 
 	// BuiltInFunc configures the field to
 	// be rendered acording to the chosen built-in function.

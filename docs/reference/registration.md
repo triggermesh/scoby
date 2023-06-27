@@ -106,7 +106,7 @@ Customization for generated parameters is possible through the `spec.workload.pa
 
 The prefix will not be applied to parameters where an explicit name is provided for the environment variable.
 
-### Add New Parameters
+### Add New Environment Variables
 
 - Create new parameter with literal value
 
@@ -173,9 +173,9 @@ The referenced ConfigMap and key must exist.
 
 ### Customize Parameters From Spec
 
-The default behavior is to create parameters from each spec element (arrays will create just one element that includes any sub-elements). When a parameter customization is found, the default parameter generation for that element or any sub-element to the one indicated, will be skipped.
+The default behavior is to create parameters from each element under `spec` found at incoming objects (arrays will create just one element that includes any sub-elements). When a parameter customization is found, the default parameter generation for that element or any sub-element to the one indicated, will be skipped.
 
-- [x] Avoid producing parameter.
+- Avoid producing parameter.
 
 ```yaml
     parameterConfiguration:
@@ -184,7 +184,7 @@ The default behavior is to create parameters from each spec element (arrays will
         - path: spec.bar
 ```
 
-- [x] Change key for generated param. Can be combined.
+- Change key for generated param.
 
 ```yaml
     parameterConfiguration:
@@ -194,17 +194,57 @@ The default behavior is to create parameters from each spec element (arrays will
           name: FOO_BAR
 ```
 
-- [x] Add default value to element when not informed.
+- Use default literal value to element when not informed.
 
 ```yaml
     parameterConfiguration:
       fromSpec:
         toEnv:
         - path: spec.bar
-          defaultValue: hello scoby
+          default:
+            value: hello scoby
 ```
 
-- [x] Generate secret parameter from element.
+- Use default configmap value to element when not informed.
+
+```yaml
+    parameterConfiguration:
+      fromSpec:
+        toEnv:
+        - path: spec.location
+          default:
+            configMap:
+              name: config
+              key: country
+```
+
+- Use default secret value to element when not informed.
+
+```yaml
+    parameterConfiguration:
+      fromSpec:
+        toEnv:
+        - path: spec.username
+          default:
+            secret:
+              name: creds
+              key: user
+```
+
+- Generate configmap parameter from `spec` element.
+
+```yaml
+    parameterConfiguration:
+      fromSpec:
+        toEnv:
+        - path: spec.preferences
+          valueFrom:
+            configMapPath:
+              name: spec.preferences.name
+              key: spec.preferences.key
+```
+
+- Generate secret parameter from `spec` element.
 
 ```yaml
     parameterConfiguration:
@@ -213,25 +253,12 @@ The default behavior is to create parameters from each spec element (arrays will
         - path: spec.credentials
           name: FOO_CREDENTIALS
           valueFrom:
-            secret:
+            secretPath:
               name: spec.credentials.name
               key: spec.credentials.key
 ```
 
-- [x] Generate configmap parameter from element.
-
-```yaml
-    parameterConfiguration:
-      fromSpec:
-        toEnv:
-        - path: spec.preferences
-          valueFrom:
-            configmap:
-              name: spec.preferences.name
-              key: spec.preferences.key
-```
-
-- [x] Function: resolve object to internal URL
+- Function: resolve [addressable object](https://knative.dev/docs/eventing/sinks/) to internal URL
 
 ```yaml
     parameterConfiguration:
@@ -242,6 +269,16 @@ The default behavior is to create parameters from each spec element (arrays will
           valueFrom:
             builtInFunc:
               name: resolveAddress
+```
+
+Addressable objects might be Kubernetes services or references to objects that inform a URL address at `status.address.url`. References at the object instance must follow this structure.
+
+```yaml
+    ref:
+      apiVersion: <APIVERSION REFERENCE>
+      kind: <KIND REFERENCE>
+      name: <OBJECT NAME REFERENCE>
+    uri: <COMPLETE OR PARTIAL URI>
 ```
 
 ### Generate Volumes From Spec

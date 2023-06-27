@@ -133,7 +133,7 @@ Given the CRD element to environment variables table above, add this workload pa
         - path: spec.basicAuthPassword
           name: WEBHOOK_BASICAUTH_PASSWORD
           valueFrom:
-            secret:
+            secretPath:
               name: spec.basicAuthPassword.valueFromSecret.name
               key: spec.basicAuthPassword.valueFromSecret.key
         - path: spec.sink
@@ -216,19 +216,19 @@ Given the CRD element to environment variables table above, add this workload pa
         - path: spec.auth.tls.ca
           name: CA
           valueFrom:
-            secret:
+            secretPath:
               name: spec.auth.tls.ca.valueFromSecret.name
               key: spec.auth.tls.ca.valueFromSecret.key
         - path: spec.auth.tls.clientCert
           name: CLIENT_CERT
           valueFrom:
-            secret:
+            secretPath:
               name: spec.auth.tls.clientCert.valueFromSecret.name
               key: spec.auth.tls.clientCert.valueFromSecret.key
         - path: spec.auth.tls.clientKey
           name: CLIENT_KEY
           valueFrom:
-            secret:
+            secretPath:
               name: spec.auth.tls.clientKey.valueFromSecret.name
               key: spec.auth.tls.clientKey.valueFromSecret.key
         - path: spec.auth.username
@@ -236,7 +236,7 @@ Given the CRD element to environment variables table above, add this workload pa
         - path: spec.auth.password
           name: PASSWORD
           valueFrom:
-            secret:
+            secretPath:
               name: spec.auth.password.valueFromSecret.name
               key: spec.auth.password.valueFromSecret.key
         - path: spec.sink
@@ -323,7 +323,7 @@ Given the CRD element to environment variables table above, add this workload pa
         - path: spec.basicAuthPassword
           name: HTTP_BASICAUTH_PASSWORD
           valueFrom:
-            secret:
+            secretPath:
               name: spec.credentials.name
               key: spec.preferences.key
         - path: spec.oauthClientID
@@ -331,7 +331,7 @@ Given the CRD element to environment variables table above, add this workload pa
   q     - path: spec.oauthClientSecret
           name: HTTP_OAUTH_CLIENT_SECRET
           valueFrom:
-            secret:
+            secretPath:
               name: spec.credentials.name
               key: spec.preferences.key
         - path: spec.oauthTokenURL
@@ -423,19 +423,19 @@ Given the CRD element to environment variables table above, add this workload pa
         - path: spec.auth.tls.ca
           name: CA
           valueFrom:
-            secret:
+            secretPath:
               name: spec.auth.tls.ca.valueFromSecret.name
               key: spec.auth.tls.ca.valueFromSecret.key
         - path: spec.auth.tls.clientCert
           name: CLIENT_CERT
           valueFrom:
-            secret:
+            secretPath:
               name: spec.auth.tls.clientCert.valueFromSecret.name
               key: spec.auth.tls.clientCert.valueFromSecret.key
         - path: spec.auth.tls.clientKey
           name: CLIENT_KEY
           valueFrom:
-            secret:
+            secretPath:
               name: spec.auth.tls.clientKey.valueFromSecret.name
               key: spec.auth.tls.clientKey.valueFromSecret.key
         - path: spec.auth.username
@@ -443,7 +443,7 @@ Given the CRD element to environment variables table above, add this workload pa
         - path: spec.auth.password
           name: PASSWORD
           valueFrom:
-            secret:
+            secretPath:
               name: spec.auth.password.valueFromSecret.name
               key: spec.auth.password.valueFromSecret.key
 ```
