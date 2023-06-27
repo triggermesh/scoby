@@ -449,12 +449,14 @@ add:
 fromSpec:
   toVolume:
   - path: spec.refToConfigMap
-    mountPath: /opt/config
+    mountPath: /opt/
     name: config
     mountFrom:
-      configMap:
+      configMapPath:
         name: spec.refToConfigMap.configMapName
-        key: spec.refToConfigMap.configMapKey
+        items:
+        - path: config
+          key: spec.refToConfigMap.configMapKey
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -466,7 +468,7 @@ fromSpec:
 			expectedVolMount: []corev1.VolumeMount{
 				{
 					Name:      "config",
-					MountPath: "/opt/config",
+					MountPath: "/opt/",
 				},
 			},
 			expectedVolumes: []corev1.Volume{
@@ -479,7 +481,7 @@ fromSpec:
 							},
 							Items: []corev1.KeyToPath{{
 								Key:  "kuard-cm-key",
-								Path: "/opt/config",
+								Path: "config",
 							}},
 						},
 					},
@@ -497,12 +499,14 @@ fromSpec:
 fromSpec:
   toVolume:
   - path: spec.refToSecret
-    mountPath: /opt/creds
+    mountPath: /opt/
     name: creds
     mountFrom:
-      secret:
-        name: spec.refToSecret.secretName
-        key: spec.refToSecret.secretKey
+      secretPath:
+        secretName: spec.refToSecret.secretName
+        items:
+        - path: creds
+          key: spec.refToSecret.secretKey
 `,
 			expectedEnvs: []corev1.EnvVar{
 				{Name: "ARRAY", Value: "alpha,beta,gamma"},
@@ -514,7 +518,7 @@ fromSpec:
 			expectedVolMount: []corev1.VolumeMount{
 				{
 					Name:      "creds",
-					MountPath: "/opt/creds",
+					MountPath: "/opt/",
 				},
 			},
 			expectedVolumes: []corev1.Volume{
@@ -525,7 +529,7 @@ fromSpec:
 							SecretName: "kuard-sec",
 							Items: []corev1.KeyToPath{{
 								Key:  "kuard-sec-key",
-								Path: "/opt/creds",
+								Path: "creds",
 							}},
 						},
 					},

@@ -106,19 +106,19 @@ func (o object) AsPodSpecOptions() []resources.PodSpecOption {
 		switch {
 		case v.MountFrom.ConfigMap != nil:
 			vol = resources.NewVolume(v.Name,
-				resources.VolumeFromConfigMapOption(
-					v.MountFrom.ConfigMap.Name,
-					v.MountFrom.ConfigMap.Key,
-					v.MountPath))
+				resources.VolumeFromConfigMapSourceOption(v.MountFrom.ConfigMap),
+			)
 
 		case v.MountFrom.Secret != nil:
 			vol = resources.NewVolume(v.Name,
-				resources.VolumeFromSecretOption(
-					v.MountFrom.Secret.Name,
-					v.MountFrom.Secret.Key,
-					v.MountPath))
+				resources.VolumeFromSecretSourceOption(v.MountFrom.Secret),
+			)
+
 		}
-		psopts = append(psopts, resources.PodSpecAddVolume(vol))
+
+		if vol != nil {
+			psopts = append(psopts, resources.PodSpecAddVolume(vol))
+		}
 
 		// A VolumeMount matching option is added to the container opts at
 		// the AsContainerOptions function.

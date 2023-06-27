@@ -171,7 +171,7 @@ The prefix will not be applied to parameters where an explicit name is provided 
 Permissions for reading ConfigMaps at the controller's namespace must be granted.
 The referenced ConfigMap and key must exist.
 
-### Customize Parameters From Spec
+### Customize Environment Variables From Spec
 
 The default behavior is to create parameters from each element under `spec` found at incoming objects (arrays will create just one element that includes any sub-elements). When a parameter customization is found, the default parameter generation for that element or any sub-element to the one indicated, will be skipped.
 
@@ -281,11 +281,11 @@ Addressable objects might be Kubernetes services or references to objects that i
     uri: <COMPLETE OR PARTIAL URI>
 ```
 
-### Generate Volumes From Spec
+### Mount Volumes From Spec
 
-Secrets and ConfigMaps can be mounted as a volume inside the workload. The registration needs a name for the volume, the file to mount inside the container and a reference to the Secret or ConfigMap.
+Secrets and ConfigMaps can be mounted as a volume inside the workload. The registration needs a name for the volume, the file to mount inside the container and a reference to the Secret or ConfigMap. Refer to kubernetes [volume documentation](https://kubernetes.io/docs/concepts/storage/volumes/) for filling the volume information.
 
-- [x] Function: resolve object to internal URL
+- Mount volume from configmap `spec` element.
 
 ```yaml
     parameterConfiguration:
@@ -293,16 +293,34 @@ Secrets and ConfigMaps can be mounted as a volume inside the workload. The regis
         toVolume:
         - path: spec.userList
           name: userfile
-          mountPath: /opt/user.lst
+          mountPath: /opt/
           mountFrom:
-            configMap:
+            configMapPath:
               name: spec.userList.name
-              key: spec.userList.key
+              items:
+              - path: user.lst
+                key: spec.userList.key
+```
+
+- Mount volume from secret `spec` element
+
+```yaml
+    parameterConfiguration:
+      fromSpec:
+        toVolume:
+        - path: spec.certificates
+          name: certkey
+          mountPath: /opt/cert.key
+          mountFrom:
+            secretPath:
+              secretName: spec.certificates.secretName
+              - path: cert.key
+                key: spec.certificates.secretKey
 ```
 
 ## Workload Status
 
-- [x] Use parameter value for status.
+- Use parameter value for status.
 
 ```yaml
     parameterConfiguration:

@@ -374,6 +374,60 @@ func (pfs parseFields) configMapReferenceResolve(cms *corev1.ConfigMapKeySelecto
 	return name, key, nil
 }
 
+func (pfs parseFields) configMapVolumeSourceResolve(cmvs *corev1.ConfigMapVolumeSource) (*corev1.ConfigMapVolumeSource, error) {
+	resolved := &corev1.ConfigMapVolumeSource{
+		Items:       []corev1.KeyToPath{},
+		DefaultMode: cmvs.DefaultMode,
+	}
+	name, err := pfs.elementToString(cmvs.Name)
+	if err != nil {
+		return nil, fmt.Errorf("could not get reference to ConfigMapVolumeSource name: %v", err)
+	}
+	resolved.Name = name
+
+	for i := range cmvs.Items {
+		key, err := pfs.elementToString(cmvs.Items[i].Key)
+		if err != nil {
+			return nil, fmt.Errorf("could not get reference to ConfigMapVolumeSource key: %v", err)
+		}
+
+		resolved.Items = append(resolved.Items, corev1.KeyToPath{
+			Path: cmvs.Items[i].Path,
+			Mode: cmvs.Items[i].Mode,
+			Key:  key,
+		})
+	}
+
+	return resolved, nil
+}
+
+func (pfs parseFields) secretVolumeSourceResolve(svs *corev1.SecretVolumeSource) (*corev1.SecretVolumeSource, error) {
+	resolved := &corev1.SecretVolumeSource{
+		Items:       []corev1.KeyToPath{},
+		DefaultMode: svs.DefaultMode,
+	}
+	name, err := pfs.elementToString(svs.SecretName)
+	if err != nil {
+		return nil, fmt.Errorf("could not get reference to SecretVolumeSource name: %v", err)
+	}
+	resolved.SecretName = name
+
+	for i := range svs.Items {
+		key, err := pfs.elementToString(svs.Items[i].Key)
+		if err != nil {
+			return nil, fmt.Errorf("could not get reference to SecretVolumeSource key: %v", err)
+		}
+
+		resolved.Items = append(resolved.Items, corev1.KeyToPath{
+			Path: svs.Items[i].Path,
+			Mode: svs.Items[i].Mode,
+			Key:  key,
+		})
+	}
+
+	return resolved, nil
+}
+
 func (pfs parseFields) configMapReferenceToEnvVarSource(cms *corev1.ConfigMapKeySelector) (*corev1.EnvVarSource, error) {
 	n, k, err := pfs.configMapReferenceResolve(cms)
 	if err != nil {
@@ -431,28 +485,18 @@ func (pfs parseFields) volumeReferenceToVolume(v *commonv1alpha1.FromSpecToVolum
 
 	switch {
 	case v.MountFrom.ConfigMap != nil:
-		n, k, err := pfs.configMapReferenceResolve(v.MountFrom.ConfigMap)
+		cmvs, err := pfs.configMapVolumeSourceResolve(v.MountFrom.ConfigMap)
 		if err != nil {
 			return nil, err
 		}
-		fsv.MountFrom.ConfigMap = &corev1.ConfigMapKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: n,
-			},
-			Key: k,
-		}
+		fsv.MountFrom.ConfigMap = cmvs
 
 	case v.MountFrom.Secret != nil:
-		n, k, err := pfs.secretReferenceResolve(v.MountFrom.Secret)
+		svs, err := pfs.secretVolumeSourceResolve(v.MountFrom.Secret)
 		if err != nil {
 			return nil, err
 		}
-		fsv.MountFrom.Secret = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: n,
-			},
-			Key: k,
-		}
+		fsv.MountFrom.Secret = svs
 
 	default:
 		return nil, errors.New("volume reference needs to be a Secret or ConfigMap")
