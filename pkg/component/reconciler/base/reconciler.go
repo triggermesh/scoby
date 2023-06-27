@@ -139,6 +139,7 @@ func (b *base) manageDeletion(ctx context.Context, obj reconciler.Object) (ctrl.
 func (b *base) manageReconciliation(ctx context.Context, obj reconciler.Object) (ctrl.Result, error) {
 	// Render using the object data and configuration
 	if err := b.objectManager.GetRenderer().Render(ctx, obj); err != nil {
+		// TODO add render status condition, write error.
 		return ctrl.Result{}, err
 	}
 
