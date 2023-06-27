@@ -452,7 +452,7 @@ fromSpec:
     mountPath: /opt/config
     name: config
     mountFrom:
-      configMapPath:
+      configMap:
         name: spec.refToConfigMap.configMapName
         key: spec.refToConfigMap.configMapKey
 `,
@@ -500,7 +500,7 @@ fromSpec:
     mountPath: /opt/creds
     name: creds
     mountFrom:
-      secretPath:
+      secret:
         name: spec.refToSecret.secretName
         key: spec.refToSecret.secretKey
 `,
