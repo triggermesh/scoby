@@ -18,6 +18,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -100,7 +101,15 @@ func main() {
 
 	// ConfigMap reader at the Scoby controller namespace will help
 	// reading ConfigMap contents and using them for rendering user workloads.
-	cmr := configmap.NewNamespacedReader(scobyconfig.Get().ScobyNamespace(), mgr.GetClient())
+	//
+	// Note: a standalone client must be created since the manager might
+	// require cluster scope grants for configmaps.
+	sc, err := client.New(cfg, client.Options{})
+	if err != nil {
+		log.Error(err, "could not create standalone kubernetes client")
+		os.Exit(1)
+	}
+	cmr := configmap.NewNamespacedReader(scobyconfig.Get().ScobyNamespace(), sc)
 
 	// Builder for component reconcilers
 	crb := crbuilder.NewBuilder(mgr, reslv, cmr)

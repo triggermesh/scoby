@@ -96,7 +96,7 @@ Customization for generated parameters is possible through the `spec.workload.pa
 
 ### Global Customization
 
-- [x] Define global prefix for all generated environment variables.
+- Define global prefix for all generated environment variables.
 
 ```yaml
     parameterConfiguration:
@@ -104,9 +104,11 @@ Customization for generated parameters is possible through the `spec.workload.pa
         defaultPrefix: FOO_
 ```
 
+The prefix will not be applied to parameters where an explicit name is provided for the environment variable.
+
 ### Add New Parameters
 
-- [x] Create new parameter with literal value
+- Create new parameter with literal value
 
 ```yaml
     parameterConfiguration:
@@ -116,7 +118,7 @@ Customization for generated parameters is possible through the `spec.workload.pa
           value: 42
 ```
 
-- [x] Create new parameter with downward api value
+- Create new parameter with downward api value
 
 ```yaml
     parameterConfiguration:
@@ -124,11 +126,11 @@ Customization for generated parameters is possible through the `spec.workload.pa
         toEnv:
         - name: FOO_NEW_VAR
           valueFrom:
-            fieldRef:
+            field:
               fieldPath: metadata.name
 ```
 
-- [x] Create new parameter with secret
+- Create new parameter with secret
 
 ```yaml
     parameterConfiguration:
@@ -136,12 +138,12 @@ Customization for generated parameters is possible through the `spec.workload.pa
         toEnv:
         - name: FOO_MY_CREDS
           valueFrom:
-            secretKeyRef:
+            secret:
               name: mycreds
               key: token
 ```
 
-- [x] Create new parameter with configmap
+- Create new parameter with configmap
 
 ```yaml
     parameterConfiguration:
@@ -149,10 +151,25 @@ Customization for generated parameters is possible through the `spec.workload.pa
         toEnv:
         - name: FOO_MY_BACKGROUND
           valueFrom:
-            configMapKeyRef:
+            configMap:
               name: mypreferences
               key: background
 ```
+
+- Create new parameter with configmap values from the Scoby controller's namespace.
+
+```yaml
+    parameterConfiguration:
+      add:
+        toEnv:
+        - name: FOO_MY_LOGGING
+          valueFromControllerConfigMap:
+            name: observability
+            key: logging
+```
+
+Permissions for reading ConfigMaps at the controller's namespace must be granted.
+The referenced ConfigMap and key must exist.
 
 ### Customize Parameters From Spec
 
