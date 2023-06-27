@@ -47,3 +47,15 @@ func VolumeFromConfigMapOption(cmName, cmKey, mountFile string) VolumeOption {
 		}
 	}
 }
+
+func VolumeFromConfigMapSourceOption(cmvs *corev1.ConfigMapVolumeSource) VolumeOption {
+	return func(v *corev1.Volume) {
+		v.ConfigMap = cmvs
+	}
+}
+
+func VolumeFromSecretSourceOption(svs *corev1.SecretVolumeSource) VolumeOption {
+	return func(v *corev1.Volume) {
+		v.Secret = svs
+	}
+}

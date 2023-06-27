@@ -153,11 +153,11 @@ type AddToVolumeConfiguration struct {
 type MountFrom struct {
 	// Selects a key of a ConfigMap.
 	// +optional
-	ConfigMap *corev1.ConfigMapKeySelector `json:"configMap,omitempty"`
+	ConfigMap *corev1.ConfigMapVolumeSource `json:"configMapPath,omitempty"`
 
 	// Selects a key of a secret in the pod's namespace
 	// +optional
-	Secret *corev1.SecretKeySelector `json:"secret,omitempty"`
+	Secret *corev1.SecretVolumeSource `json:"secretPath,omitempty"`
 }
 
 // FromSpecConfiguration contains instructions to generate rendering from
