@@ -24,6 +24,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -53,7 +54,8 @@ func init() {
 }
 
 type Resolver interface {
-	Resolve(ctx context.Context, ref *v1alpha1.Reference) (string, error)
+	ResolveReference(ctx context.Context, ref *v1alpha1.Reference) (*string, error)
+	ResolveDestination(ctx context.Context, d *v1alpha1.Destination) (*string, error)
 }
 
 func New(client client.Client) Resolver {
@@ -92,7 +94,7 @@ type resolver struct {
 	domain string
 }
 
-func (r *resolver) Resolve(ctx context.Context, ref *v1alpha1.Reference) (string, error) {
+func (r *resolver) ResolveReference(ctx context.Context, ref *v1alpha1.Reference) (*string, error) {
 	u := &unstructured.Unstructured{}
 	u.SetAPIVersion(ref.APIVersion)
 	u.SetKind(ref.Kind)
@@ -100,22 +102,77 @@ func (r *resolver) Resolve(ctx context.Context, ref *v1alpha1.Reference) (string
 	u.SetName(ref.Name)
 
 	if err := r.client.Get(ctx, client.ObjectKeyFromObject(u), u); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// K8s Services are special cased. They can be called, even though they do not satisfy the
 	// Callable interface.
 	if ref.APIVersion == "v1" && ref.Kind == "Service" {
-		return fmt.Sprintf("http://%s.%s.svc.%s", ref.Name, ref.Namespace, r.domain), nil
+		u := fmt.Sprintf("http://%s.%s.svc.%s", ref.Name, ref.Namespace, r.domain)
+		return &u, nil
 	}
 
 	url, b, err := unstructured.NestedString(u.Object, "status", "address", "url")
 	switch {
 	case err != nil:
-		return "", fmt.Errorf(`unexpected value at "status.address.url": %+v`, err)
+		return nil, fmt.Errorf(`unexpected value at "status.address.url": %+v`, err)
 	case !b || url == "":
-		return "", errors.New(`object does not inform "status.address.url"`)
+		return nil, errors.New(`object does not inform "status.address.url"`)
 	}
 
-	return url, nil
+	return &url, nil
+}
+
+func (r *resolver) ResolveDestination(ctx context.Context, d *v1alpha1.Destination) (*string, error) {
+	if d.Ref == nil && d.URI == nil {
+		return nil, errors.New("ref or uri should be informed")
+	}
+
+	u := ""
+	if d.Ref != nil {
+		uri, err := r.ResolveReference(ctx, d.Ref)
+		if err != nil {
+			return nil, err
+		}
+
+		parsed, err := url.Parse(*uri)
+		if err != nil {
+			return nil, fmt.Errorf("Resolved reference to %q cannot be parsed: %w", *uri, err)
+		}
+
+		if d.URI != nil {
+			host, port := d.URI.URL().Hostname(), d.URI.URL().Port()
+
+			if host != "" {
+				return nil, fmt.Errorf("URI should not contain a host while also informing a Reference: %q", d.URI.String())
+			}
+
+			if port != "" {
+				parsed.Host = parsed.Hostname() + ":" + port
+			}
+
+			if d.URI.Scheme != "" {
+				parsed.Scheme = d.URI.Scheme
+			}
+
+			if d.URI.RawQuery != "" {
+				parsed.RawQuery = d.URI.RawQuery
+			}
+
+			if d.URI.Path != "" {
+				parsed.Path = d.URI.Path
+			}
+		}
+
+		u = parsed.String()
+
+	} else {
+		parsed, err := url.Parse(d.URI.String())
+		if err != nil {
+			return nil, fmt.Errorf("URI cannot be parsed: %w", err)
+		}
+		u = parsed.String()
+	}
+
+	return &u, nil
 }

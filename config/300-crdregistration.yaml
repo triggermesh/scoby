@@ -52,6 +52,9 @@ spec:
               hook:
                 properties:
                   address:
+                    description: Destination is an HTTP destination represented by
+                      a combination of a kubernetes object reference and an explicit
+                      URI.
                     properties:
                       ref:
                         description: Ref points to an addressable object.
