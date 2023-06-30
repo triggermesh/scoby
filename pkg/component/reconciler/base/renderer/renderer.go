@@ -503,7 +503,6 @@ func (pfs parseFields) volumeReferenceToVolume(v *commonv1alpha1.FromSpecToVolum
 	}
 
 	return fsv, nil
-
 }
 
 // restructure incoming object into a parsing friendly structure that
@@ -609,35 +608,6 @@ func (r *renderer) restructureIntoParsedFields(root map[string]interface{}, bran
 	return parsedFields
 }
 
-func (r *renderer) resolveAddress(ctx context.Context, namespace, path string, pfv interface{}) (string, error) {
-	value, err := json.Marshal(pfv)
-	if err != nil {
-		return "", fmt.Errorf("could not parse reference structure as JSON at %q: %w", path, err)
-	}
-
-	// Convert json string to struct
-	ref := &Reference{}
-	if err := json.Unmarshal(value, &ref); err != nil {
-		return "", fmt.Errorf("not valid reference structure at %q: %w", path, err)
-	}
-
-	if ref.Namespace == "" {
-		ref.Namespace = namespace
-	}
-
-	uri, err := r.resolver.Resolve(ctx, &commonv1alpha1.Reference{
-		APIVersion: ref.APIVersion,
-		Kind:       ref.Kind,
-		Namespace:  ref.Namespace,
-		Name:       ref.Name,
-	})
-	if err != nil {
-		return "", fmt.Errorf("could not resolve reference at %q: %w", path, err)
-	}
-
-	return uri, nil
-}
-
 func (r *renderer) renderStatus(obj reconciler.Object) error {
 	errs := []string{}
 	for i := range r.addStatus {
@@ -695,38 +665,41 @@ func normalizePath(path string) string {
 //		   name:
 //	 uri:
 func (r *renderer) builtInResolveAddress(ctx context.Context, pf *parsedField, namespace, evName string) (*corev1.EnvVar, error) {
-	addressable, ok := pf.value.(map[string]interface{})
+	destination, ok := pf.value.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("unexpected addressable structure: %+v", pf.value)
 	}
 
-	if uri, ok := addressable["uri"]; ok {
-		value, ok := uri.(string)
-		if !ok {
-			return nil, errors.New("uri value is not a string")
-		}
-
-		return &corev1.EnvVar{
-			Name:  evName,
-			Value: value,
-		}, nil
-
-	}
-
-	ref, ok := addressable["ref"]
-	if !ok {
-		return nil, fmt.Errorf("ref or uri must be informed: %+v", pf)
-	}
-
-	uri, err := r.resolveAddress(ctx, namespace, pf.toJSONPath(), ref)
+	// Componse destination
+	jd, err := json.Marshal(destination)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not parse destination structure as JSON at %q: %w", pf.toJSONPath(), err)
+	}
+
+	d := &commonv1alpha1.Destination{}
+	if err := json.Unmarshal(jd, d); err != nil {
+		return nil, fmt.Errorf("not valid destination structure at %q: %w", pf.toJSONPath(), err)
+	}
+
+	// Use object's namespace if missing from reference
+	if d.Ref != nil && d.Ref.Namespace == "" {
+		d.Ref.Namespace = namespace
+	}
+
+	uri, err := r.resolver.ResolveDestination(ctx, d)
+	if err != nil {
+		return nil, fmt.Errorf("could not resolve destination at %q: %w", pf.toJSONPath(), err)
+	}
+
+	if uri == nil {
+		return nil, fmt.Errorf("destination at %q did not resolve to a uri", pf.toJSONPath())
 	}
 
 	return &corev1.EnvVar{
 		Name:  evName,
-		Value: uri,
+		Value: *uri,
 	}, nil
+
 }
 
 func (r *renderer) defaultRendering(pf *parsedField, evName string) (*corev1.EnvVar, error) {
