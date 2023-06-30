@@ -5,8 +5,6 @@ package crd
 
 import (
 	"context"
-	"errors"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -167,43 +165,23 @@ func (r *Reconciler) reconcileRegistration(ctx context.Context, cr *scobyv1alpha
 
 	// If hook configured, parse reference
 	if cr.Spec.Hook != nil {
-		hu := ""
-		switch {
-		case cr.Spec.Hook.Address.Ref != nil:
-			var err error
-			hu, err = r.resolver.Resolve(ctx, cr.Spec.Hook.Address.Ref)
-			if err != nil {
-				sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionControllerReady,
-					"HOOKFAILED", err.Error())
-				return ctrl.Result{}, err
-			}
-
-			// scheme, path and port might be informed at the URL field
-			if uri := cr.Spec.Hook.Address.URI; uri != nil {
-				if uri.Scheme != hu[:len(uri.Scheme)] {
-					hu = strings.Replace(hu, "http", uri.Scheme, 1)
-				}
-				if h := strings.Split(uri.Host, ":"); len(h) == 2 {
-					hu += ":" + h[1]
-				}
-				if p := uri.Path; p != "" {
-					hu += p
-				}
-			}
-
-		case cr.Spec.Hook.Address.URI != nil:
-			hu = cr.Spec.Hook.Address.URI.String()
-
-		default:
-			// TODO validation should deal with this.
-			msg := "registration hook does not inform object reference or URI"
+		u, err := r.resolver.ResolveDestination(ctx, &cr.Spec.Hook.Address)
+		if err != nil {
 			sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionControllerReady,
-				"HOOKFAILED", msg)
-			return ctrl.Result{}, errors.New(msg)
+				"HOOKFAILED", err.Error())
+			return ctrl.Result{}, err
+		}
+
+		// u should never be nil when the resolver succeeds, but let's make sure.
+		if u == nil {
+
+			sm.MarkConditionFalse(scobyv1alpha1.CRDRegistrationConditionControllerReady,
+				"HOOKFAILED", "Hook address resolution returned no URL")
+			return ctrl.Result{}, err
 		}
 
 		// use url for annotation
-		sm.SetAnnotation(commonv1alpha1.CRDRegistrationAnnotationHookURL, hu)
+		sm.SetAnnotation(commonv1alpha1.CRDRegistrationAnnotationHookURL, *u)
 	}
 
 	// Make sure the CRD controller is running
